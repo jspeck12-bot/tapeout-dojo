@@ -15,20 +15,39 @@ const DEFAULT_SAVE = {
 };
 function normalizeSave(p) { return rpgFix(normalizeSaveBase(p)); }
 function normalizeSaveBase(p) {
-  const q = p || {};
+  const q = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
+  const objectOf = (value) =>
+    value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const arrayOf = (value) => Array.isArray(value) ? value : [];
+  const countOf = (value) =>
+    Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+  const stats = objectOf(q.stats);
   return {
     ...DEFAULT_SAVE, ...q,
-    done: { ...(q.done || {}) }, doneNg: { ...(q.doneNg || {}) },
-    lessons: { ...(q.lessons || {}) }, ach: [...(q.ach || [])],
-    bugsSolved: [...(q.bugsSolved || [])], bugClean: [...(q.bugClean || [])],
-    streak: { ...DEFAULT_SAVE.streak, ...(q.streak || {}) },
-    training: { ...(q.training || {}) }, dailyDone: { ...(q.dailyDone || {}) },
-    stats: {
-      topics: { ...((q.stats && q.stats.topics) || {}) },
-      playMs: (q.stats && q.stats.playMs) || 0,
-      runs: (q.stats && q.stats.runs) || 0,
+    xp: countOf(q.xp),
+    blitzHigh: countOf(q.blitzHigh),
+    comboBest: countOf(q.comboBest),
+    trainTotal: countOf(q.trainTotal),
+    dailyCount: countOf(q.dailyCount),
+    done: { ...objectOf(q.done) }, doneNg: { ...objectOf(q.doneNg) },
+    lessons: { ...objectOf(q.lessons) }, ach: [...arrayOf(q.ach)],
+    bugsSolved: [...arrayOf(q.bugsSolved)], bugClean: [...arrayOf(q.bugClean)],
+    streak: {
+      ...DEFAULT_SAVE.streak,
+      ...objectOf(q.streak),
+      count: countOf(objectOf(q.streak).count),
     },
-    skill: { ...(q.skill || {}) },
+    training: { ...objectOf(q.training) }, dailyDone: { ...objectOf(q.dailyDone) },
+    stats: {
+      topics: { ...objectOf(stats.topics) },
+      playMs: countOf(stats.playMs),
+      runs: countOf(stats.runs),
+    },
+    skill: { ...objectOf(q.skill) },
+    sound: typeof q.sound === 'boolean' ? q.sound : DEFAULT_SAVE.sound,
+    tapeoutDone: !!q.tapeoutDone,
+    ngplus: !!q.ngplus,
+    campusVisited: !!q.campusVisited,
     mode: ['apprentice', 'engineer', 'architect'].includes(q.mode) ? q.mode : 'apprentice',
     v: 2,
   };

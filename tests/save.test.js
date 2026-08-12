@@ -48,4 +48,30 @@ describe('save compatibility', () => {
   test('rejects correctly checksummed payloads without core fields', () => {
     expect(() => importSave(exportSave({}))).toThrow(/missing core fields/);
   });
+
+  test('sanitizes hostile but valid JSON field types before App state uses them', () => {
+    const normalized = normalizeSave({
+      xp: -40,
+      scrap: -5,
+      ach: {},
+      bugsSolved: 'm1',
+      bugClean: 7,
+      done: [],
+      stats: { topics: [], playMs: -1, runs: 'many' },
+      skill: [],
+      sound: 'yes',
+      dailyCount: Number.POSITIVE_INFINITY,
+    });
+
+    expect(normalized.xp).toBe(0);
+    expect(normalized.scrap).toBe(0);
+    expect(normalized.ach).toEqual([]);
+    expect(normalized.bugsSolved).toEqual([]);
+    expect(normalized.bugClean).toEqual([]);
+    expect(normalized.done).toEqual({});
+    expect(normalized.stats).toEqual({ topics: {}, playMs: 0, runs: 0 });
+    expect(normalized.skill).toEqual({});
+    expect(normalized.sound).toBe(true);
+    expect(normalized.dailyCount).toBe(0);
+  });
 });

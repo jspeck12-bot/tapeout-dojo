@@ -80,6 +80,7 @@ function enemyFor(id, world, xp, isBoss, mode, ng) {
 // guarantee RPG fields on any loaded/imported save (covers legacy + retro grant)
 function rpgFix(s) {
   if (s.scrap === undefined) s.scrap = (s.xp || 0) > 0 ? 150 + Math.floor((s.xp || 0) / 2) : 0;
+  else s.scrap = Number.isFinite(s.scrap) ? Math.max(0, Math.floor(s.scrap)) : 0;
   if (!s.gear || typeof s.gear !== 'object') s.gear = { weapon: 'w_iron', armor: 'a_cloth', tool: null };
   if (!ITEM_BY_ID[s.gear.weapon]) s.gear.weapon = 'w_iron';
   if (!ITEM_BY_ID[s.gear.armor]) s.gear.armor = 'a_cloth';
