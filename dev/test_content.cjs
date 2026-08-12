@@ -20,6 +20,33 @@ function stableHash(value) {
   const text = JSON.stringify(value, (_key, item) => typeof item === 'function' ? '[function]' : item);
   return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
 }
+function assertNetlist(m, mod, fixture, label) {
+  const started = Date.now();
+  const netlist = m.netlistOf(mod);
+  const layout = m.levelizeNetlist(netlist);
+  assert(Date.now() - started < 250, `${label}: netlist extraction/layout exceeded 250ms`);
+  assert(layout.nodes.length === fixture[0] && layout.edges.length === fixture[1],
+    `${label}: netlist shape changed (got ${layout.nodes.length}/${layout.edges.length}, expected ${fixture[0]}/${fixture[1]})`);
+  assert(netlist.latched.length === 0, `${label}: canonical solution inferred a latch`);
+  assert(Number.isFinite(layout.W) && Number.isFinite(layout.H) && layout.W <= 4000 && layout.H <= 4000,
+    `${label}: netlist canvas is non-finite or unbounded`);
+
+  const ids = new Set(layout.nodes.map((node) => node.id));
+  for (const node of layout.nodes) {
+    for (const key of ['id', 'x', 'y', 'wd', 'ht', 'lvl']) {
+      assert(Number.isFinite(node[key]), `${label}: netlist node ${node.id} has non-finite ${key}`);
+    }
+  }
+  for (const edge of layout.edges) {
+    assert(ids.has(edge.from) && ids.has(edge.to), `${label}: netlist has a dangling edge`);
+    assert(Number.isFinite(edge.from) && Number.isFinite(edge.to) && Number.isFinite(edge.pin),
+      `${label}: netlist edge contains non-finite coordinates`);
+  }
+  const levels = [...new Set(layout.nodes.map((node) => node.lvl))].sort((a, b) => a - b);
+  levels.forEach((level, index) => assert(level === index,
+    `${label}: netlist levels have a gap before ${level}`));
+  return 6;
+}
 
 function impostorSrc(iface) {
   const decl = iface.ports.map((p) => `${p.d === 'in' ? 'input' : 'output'} ${p.w > 1 ? `[${p.w - 1}:0] ` : ''}${p.n}`).join(', ');
@@ -95,6 +122,7 @@ function run() {
     assert(stableHash(descriptor) === GOLDEN.challengeHashes[ch.id],
       `${ch.id}: canonical specification, solution, vectors, or expected outputs changed`);
     checks++;
+    checks += assertNetlist(m, c.mod, GOLDEN.netlists.base[ch.id], ch.id);
 
     // 3. reference solution passes the hardened test (if present)
     if (ch.testHard) {
@@ -129,6 +157,7 @@ function run() {
     assert(c.ok, `REMIX ${id}: solution failed to compile — ${c.errors && c.errors[0] && c.errors[0].msg}`);
     const r = m.runChallengeTest(c.mod, rv.test);
     assert(r.pass && !r.runtimeError, `REMIX ${id}: solution failed test (${r.passCount}/${r.total})`);
+    checks += assertNetlist(m, c.mod, GOLDEN.netlists.remix[id], `REMIX ${id}`);
     const imp = m.vCompile(impostorSrc(rv.iface), rv.iface);
     const ir = m.runChallengeTest(imp.mod, rv.test);
     assert(!(ir.pass && !ir.runtimeError), `REMIX ${id}: stuck-at-0 impostor wrongly PASSED`);

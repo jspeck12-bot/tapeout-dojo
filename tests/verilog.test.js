@@ -251,3 +251,63 @@ describe('hardware view and RTL export', () => {
     expect(vCompile(artifact.module, challenge.iface).ok).toBe(true);
   });
 });
+
+describe('flight recorder contract', () => {
+  beforeAll(() => {
+    shared.installDom();
+    gameModule = shared.loadMod();
+  });
+
+  test('formats the complete diagnostic report without corrupt values', () => {
+    const recorder = gameModule.FR;
+    recorder.t0 = Date.now();
+    recorder.cur = 'mine';
+    recorder.curT = Date.now();
+    recorder.path = ['menu(4s)'];
+    recorder.evs = [
+      { type: 'clear', id: 'm1', stars: 3 },
+      { type: 'read', id: 'L3a' },
+      { type: 'cfail', id: 'm2' },
+      { type: 'cfail', id: 'm2' },
+      { type: 'flatline' },
+    ];
+    recorder.notes = [{ where: 'mine', t: 2, text: 'gate felt unfair' }];
+    recorder.fps = { mine: { n: 2, sum: 32, worst: 40, post: 1 } };
+    recorder._f = 0;
+
+    const report = recorder.report(
+      { level: 4, xp: 320, scrap: 12 },
+      { shadows: 'on', post: 'on' },
+    );
+    const lines = report.split('\n');
+
+    expect(lines[0]).toBe('═══ TAPEOUT FLIGHT REPORT ═══');
+    expect(lines.at(-1)).toBe('═══ end — paste this to Claude ═══');
+    expect(report).toContain(gameModule.BUILD_TAG);
+    expect(report).toContain('mine 63avg/25min·fx');
+    expect(report).toContain('m1★3');
+    expect(report).toContain('m2×2');
+    expect(report).not.toMatch(/undefined|NaN|\[object Object\]/);
+  });
+
+  test('bounds telemetry buffers and tolerates missing save data', () => {
+    const recorder = gameModule.FR;
+    recorder.t0 = Date.now();
+    recorder.cur = 'menu';
+    recorder.curT = Date.now();
+    recorder.path = [];
+    recorder.evs = [];
+    recorder.notes = [];
+    recorder.fps = {};
+
+    for (let i = 0; i < 600; i++) recorder.ev('tick', { i });
+    for (let i = 0; i < 40; i++) {
+      recorder.curT = Date.now() - 3000;
+      recorder.enter(`screen-${i}`);
+    }
+
+    expect(recorder.evs.length).toBe(500);
+    expect(recorder.path.length).toBe(30);
+    expect(recorder.report(null, null)).not.toMatch(/undefined|NaN|\[object Object\]/);
+  });
+});

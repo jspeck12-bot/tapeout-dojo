@@ -25,15 +25,21 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 // loaded directly from src/engine/verilog.js and merged into loadMod() below.
 const EXPORTS = [
   'App',
+  'FR', 'BUILD_TAG',
   'netlistOf', 'levelizeNetlist', 'exportRTL',
   'combVecs',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
   'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX',
-  'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf',
-  'stationSequence', 'mkBox', 'circleVsAABB', 'resolveCollisions',
-  'mineWalls', 'MINE_FIGHTS', 'mineModel', 'buildMineWorld',
-  'valleyModel', 'canyonModel', 'dungeonModel', 'buildDungeonWorld',
-  'campusModel', 'buildCampusWorld', 'buildFabUltra',
+  'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
+  'worldDone', 'worldUnlocked',
+  'stationSequence', 'nextStationOf',
+  'mkBox', 'circleVsAABB', 'resolveCollisions',
+  'MINE_CELL', 'mineWalls', 'MINE_FIGHTS', 'mineGateOpen',
+  'mineModel', 'buildMineWorld', 'applyMineProgress',
+  'valleyModel', 'canyonModel', 'dungeonGateOpen',
+  'dungeonModel', 'buildDungeonWorld', 'applyDungeonProgress',
+  'campusModel', 'campusProgress', 'buildCampusWorld',
+  'buildFabUltra', 'applyCampusProgress',
   'arcadeModel', 'buildArcadeWorld',
 ];
 
