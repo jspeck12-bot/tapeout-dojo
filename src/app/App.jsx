@@ -25,6 +25,7 @@ import {
   Toasts, Confetti, Modal, rankIndex, Header,
 } from '../ui/foundations.jsx';
 import { MainMenu, TapeoutBay, DrillScreen } from '../ui/menu.jsx';
+import { PrologueScreen } from '../ui/PrologueScreen.jsx';
 import {
   GfxPanel,
 } from '../ui/world-shared.jsx';
@@ -113,6 +114,7 @@ export function App() {
       AudioFX.enabled = s.sound;
       setActiveSlot(slot);
       setSave(s);
+      if (!s.tutorial.completed) setScreen({ name: 'prologue', replay: false });
       setLoaded(true);
     })();
   }, []);
@@ -389,6 +391,32 @@ export function App() {
     window.scrollTo({ top: 0 });
   }, []);
 
+  const onTutorialProgress = useCallback((step) => {
+    mutate((s) => {
+      s.tutorial = { ...s.tutorial, step };
+    });
+  }, [mutate]);
+
+  const onTutorialMode = useCallback((mode) => {
+    mutate((s) => { s.mode = mode; });
+  }, [mutate]);
+
+  const onTutorialComplete = useCallback(({ skipped, replay }) => {
+    if (!skipped) {
+      onLessonRead('L1a');
+      completeChallenge('b1', 1, 30);
+    }
+    mutate((s) => {
+      s.tutorial = {
+        completed: true,
+        skipped: !!skipped,
+        step: 7,
+        replays: (s.tutorial.replays || 0) + (replay ? 1 : 0),
+      };
+    });
+    go({ name: skipped ? 'campus' : 'mine' });
+  }, [completeChallenge, go, mutate, onLessonRead]);
+
   // confetti auto-clear
   useEffect(() => {
     if (!confetti) return;
@@ -434,9 +462,10 @@ export function App() {
     <div className="tk-root" onPointerDown={() => AudioFX.ensure()}>
       <style>{CSS}</style>
       <div className="scanlines" />
-      {!['menu', 'campus', 'mine', 'arcade', 'dungeon', 'home'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
+      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
-        {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'campus' }); }} />}
+        {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
+        {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
         {screen.name === 'drill' && <DrillScreen save={save} go={go} onReview={(id, kind) => { drillReturnRef.current = true; go({ name: kind, id }); }} />}
         {screen.name === 'tapeout' && <TapeoutBay save={save} go={go} />}
         {screen.name === 'world' && <WorldScreen w={screen.w} save={save} go={go} onLessonRead={onLessonRead} />}
@@ -525,6 +554,16 @@ export function App() {
       {settingsOpen && (
         <Modal onClose={() => { setSettingsOpen(false); setResetArmed(false); }} width={470}>
           <div className="eyebrow" style={{ marginBottom: 12 }}>fab controls</div>
+
+          <div className="eyebrow" style={{ marginBottom: 8, color: '#7DEFFF' }}>controls</div>
+          <div className="card" style={{ padding: '11px 13px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 14px', fontSize: 12 }}>
+            <span style={{ color: '#E8F1FA' }}>WASD / arrows</span><span style={{ color: '#76849A' }}>move</span>
+            <span style={{ color: '#E8F1FA' }}>mouse / drag</span><span style={{ color: '#76849A' }}>look</span>
+            <span style={{ color: '#E8F1FA' }}>Shift</span><span style={{ color: '#76849A' }}>sprint</span>
+            <span style={{ color: '#E8F1FA' }}>E / Enter</span><span style={{ color: '#76849A' }}>interact</span>
+            <span style={{ color: '#E8F1FA' }}>M</span><span style={{ color: '#76849A' }}>cycle soundtrack</span>
+            <span style={{ color: '#E8F1FA' }}>`</span><span style={{ color: '#76849A' }}>flight note</span>
+          </div>
 
           <div className="eyebrow" style={{ marginBottom: 8, color: '#7DEFFF' }}>flight recorder</div>
           <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>

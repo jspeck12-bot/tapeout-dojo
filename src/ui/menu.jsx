@@ -21,7 +21,7 @@ import { ALL_CHALLENGES } from '../world/challenges.js';
 // MAIN MENU + TAPEOUT BAY + SPACED REVIEW
 // ============================================================
 
-function MainMenu({ save, go, onSettings, onNewGame }) {
+function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('cold_cathode'); musicSetState('menu'); } catch (e) { } }, []);
   const [confirmNew, setConfirmNew] = useState(false);
   const mapNodes = useMemo(() => { const P = [[180, 820], [430, 720], [250, 540], [560, 470], [360, 300], [680, 250], [520, 110]]; return WORLDS.map((w, i) => ({ id: w.id, color: w.color, name: w.name, x: P[i][0], y: P[i][1] })); }, []);
@@ -37,7 +37,7 @@ function MainMenu({ save, go, onSettings, onNewGame }) {
   return (
     <div className="mm-root">
       <style>{`
-        .mm-root{position:fixed;inset:0;z-index:30;overflow:hidden;background:radial-gradient(120% 90% at 50% -10%,#0c1430 0%,#070912 55%,#04060c 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -10%,#0c1430 0%,#070912 55%,#04060c 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
         .mm-grid{position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;background-image:linear-gradient(rgba(34,211,238,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.15) 1px,transparent 1px);background-size:46px 46px;transform:perspective(420px) rotateX(62deg);transform-origin:50% 100%;animation:mm-pan 7s linear infinite;-webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);mask-image:linear-gradient(to top,#000 8%,transparent 78%)}
         @keyframes mm-pan{from{background-position:0 0}to{background-position:0 46px}}
         .mm-bit{position:absolute;top:-8%;color:rgba(125,239,255,.28);font-family:ui-monospace,monospace;animation:mm-fall linear infinite;pointer-events:none}
@@ -93,6 +93,11 @@ function MainMenu({ save, go, onSettings, onNewGame }) {
         <button className="mm-btn" style={confirmNew ? { borderColor: '#B14A52' } : undefined} onClick={() => { if (confirmNew) { AudioFX.click(); onNewGame(); } else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); } }}>
           <span className="mm-ico" style={{ background: 'rgba(255,226,122,.12)' }}><Sparkles size={16} color={confirmNew ? '#FF8B82' : '#FFE27A'} /></span>
           <span><div style={{ fontSize: 14.5, fontWeight: 600, color: confirmNew ? '#FF8B82' : '#D7E0EA' }}>{confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}</div><div style={{ fontSize: 11, color: '#76849A' }}>{confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}</div></span>
+          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
+        </button>
+        <button className="mm-btn" onClick={() => { AudioFX.click(); onReplayTutorial(); }}>
+          <span className="mm-ico" style={{ background: 'rgba(125,239,255,.10)' }}><RotateCcw size={16} color="#7DEFFF" /></span>
+          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>REPLAY PROLOGUE</div><div style={{ fontSize: 11, color: '#76849A' }}>controls, first compile &amp; Debug Bay</div></span>
           <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
         </button>
         <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}>

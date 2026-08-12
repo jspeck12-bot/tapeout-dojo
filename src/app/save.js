@@ -13,6 +13,7 @@ const DEFAULT_SAVE = {
   stats: { topics: {}, playMs: 0, runs: 0 },
   skill: {},
   campusVisited: false,
+  tutorial: { completed: false, skipped: false, step: 0, replays: 0 },
 };
 function normalizeSave(p) { return rpgFix(normalizeSaveBase(p)); }
 function cloneSaveForMutation(previous) {
@@ -33,6 +34,7 @@ function cloneSaveForMutation(previous) {
     inv: { ...previous.inv },
     combat: { ...previous.combat },
     owned: [...previous.owned],
+    tutorial: { ...previous.tutorial },
   };
 }
 function normalizeSaveBase(p) {
@@ -43,6 +45,13 @@ function normalizeSaveBase(p) {
   const countOf = (value) =>
     Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
   const stats = objectOf(q.stats);
+  const tutorial = objectOf(q.tutorial);
+  const hasLegacyProgress = !!p && (
+    countOf(q.xp) > 0 ||
+    Object.keys(objectOf(q.done)).length > 0 ||
+    Object.keys(objectOf(q.lessons)).length > 0 ||
+    !!q.campusVisited
+  );
   return {
     ...DEFAULT_SAVE, ...q,
     xp: countOf(q.xp),
@@ -69,6 +78,14 @@ function normalizeSaveBase(p) {
     tapeoutDone: !!q.tapeoutDone,
     ngplus: !!q.ngplus,
     campusVisited: !!q.campusVisited,
+    tutorial: {
+      completed: typeof tutorial.completed === 'boolean'
+        ? tutorial.completed
+        : hasLegacyProgress,
+      skipped: !!tutorial.skipped,
+      step: Math.min(7, countOf(tutorial.step)),
+      replays: countOf(tutorial.replays),
+    },
     mode: ['apprentice', 'engineer', 'architect'].includes(q.mode) ? q.mode : 'apprentice',
     v: 2,
   };

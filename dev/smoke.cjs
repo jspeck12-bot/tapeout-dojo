@@ -117,8 +117,18 @@ async function run() {
   assert(freshStored.xp === 0, 'NEW GAME did not immediately replace the active slot');
   assert(JSON.parse(storage._map.get('tapeout_meta_v1')).active === 2,
     'NEW GAME changed or failed to persist the active slot');
-  checks += 3;
+  assert(textOf(newGameRoot.toJSON()).includes('DIE FLOOR · WAKE SIGNAL'),
+    'NEW GAME did not enter the guided prologue');
+  checks += 4;
   act(() => { newGameRoot.unmount(); });
+
+  storage._map.clear();
+  storage._calls.length = 0;
+  const firstBootRoot = await mountAndFlush(TR, React, m.default, {});
+  assert(textOf(firstBootRoot.toJSON()).includes('DIE FLOOR · WAKE SIGNAL'),
+    'a brand-new profile did not cold-open into the prologue');
+  checks++;
+  act(() => { firstBootRoot.unmount(); });
 
   const save = m.normalizeSave(null);
   const noop = () => {};

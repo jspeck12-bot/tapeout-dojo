@@ -103,6 +103,7 @@ describe('save compatibility', () => {
     for (const key of [
       'done', 'doneNg', 'lessons', 'ach', 'skill', 'bugsSolved', 'bugClean',
       'streak', 'training', 'dailyDone', 'stats', 'gear', 'inv', 'combat', 'owned',
+      'tutorial',
     ]) {
       expect(next[key]).not.toBe(previous[key]);
     }
@@ -116,5 +117,24 @@ describe('save compatibility', () => {
     expect(previous.combat.kills).toBe(3);
     expect(previous.gear.weapon).toBe('w_iron');
     expect(previous.owned).not.toContain('w_copper');
+  });
+
+  test('starts fresh saves in the prologue without surprising legacy players', () => {
+    expect(normalizeSave(null).tutorial).toEqual({
+      completed: false,
+      skipped: false,
+      step: 0,
+      replays: 0,
+    });
+    expect(normalizeSave({ xp: 80, done: {}, lessons: {} }).tutorial.completed).toBe(true);
+    expect(normalizeSave({
+      xp: 80,
+      tutorial: { completed: false, skipped: false, step: 99 },
+    }).tutorial).toEqual({
+      completed: false,
+      skipped: false,
+      step: 7,
+      replays: 0,
+    });
   });
 });
