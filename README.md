@@ -190,12 +190,12 @@ notes — a play session compressed into a work list.
 
 ## Roadmap
 
-**Shipped:** guided first-run prologue · worlds and progression · station-ordered learning · graphics pass ·
+**Shipped:** guided first-run prologue · interactive Codex and mastery die ·
+retrieval-gated field notes · worlds and progression · station-ordered learning · graphics pass ·
 Debug Bay (waveforms, divergence diagnosis, latch detection, schematic view) ·
 RTL export · flight recorder · spaced review scheduling and Recall Lab.
 
-**Next:** interactive Codex (retrieval questions gating field-note XP, live
-widgets, mastery map) → world/graphics/boss overhauls →
+**Next:** world/graphics/boss overhauls →
 module instantiation → hierarchical content → single-cycle datapath capstone
 (PC → register file → ALU → control → integrated datapath).
 
