@@ -34,7 +34,6 @@ const EXPORTS = [
   'mkBox', 'circleVsAABB', 'resolveCollisions',
   'valleyModel', 'canyonModel', 'dungeonGateOpen',
   'dungeonModel', 'buildDungeonWorld', 'applyDungeonProgress',
-  'arcadeModel', 'buildArcadeWorld',
 ];
 const REEXPORTS = [
   {
@@ -70,10 +69,15 @@ const REEXPORTS = [
     names: ['MINE_FIGHTS', 'mineGateOpen', 'mineModel'],
   },
   {
+    from: './world/arcade.js',
+    names: ['arcadeModel'],
+  },
+  {
     from: './graphics/world-builders.js',
     names: [
       'buildCampusWorld', 'buildFabUltra', 'applyCampusProgress',
       'buildMineWorld', 'applyMineProgress',
+      'buildArcadeWorld',
     ],
   },
 ];
