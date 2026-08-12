@@ -29,7 +29,7 @@ const EXPORTS = [
   'FR',
   'exportRTL',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
-  'GAUNTLETS', 'CODE_CHALLENGES',
+  'CODE_CHALLENGES',
   'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
   'worldDone', 'worldUnlocked',
   'nextStationOf',
@@ -45,7 +45,7 @@ const REEXPORTS = [
   },
   {
     from: './game/content.js',
-    names: ['combVecs', 'TRUTH_CHALLENGES', 'REMIX'],
+    names: ['combVecs', 'GAUNTLETS', 'TRUTH_CHALLENGES', 'REMIX'],
   },
   {
     from: './telemetry/flight-recorder.js',
