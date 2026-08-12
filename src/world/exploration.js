@@ -40,7 +40,10 @@ const WORLD_LANDMARKS = {
 };
 
 function featureCandidates(model) {
-  const usable = model.rects.filter((rect) => rect.zone !== model.bossZone);
+  const boss = model.interactables.find((item) => item.boss);
+  const usable = model.rects.filter((rect) =>
+    rect.zone !== model.bossZone &&
+    !(boss && boss.x > rect.x1 && boss.x < rect.x2 && boss.z > rect.z1 && boss.z < rect.z2));
   const points = [];
   for (const rect of usable) {
     const width = rect.x2 - rect.x1;
@@ -57,8 +60,22 @@ function featureCandidates(model) {
     }
   }
   const occupied = model.interactables.slice();
+  const gate = model.gateCollider;
+  const gateHorizontal = gate && (gate.maxX - gate.minX) > (gate.maxZ - gate.minZ);
+  const gateAxis = gateHorizontal
+    ? (gate.minZ + gate.maxZ) / 2
+    : gate
+      ? (gate.minX + gate.maxX) / 2
+      : 0;
+  const spawnSide = gateHorizontal
+    ? model.spawn.z - gateAxis
+    : model.spawn.x - gateAxis;
   return points.filter((point, index) => {
     if (points.findIndex((other) => other.x === point.x && other.z === point.z) !== index) return false;
+    if (gate) {
+      const pointSide = gateHorizontal ? point.z - gateAxis : point.x - gateAxis;
+      if (pointSide * spawnSide < 0) return false;
+    }
     return occupied.every((item) => Math.hypot(item.x - point.x, item.z - point.z) >= 5);
   });
 }
