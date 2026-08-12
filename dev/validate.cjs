@@ -92,6 +92,13 @@ function checkModel(m, w, model) {
   assert((b.maxX - b.minX) % cell === 0, `world ${w}: X span ${b.maxX - b.minX} is not a multiple of ${cell}`);
   assert((b.maxZ - b.minZ) % cell === 0, `world ${w}: Z span ${b.maxZ - b.minZ} is not a multiple of ${cell}`);
   checks += 2;
+  for (const [index, rect] of model.rects.entries()) {
+    for (const edge of ['x1', 'x2', 'z1', 'z2']) {
+      assert(rect[edge] % cell === 0,
+        `world ${w}: rect ${index} edge ${edge}=${rect[edge]} is off the ${cell}u raster`);
+      checks++;
+    }
+  }
 
   // station numbering: contiguous 1..K, boss last, note count matches lessons
   const stations = model.interactables.filter((i) => i.ord);
