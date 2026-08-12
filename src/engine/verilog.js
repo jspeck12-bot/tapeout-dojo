@@ -635,10 +635,9 @@ function evalExpr(node, env, mod) {
     }
     case 'tern': {
       const c = evalExpr(node.c, env, mod);
-      const t = evalExpr(node.t, env, mod);
-      const f = evalExpr(node.f, env, mod);
-      const w = Math.max(t.w, f.w);
-      return { v: c.v !== 0 ? maskW(t.v, w) : maskW(f.v, w), w };
+      const selected = evalExpr(c.v !== 0 ? node.t : node.f, env, mod);
+      const w = exprWidth(node, env, mod);
+      return { v: maskW(selected.v, w), w };
     }
   }
   throw vErr(node.line || 1, "Internal: unknown expression node.");
@@ -650,6 +649,57 @@ function bitop(a, b, w, fn) {
     av = Math.floor(av / 2); bv = Math.floor(bv / 2); bit *= 2;
   }
   return out;
+}
+
+// Determine expression width without evaluating value-producing operators.
+// This lets the conditional operator preserve Verilog width semantics while
+// evaluating only its selected branch.
+function exprWidth(node, env, mod) {
+  switch (node.kind) {
+    case 'num': return node.w;
+    case 'sig':
+      if (mod && mod.params.has(node.name)) return 32;
+      return env.get(node.name, node.line).w;
+    case 'bit': return 1;
+    case 'part': {
+      try {
+        const msb = evalExpr(node.msbE, env, mod).v;
+        const lsb = evalExpr(node.lsbE, env, mod).v;
+        return Math.max(1, msb - lsb + 1);
+      } catch (error) {
+        return env.get(node.name, node.line).w;
+      }
+    }
+    case 'concat':
+      return Math.min(32, node.parts.reduce((sum, part) => sum + exprWidth(part, env, mod), 0));
+    case 'repl': {
+      let count = 1;
+      try { count = evalExpr(node.countE, env, mod).v; } catch (error) { }
+      return Math.min(32, Math.max(1, count) * exprWidth(node.e, env, mod));
+    }
+    case 'un':
+      return ['!', '&', '|', '^', '~&', '~|', '~^'].includes(node.op)
+        ? 1
+        : exprWidth(node.e, env, mod);
+    case 'bin': {
+      const left = exprWidth(node.l, env, mod);
+      const right = exprWidth(node.r, env, mod);
+      if (['==', '!=', '<', '<=', '>', '>=', '&&', '||'].includes(node.op)) return 1;
+      if (node.op === '+' || node.op === '-') return Math.min(32, Math.max(left, right) + 1);
+      if (node.op === '*') return Math.min(32, left + right);
+      if (node.op === '<<') {
+        let shift = 0;
+        try { shift = evalExpr(node.r, env, mod).v; } catch (error) { }
+        return Math.min(32, left + Math.min(shift, 32));
+      }
+      if (node.op === '>>') return left;
+      return Math.max(left, right);
+    }
+    case 'tern':
+      return Math.max(exprWidth(node.t, env, mod), exprWidth(node.f, env, mod));
+    default:
+      return 1;
+  }
 }
 
 // ---------------- Static expression walk (declared-name check) ----------------
@@ -1019,8 +1069,10 @@ function runChallengeTest(mod, test) {
 export {
   V_KEYWORDS,
   vTokenize,
+  litValue,
   VParser,
   evalExpr,
+  exprWidth,
   VSim,
   vCompile,
   runCombTest,
