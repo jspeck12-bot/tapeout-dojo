@@ -200,24 +200,39 @@ async function run() {
   THREE.WebGLRenderer = StubRenderer;
   window.ontouchstart = true;
   try {
-    const positiveRoot = await mountAndFlush(
-      TR,
-      React,
-      m.CampusScreen,
-      { ...common, save: { ...save, campusVisited: true } },
-      { createNodeMock },
-    );
-    const positiveText = textOf(positiveRoot.toJSON());
-    assert(!positiveText.includes('NO WEBGL'),
-      'working renderer still entered the no-WebGL fallback');
-    assert(positiveText.includes('menu'),
-      'working renderer path did not render the campus HUD');
-    assert(rendererInstances === 1,
-      `working renderer path constructed ${rendererInstances} renderers instead of one`);
-    assert(rendererCalls > 0,
-      'working renderer path never rendered a frame');
-    checks += 4;
-    act(() => { positiveRoot.unmount(); });
+    const positiveCases = [
+      {
+        name: 'campus',
+        Component: m.CampusScreen,
+        props: { ...common, save: { ...save, campusVisited: true } },
+        hud: 'menu',
+      },
+      { name: 'mines', Component: m.MineScreen, props: common, hud: 'menu' },
+      { name: 'arcade', Component: m.ArcadeScreen, props: common, hud: 'main menu' },
+      { name: 'dungeon-2', Component: m.DungeonScreen, props: { ...common, w: 2 }, hud: 'menu' },
+    ];
+    for (const positiveCase of positiveCases) {
+      const instancesBefore = rendererInstances;
+      const callsBefore = rendererCalls;
+      const positiveRoot = await mountAndFlush(
+        TR,
+        React,
+        positiveCase.Component,
+        positiveCase.props,
+        { createNodeMock },
+      );
+      const positiveText = textOf(positiveRoot.toJSON());
+      assert(!/NO WEBGL|can't render the arcade floor/.test(positiveText),
+        `${positiveCase.name}: working renderer entered its fallback`);
+      assert(positiveText.includes(positiveCase.hud),
+        `${positiveCase.name}: working renderer path did not render its HUD`);
+      assert(rendererInstances === instancesBefore + 1,
+        `${positiveCase.name}: renderer constructor was not called exactly once`);
+      assert(rendererCalls > callsBefore,
+        `${positiveCase.name}: renderer never rendered a frame`);
+      checks += 4;
+      act(() => { positiveRoot.unmount(); });
+    }
   } finally {
     THREE.WebGLRenderer = OriginalRenderer;
     delete window.ontouchstart;
