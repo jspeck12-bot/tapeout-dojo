@@ -73,7 +73,7 @@ async function run() {
     assert(menuText.includes(marker), `menu missing "${marker}"`);
     checks++;
   }
-  assert(menuText.includes('321 XP'), 'active slot progress was not loaded into the shipped App');
+  assert(/321\s+XP/.test(menuText), 'active slot progress was not loaded into the shipped App');
   assert(storage._calls.some(([op, key]) => op === 'get' && key === 'tapeout_meta_v1'),
     'App never read active-slot metadata');
   assert(storage._calls.some(([op, key]) => op === 'get' && key === 'tapeout_slot_2'),
