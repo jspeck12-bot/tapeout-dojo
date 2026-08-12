@@ -57,7 +57,9 @@ async function run() {
   let checks = 0;
 
   let root;
-  act(() => { root = TR.create(React.createElement(m.App)); });
+  assert(typeof m.default === 'function', 'shipped default entry is not a React component');
+  checks++;
+  act(() => { root = TR.create(React.createElement(m.default)); });
   // flush the async save-load effect (window.storage.get is a promise)
   for (let i = 0; i < 6; i++) { await act(async () => { await Promise.resolve(); }); } // eslint-disable-line no-await-in-loop
 

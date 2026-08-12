@@ -15,19 +15,22 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src', 'tapeout.jsx');
-const ENGINE_SRC = path.join(ROOT, 'src', 'engine', 'verilog.js');
 const GATE_DIR = path.join(ROOT, '.gate');
 const GATE_SRC_DIR = path.join(GATE_DIR, 'src');
 const GEN = path.join(GATE_SRC_DIR, 'tapeout.gen.jsx');
 const BUNDLE = path.join(GATE_DIR, 'bundle.cjs');
-const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 
 // Top-level game identifiers surfaced for testing. Verilog engine exports are
 // loaded directly from src/engine/verilog.js and merged into loadMod() below.
-const EXPORTS = [
-  'App',
-];
+const EXPORTS = [];
 const REEXPORTS = [
+  {
+    from: './engine/verilog.js',
+    names: [
+      'vTokenize', 'litValue', 'VParser', 'evalExpr', 'exprWidth', 'VSim',
+      'vCompile', 'runCombTest', 'runSeqTest', 'runChallengeTest',
+    ],
+  },
   {
     from: './engine/debug/netlist.js',
     names: ['netlistOf', 'levelizeNetlist'],
@@ -156,16 +159,6 @@ function loadMod() {
   const exportLine = directExports + moduleExports + '\n';
   fs.writeFileSync(GEN, src + exportLine);
   esbuild.buildSync({
-    entryPoints: [ENGINE_SRC],
-    bundle: true,
-    platform: 'node',
-    format: 'cjs',
-    target: 'node18',
-    outfile: ENGINE_BUNDLE,
-    logLevel: 'silent',
-    legalComments: 'none',
-  });
-  esbuild.buildSync({
     entryPoints: [GEN],
     bundle: true,
     platform: 'node',
@@ -178,7 +171,7 @@ function loadMod() {
     logLevel: 'silent',
     legalComments: 'none',
   });
-  _mod = { ...require(BUNDLE), ...require(ENGINE_BUNDLE) };
+  _mod = require(BUNDLE);
   return _mod;
 }
 
@@ -307,7 +300,7 @@ function installDom() {
 }
 
 module.exports = {
-  ROOT, SRC, ENGINE_SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE, ENGINE_BUNDLE,
+  ROOT, SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE,
   EXPORTS, REEXPORTS,
   loadMod, buildOnly, installDom, makeCanvas,
 };
