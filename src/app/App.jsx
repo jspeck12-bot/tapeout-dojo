@@ -15,7 +15,7 @@ import {
 } from '../game/rpg.js';
 import {
   SAVE_KEY, META_KEY, SLOT_KEY,
-  normalizeSave, todayStr, yesterdayStr,
+  normalizeSave, normalizeSlot, todayStr, yesterdayStr,
 } from './save.js';
 import {
   AudioFX,
@@ -102,7 +102,7 @@ export function App() {
             meta = { active: 1 };
             try { await window.storage.set(META_KEY, JSON.stringify(meta)); } catch (e) { }
           }
-          slot = meta.active || 1;
+          slot = normalizeSlot(meta.active);
           try { const r = await window.storage.get(SLOT_KEY(slot)); if (r && r.value) s = normalizeSave(JSON.parse(r.value)); } catch (e) { }
         }
       } catch (e) { /* fresh wafer */ }
@@ -332,6 +332,7 @@ export function App() {
   }, []);
 
   const activateSave = useCallback((slot, s) => {
+    slot = normalizeSlot(slot);
     Object.keys(draftStore).forEach(k => delete draftStore[k]);
     const today = todayStr();
     if (s.streak.last !== today) {

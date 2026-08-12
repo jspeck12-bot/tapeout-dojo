@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_SAVE, normalizeSave } from '../src/app/save.js';
+import { DEFAULT_SAVE, normalizeSave, normalizeSlot } from '../src/app/save.js';
 import { exportSave, importSave } from '../src/ui/meta.jsx';
 
 describe('save compatibility', () => {
@@ -73,5 +73,13 @@ describe('save compatibility', () => {
     expect(normalized.skill).toEqual({});
     expect(normalized.sound).toBe(true);
     expect(normalized.dailyCount).toBe(0);
+  });
+
+  test('keeps persisted profile selection inside the three real slots', () => {
+    expect(normalizeSlot(1)).toBe(1);
+    expect(normalizeSlot('3')).toBe(3);
+    expect(normalizeSlot(0)).toBe(1);
+    expect(normalizeSlot(999)).toBe(1);
+    expect(normalizeSlot('broken')).toBe(1);
   });
 });

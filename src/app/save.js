@@ -3,6 +3,7 @@ import { rpgFix } from '../game/rpg.js';
 const SAVE_KEY = 'tapeout_save_v1'; // legacy single-save (auto-migrated to slot 1)
 const META_KEY = 'tapeout_meta_v1';
 const SLOT_KEY = (n) => 'tapeout_slot_' + n;
+const normalizeSlot = (value) => [1, 2, 3].includes(Number(value)) ? Number(value) : 1;
 const DEFAULT_SAVE = {
   v: 2, xp: 0, done: {}, lessons: {}, ach: [],
   blitzHigh: 0, comboBest: 0, bugsSolved: [], bugClean: [],
@@ -59,6 +60,7 @@ export {
   SAVE_KEY,
   META_KEY,
   SLOT_KEY,
+  normalizeSlot,
   DEFAULT_SAVE,
   normalizeSave,
   normalizeSaveBase,
