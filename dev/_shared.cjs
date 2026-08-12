@@ -27,13 +27,6 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 const EXPORTS = [
   'App',
   'FR',
-  'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
-  'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
-  'worldDone', 'worldUnlocked',
-  'nextStationOf',
-  'mkBox', 'circleVsAABB', 'resolveCollisions',
-  'valleyModel', 'canyonModel', 'dungeonGateOpen',
-  'dungeonModel', 'buildDungeonWorld', 'applyDungeonProgress',
 ];
 const REEXPORTS = [
   {
@@ -46,7 +39,10 @@ const REEXPORTS = [
   },
   {
     from: './game/content.js',
-    names: ['combVecs', 'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX'],
+    names: [
+      'combVecs', 'WORLDS', 'LESSONS', 'GAUNTLETS', 'TRUTH_CHALLENGES',
+      'CODE_CHALLENGES', 'REMIX', 'TOPIC_OF',
+    ],
   },
   {
     from: './telemetry/flight-recorder.js',
@@ -54,11 +50,34 @@ const REEXPORTS = [
   },
   {
     from: './world/progression.js',
-    names: ['stationSequence'],
+    names: ['stationSequence', 'nextStationOf'],
+  },
+  {
+    from: './world/challenges.js',
+    names: [
+      'ALL_CHALLENGES', 'WORLD_ORDER', 'challengesOf', 'activeDone',
+      'worldDone', 'worldUnlocked',
+    ],
+  },
+  {
+    from: './world/collision.js',
+    names: ['mkBox', 'circleVsAABB', 'resolveCollisions'],
   },
   {
     from: './world/campus.js',
     names: ['campusModel', 'campusProgress'],
+  },
+  {
+    from: './world/dungeon-config.js',
+    names: ['DUNGEON_CFG'],
+  },
+  {
+    from: './world/open-world.js',
+    names: ['valleyModel', 'canyonModel'],
+  },
+  {
+    from: './world/dungeon.js',
+    names: ['dungeonGateOpen', 'dungeonModel'],
   },
   {
     from: './world/layout.js',
@@ -78,6 +97,7 @@ const REEXPORTS = [
       'buildCampusWorld', 'buildFabUltra', 'applyCampusProgress',
       'buildMineWorld', 'applyMineProgress',
       'buildArcadeWorld',
+      'buildDungeonWorld', 'applyDungeonProgress',
     ],
   },
 ];
