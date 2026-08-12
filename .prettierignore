@@ -1,0 +1,11 @@
+.gate/
+dist/
+node_modules/
+
+# Preserve reviewable history: formatting the migrated legacy source is a
+# separate mechanical change, not part of the behavior-preserving split.
+src/
+dev/
+tests/
+README.md
+AGENTS.md
