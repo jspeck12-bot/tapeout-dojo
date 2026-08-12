@@ -9,7 +9,7 @@
 //   · every NG+ REMIX variant compiles and passes
 //   · RTL export re-compiles cleanly
 //   · gauntlet generators are self-consistent (their own answer checks out)
-//   · learning order places each field note before the drills that use it
+//   · learning order matches the externally pinned canonical syllabus
 // ============================================================
 const crypto = require('crypto');
 const { loadMod } = require('./_shared.cjs');
@@ -127,6 +127,7 @@ function run() {
       world: gauntlet.world,
       title: gauntlet.title,
       xp: gauntlet.xp,
+      boss: !!gauntlet.boss,
       intro: gauntlet.intro,
     })),
     truthMeta: m.TRUTH_CHALLENGES.map((truth) => ({
@@ -143,6 +144,11 @@ function run() {
       `canonical ${name} catalog changed`);
     checks++;
   }
+  assert(m.TOPIC_OF.chip1 === 'integration',
+    'CHIP-1 must be reviewed as datapath integration, not as an FSM');
+  assert(m.TOPIC_LIST.some((topic) => topic.id === 'integration'),
+    'datapath integration topic is missing from the mastery map');
+  checks += 2;
 
   // External characterization fixtures make content/order checks independent
   // from the runtime helpers that consume the same data.
@@ -410,6 +416,29 @@ function run() {
               `gauntlet ${g.id}[${i}]: check() accepts wrong answer "${probe}"`);
           }
         }
+        const requestedBinaryWidth = /4 bits/.test(q.text)
+          ? 4
+          : /8-bit binary|binary \(8 bits\)/.test(q.text)
+            ? 8
+            : 0;
+        if (requestedBinaryWidth) {
+          const binary = String(q.answer).match(new RegExp(`[01_]{${requestedBinaryWidth},}`));
+          if (binary) {
+            const digits = binary[0].replace(/_/g, '');
+            const short = digits.replace(/^0+/, '') || '0';
+            if (short.length < requestedBinaryWidth) {
+              assert(q.check(short) === false,
+                `gauntlet ${g.id}[${i}]: ${requestedBinaryWidth}-bit answer accepts unpadded "${short}"`);
+            }
+          }
+        }
+        if (/hex \(8-bit\)/.test(q.text)) {
+          const hex = String(q.answer).match(/0x([0-9a-f]+)/i);
+          if (hex && hex[1].length === 2 && hex[1][0] === '0') {
+            assert(q.check('0x' + hex[1][1]) === false,
+              `gauntlet ${g.id}[${i}]: 8-bit hex answer accepts one digit`);
+          }
+        }
       } else {
         throw new Error(`gauntlet ${g.id}[${i}]: neither check() nor multiple-choice`);
       }
@@ -440,7 +469,7 @@ function run() {
     }
   }
 
-  // 9. learning order — each note precedes the drills that use it
+  // 9. learning order shape (exact order is pinned by content-golden.cjs)
   for (const world of m.WORLDS) {
     const chs = m.challengesOf(world.id);
     const lessons = m.LESSONS[world.id] || [];
@@ -453,8 +482,19 @@ function run() {
       const fights = seq.filter((s) => s.kind === 'fight').length;
       assert(books === lessonIds.length, `world ${world.id}: expected ${lessonIds.length} notes in sequence, got ${books}`);
       assert(fights === regular.length, `world ${world.id}: expected ${regular.length} fights in sequence, got ${fights}`);
+      const mapped = lessonIds.flatMap((lessonId) => m.STATION_GROUPS[lessonId] || []);
+      assert(JSON.stringify(mapped.slice().sort()) === JSON.stringify(regular.map((challenge) => challenge.id).sort()),
+        `world ${world.id}: explicit prerequisite map does not cover every regular challenge`);
+      for (const lessonId of lessonIds) {
+        const lessonIndex = seq.findIndex((station) => station.kind === 'book' && station.lid === lessonId);
+        for (const challengeId of m.STATION_GROUPS[lessonId] || []) {
+          const challengeIndex = seq.findIndex((station) => station.kind === 'fight' && station.f.id === challengeId);
+          assert(challengeIndex > lessonIndex,
+            `world ${world.id}: ${challengeId} appears before prerequisite ${lessonId}`);
+        }
+      }
     }
-    checks++;
+    checks += 2 + regular.length;
   }
 
   return checks;

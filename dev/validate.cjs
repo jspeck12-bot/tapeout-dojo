@@ -115,6 +115,24 @@ function checkModel(m, w, model) {
   assert(bookCount === lessons.length, `world ${w}: ${bookCount} note stations but ${lessons.length} field notes`);
   checks += 2;
 
+  const challenges = m.challengesOf(w);
+  const expectedSequence = m.stationSequence(
+    challenges.filter((challenge) => !challenge.boss),
+    lessons.map((lesson) => lesson.id),
+  );
+  const expectedOrd = new Map();
+  expectedSequence.forEach((station, index) => {
+    expectedOrd.set(station.kind === 'book' ? `book_${station.lid}` : station.f.id, index + 1);
+  });
+  challenges.filter((challenge) => challenge.boss).forEach((challenge) => {
+    expectedOrd.set(challenge.id, expectedSequence.length + 1);
+  });
+  for (const station of stations) {
+    assert(expectedOrd.get(station.id) === station.ord,
+      `world ${w}: station ${station.id} has ord ${station.ord}, expected ${expectedOrd.get(station.id)}`);
+    checks++;
+  }
+
   // 3D fights ↔ 2D content parity
   const fightIds = model.interactables.filter((i) => i.kind === 'fight').map((i) => i.id).sort();
   const contentIds = m.challengesOf(w).map((c) => c.id).sort();

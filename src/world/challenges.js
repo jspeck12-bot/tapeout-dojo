@@ -1,7 +1,7 @@
 import { GAUNTLETS, TRUTH_CHALLENGES, CODE_CHALLENGES } from '../game/content.js';
 
 const ALL_CHALLENGES = [];
-GAUNTLETS.forEach(g => ALL_CHALLENGES.push({ kind: 'gauntlet', id: g.id, world: g.world, title: g.title, xp: g.xp, def: g }));
+GAUNTLETS.forEach(g => ALL_CHALLENGES.push({ kind: 'gauntlet', id: g.id, world: g.world, title: g.title, xp: g.xp, boss: g.boss, def: g }));
 TRUTH_CHALLENGES.forEach(t => ALL_CHALLENGES.push({ kind: 'truth', id: t.id, world: t.world, title: t.title, xp: t.xp, def: t }));
 CODE_CHALLENGES.forEach(c => ALL_CHALLENGES.push({ kind: 'code', id: c.id, world: c.world, title: c.title, xp: c.xp, boss: c.boss, def: c }));
 

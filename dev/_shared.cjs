@@ -79,7 +79,7 @@ const REEXPORTS = [
   },
   {
     from: './world/progression.js',
-    names: ['stationSequence', 'nextStationOf'],
+    names: ['STATION_GROUPS', 'stationSequence', 'nextStationOf'],
   },
   {
     from: './world/challenges.js',

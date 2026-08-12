@@ -29,22 +29,24 @@ function checkDec(target) {
     return parseInt(t, 10) === target;
   };
 }
-function checkBin(target) {
+function checkBin(target, width) {
   return (s) => {
     let t = normNum(s).replace(/^0b/, '').replace(/^'b/, '');
     if (!/^[01]+$/.test(t) || t.length > 33) return false;
+    if (width && t.length !== width) return false;
     return parseInt(t, 2) === target;
   };
 }
-function checkHex(target) {
+function checkHex(target, digits) {
   return (s) => {
     let t = normNum(s).replace(/^0x/, '').replace(/^'h/, '');
     if (!/^[0-9a-f]+$/.test(t)) return false;
+    if (digits && t.length !== digits) return false;
     return parseInt(t, 16) === target;
   };
 }
-function checkBinOrHex(target) {
-  const b = checkBin(target), h = checkHex(target);
+function checkBinOrHex(target, width) {
+  const b = checkBin(target, width), h = checkHex(target, width ? Math.ceil(width / 4) : undefined);
   return (s) => {
     const t = normNum(s);
     if (/^(0b|'b)/.test(t)) return b(s);
@@ -172,7 +174,7 @@ const LESSONS = {
   6: [
     {
       id: 'L6a', title: 'What a state machine is', body:
-        "An FSM is a register holding a state, plus combinational logic deciding the next state from current state + inputs. That's it — but it's the pattern behind every controller: traffic lights, USB handshakes, your microwave, the control unit of a CPU.\n\nMoore machines: outputs depend only on the state (clean, glitch-free). Mealy machines: outputs depend on state and current inputs (faster reaction, twitchier). The Dojo builds Moore — it's the style you'll reach for 90% of the time."
+        "An FSM is a register holding a state, plus combinational logic deciding the next state from current state + inputs. That's it — but it's the pattern behind every controller: traffic lights, USB handshakes, your microwave, the control unit of a CPU.\n\nMoore machines: outputs depend only on state, so they do not react directly to input glitches. Their combinational state decode can still glitch; register an output when it must be edge-clean. Mealy machines depend on state and current inputs, which can react a cycle earlier but needs more timing care. The Dojo starts with Moore because its cycle-by-cycle behavior is easier to reason about."
     },
     {
       id: 'L6b', title: 'The three-block pattern', body:
@@ -210,9 +212,9 @@ const LESSON_DEPTH = {
   L2d: "These identities are exactly what logic synthesis automates, millions of times per build. The classic hand tool is the Karnaugh map, which makes absorption and complementary terms visually obvious; modern tools use algorithms like Espresso instead. The payoff is concrete — fewer literals means fewer transistors, shorter critical paths, and lower power. 'Don't-care' conditions, input combinations that can never occur, are gold here: the tool is free to assign them whatever value simplifies the logic most.",
   L3a: "'Everything exists at once' is the hardest shift coming from software. There is no program counter walking your module line by line — every `assign` and every gate is a physical structure that is powered and live continuously, so two statements in any order describe the same circuit. Real chips are built from a hierarchy of these boxes — a CPU instantiates ALUs, which instantiate adders — though the dojo keeps you to one self-contained module so you focus on the logic, not the wiring.",
   L3b: "`assign` builds combinational logic: the output is a pure function of current inputs, recomputed instantly and forever. The one-driver rule is not style advice — two assigns fighting over one wire is a physical short, and simulators show it as `x` (unknown). This is also the `wire` vs `reg` line: `assign` drives a `wire`, while anything assigned inside an `always` block must be a `reg`. Getting that wrong is the most common beginner error, and the compiler will stop you on it immediately.",
-  L3c: "`[3:0]` versus `[0:3]` is endianness, and mixing conventions causes silent bit-reversal bugs — pick MSB-first (`[N-1:0]`) and never deviate. Part-selects and concatenation are free: `w[3:0]` and `{a, b}` are just relabeled wires, no gates involved. Replication is the handy one for sign extension and masks — `{8{sign}}` makes eight copies of a bit, so `{ {4{w[3]}}, w }` sign-extends a nibble to a byte in a single expression.",
+  L3c: "`[3:0]` versus `[0:3]` changes a vector's index direction and which numbered bit is selected; that is bit ordering, not byte endianness. Mixing conventions can still cause silent bit-reversal bugs, so most RTL uses `[N-1:0]` consistently. Part-selects and concatenation are free: `w[3:0]` and `{a, b}` are just relabeled wires, no gates involved. Replication is handy for sign extension and masks — `{8{sign}}` makes eight copies of a bit, so `{ {4{w[3]}}, w }` sign-extends a nibble to a byte in one expression.",
   L3d: "Width matters more than beginners expect. Assign a 5-bit result to a 4-bit wire and the top bit is silently truncated; assign a small value to a wide bus and it zero-extends. A bare `5` is 32 bits wide, which causes surprises in concatenations and comparisons, so pros size every literal (`4'd5`) to make the wire count explicit and self-documenting. Verilog also has `x` for unknown and `z` for high-impedance — you will meet `z` the day you build a bidirectional bus.",
-  L4a: "Muxes are the universal building block. Any truth table can be built as a tree of muxes, which is exactly what an FPGA does — its 'logic' is really lookup tables, and a LUT is just a mux with the truth table stored on its select lines. In a CPU, muxes choose the ALU operation, pick which register to read, and route bypass paths. One caution: a chain of `if/else` synthesizes to a priority mux (ordered, slower), while a `case` can become a flat parallel mux — the structure you describe is the structure you get.",
+  L4a: "Muxes are the universal building block. Any truth table can be built as a tree of muxes, which is exactly what an FPGA does — its 'logic' is really lookup tables, and a LUT is a mux with the truth table stored on its select lines. In a CPU, muxes choose the ALU operation, pick which register to read, and route bypass paths. An `if/else if` chain expresses priority when conditions can overlap; a `case` often makes mutually exclusive choices clearer. Synthesis may flatten either form when equivalence and timing allow, so write the intended priority explicitly rather than relying on syntax alone.",
   L4b: "`a + b` hides a real architectural choice. The naive build is a ripple-carry adder, where the carry walks bit by bit, so delay grows linearly with width and a 64-bit ripple adder is painfully slow. Real chips use carry-lookahead, carry-select, or prefix adders like Kogge-Stone that compute carries in parallel, trading area for speed. The synthesizer picks the architecture to hit your timing constraint — which is why the same `+` can become a small slow adder or a big fast one depending on the clock you ask for.",
   L4c: "One-hot is everywhere once you see it. Decoders drive memory row and column selects, register-file write enables, and instruction decode — anywhere a binary code must pick one physical destination. One-hot also shows up in FSM state registers because it makes next-state logic trivially fast: one flip-flop per state, no decoding. The `1 << a` shift trick and a `case` synthesize to the same decoder, so pick whichever reads clearer.",
   L4d: "`always @(*)` has one infamous trap: if any output is not assigned on every path, the tool infers a latch to 'remember' the old value — almost never what you want, and a classic source of timing bugs. The fix is discipline — assign every output a default at the top of the block, or make every branch complete. Pre-2001 Verilog forced you to list the sensitivity manually as `@(a or b or sel)`, and forgetting a signal caused sim-versus-synthesis mismatches; `@(*)` exists precisely to kill that bug.",
@@ -220,7 +222,7 @@ const LESSON_DEPTH = {
   L5b: "Here is the worked reason `<=` matters. Picture a shift register: `b <= a; c <= b;`. With nonblocking assignment both right-hand sides are read first, using old values, then both registers update together at the edge — so `a` shifts into `b` and the old `b` shifts into `c`, exactly like real hardware. With blocking (`=`), `b` updates to `a` immediately and then `c` gets the new `b`, collapsing two stages into one. The rule that genuinely saves careers: `<=` in clocked (`posedge`) blocks, `=` in combinational (`@(*)`) blocks, never mixed on one signal.",
   L5c: "Reset and enable are where real ASIC discipline shows. Async reset responds instantly, which is good for power-up, but creates timing headaches and complicates testing; sync reset is cleaner for timing but needs a running clock — big chips pick one strategy and enforce it everywhere. An enable is the logical cousin of clock gating: `if (en) q <= d;` lets a register ignore the clock's effect, and the physical version, actually gating the clock, is a top power-saving technique. A register with no reset path can power up as `x`, which is a real bring-up hazard.",
   L5d: "A counter is just an accumulator that always adds 1 — and once you see that, the leap to your capstone accumulator, which adds a variable amount, is small. Shift registers with feedback give you LFSRs, which generate long pseudo-random sequences from a handful of XOR gates, used for test patterns and scramblers. Watch the wrap: a 4-bit counter rolls 15 to 0 silently, and whether that is a feature or a bug is on you. The carry chain inside a counter is the same ripple-versus-fast tradeoff as the adder.",
-  L6a: "A finite state machine is memory plus rules: a register holds 'where am I,' and combinational logic decides 'where next' and 'what to output.' The big fork is Moore versus Mealy — Moore outputs depend only on the state (cleaner, glitch-free), Mealy outputs also depend on the current input (fewer states, but outputs can react a cycle earlier). State encoding is a real knob too: binary is compact, one-hot is fast, Gray code minimizes switching power. FSMs run protocols, bus arbiters, and the control unit of every CPU.",
+  L6a: "A finite state machine is memory plus rules: a register holds 'where am I,' and combinational logic decides 'where next' and 'what to output.' The big fork is Moore versus Mealy — Moore outputs depend only on state and avoid direct input glitches, but combinational state decode can still glitch unless the output is registered. Mealy outputs also depend on current inputs, which can react a cycle earlier with tighter timing requirements. State encoding is a real knob too: binary is compact, one-hot is fast, and Gray code reduces simultaneous state-bit switching. FSMs run protocols, bus arbiters, and CPU control units.",
   L6b: "The three-block pattern — state register, next-state logic, output logic — is not dogma; it maps directly onto the hardware (one clocked block for the flops, two combinational blocks for the logic) and keeps synthesis and debugging clean. The next-state block is combinational, so the `always @(*)` latch trap applies: give the next-state variable a default, usually 'stay in the current state,' before the `case`, or you will infer latches. Keeping outputs in their own block makes switching a design between Moore and Mealy trivial.",
   L6c: "A sequence detector is the purest proof that the state IS the memory — you never store past inputs, only 'how much of the pattern have I matched so far.' This is exactly a deterministic finite automaton, the same theory behind regular expressions, and drawing the state diagram before coding is the professional workflow. The subtle design choice is overlapping versus non-overlapping detection: after matching `1011`, does the trailing `1` count as the start of the next match? That single decision reshapes your state graph.",
   L7a: "The accumulator is the beating heart of a datapath: a register that feeds an ALU whose result feeds back into the same register every cycle. That register-compute-register loop is the essential pattern of every processor's execute stage — swap the ALU for add/sub/and/or selected by an opcode and you have built a tiny CPU's arithmetic core. Everything converges here: muxes pick the operation, the adder does the math, two's complement handles subtraction, and a clocked register with reset holds the running total. Build this and you understand the skeleton of a computer.",
@@ -234,7 +236,7 @@ function genB1(rng, i) {
     return { text: `Convert binary \`${toBin(v, 4)}\` to decimal.`, check: checkDec(v), answer: String(v), explain: `Weights are 8·4·2·1. Sum the positions holding a 1 → ${v}.` };
   }
   const v = rInt(rng, 1, 15);
-  return { text: `Write \`${v}\` in binary (4 bits).`, check: checkBin(v), answer: toBin(v, 4), explain: `Pull out powers of two: ${v} = ${[8, 4, 2, 1].filter(p => v & p).join(' + ')} → ${toBin(v, 4)}.` };
+  return { text: `Write \`${v}\` in binary (4 bits).`, check: checkBin(v, 4), answer: toBin(v, 4), explain: `Pull out powers of two: ${v} = ${[8, 4, 2, 1].filter(p => v & p).join(' + ')} → ${toBin(v, 4)}.` };
 }
 function genB2(rng, i) {
   const specials = [255, 128, 170, 85, 200, 64];
@@ -242,14 +244,14 @@ function genB2(rng, i) {
   if (i % 2 === 0) {
     return { text: `Convert binary \`${toBin(v, 8)}\` to decimal.`, check: checkDec(v), answer: String(v), explain: `Weights 128·64·32·16 / 8·4·2·1. Sum the positions holding a 1 → ${v}.` };
   }
-  return { text: `Write \`${v}\` in 8-bit binary.`, check: checkBin(v), answer: toBin(v, 8), explain: `Greedy subtraction from 128 down: ${v} → ${toBin(v, 8)}.` };
+  return { text: `Write \`${v}\` in 8-bit binary.`, check: checkBin(v, 8), answer: toBin(v, 8), explain: `Greedy subtraction from 128 down: ${v} → ${toBin(v, 8)}.` };
 }
 function genB3(rng, i) {
   const t = i % 4;
   if (t === 0) { const v = rInt(rng, 16, 255); return { text: `Convert hex \`0x${toHex(v, 8)}\` to decimal.`, check: checkDec(v), answer: String(v), explain: `0x${toHex(v, 8)} = ${Math.floor(v / 16)}×16 + ${v % 16} = ${v}.` }; }
-  if (t === 1) { const v = rInt(rng, 16, 255); return { text: `Write \`${v}\` in hex (8-bit).`, check: checkHex(v), answer: '0x' + toHex(v, 8), explain: `${v} = ${Math.floor(v / 16)}×16 + ${v % 16} → 0x${toHex(v, 8)}.` }; }
-  if (t === 2) { const v = rInt(rng, 1, 255); return { text: `Convert binary \`${toBin(v, 8)}\` to hex.`, check: checkHex(v), answer: '0x' + toHex(v, 8), explain: `One hex digit per nibble: ${toBin(v >> 4, 4)} → ${toHex(v, 8)[0]}, ${toBin(v & 15, 4)} → ${toHex(v, 8)[1]}. No math across the boundary.` }; }
-  const v = rInt(rng, 1, 255); return { text: `Convert hex \`0x${toHex(v, 8)}\` to binary (8 bits).`, check: checkBin(v), answer: toBin(v, 8), explain: `Expand each digit to 4 bits: ${toHex(v, 8)[0]} → ${toBin(v >> 4, 4)}, ${toHex(v, 8)[1]} → ${toBin(v & 15, 4)}.` };
+  if (t === 1) { const v = rInt(rng, 16, 255); return { text: `Write \`${v}\` in hex (8-bit).`, check: checkHex(v, 2), answer: '0x' + toHex(v, 8), explain: `${v} = ${Math.floor(v / 16)}×16 + ${v % 16} → 0x${toHex(v, 8)}.` }; }
+  if (t === 2) { const v = rInt(rng, 1, 255); return { text: `Convert binary \`${toBin(v, 8)}\` to hex.`, check: checkHex(v, 2), answer: '0x' + toHex(v, 8), explain: `One hex digit per nibble: ${toBin(v >> 4, 4)} → ${toHex(v, 8)[0]}, ${toBin(v & 15, 4)} → ${toHex(v, 8)[1]}. No math across the boundary.` }; }
+  const v = rInt(rng, 1, 255); return { text: `Convert hex \`0x${toHex(v, 8)}\` to binary (8 bits).`, check: checkBin(v, 8), answer: toBin(v, 8), explain: `Expand each digit to 4 bits: ${toHex(v, 8)[0]} → ${toBin(v >> 4, 4)}, ${toHex(v, 8)[1]} → ${toBin(v & 15, 4)}.` };
 }
 function genB4(rng, i) {
   const w = i % 2 === 0 ? 4 : 8;
@@ -267,7 +269,7 @@ function genB5(rng, i) {
   const enc = 256 - n;
   return {
     text: `Encode \`−${n}\` as an 8-bit two's-complement value. Answer in binary or hex.`,
-    check: checkBinOrHex(enc), answer: `0x${toHex(enc, 8)} (${toBin(enc, 8)})`,
+    check: checkBinOrHex(enc, 8), answer: `0x${toHex(enc, 8)} (${toBin(enc, 8)})`,
     explain: `${n} = ${toBin(n, 8)}. Invert → ${toBin(255 - n, 8)}, add 1 → ${toBin(enc, 8)} = 0x${toHex(enc, 8)}.`
   };
 }
@@ -284,10 +286,13 @@ function genB6(rng, i) {
     let a, b, sum;
     do { a = rInt(rng, -120, 120); b = rInt(rng, -120, 120); sum = a + b; } while (Math.abs(a) < 30 || Math.abs(b) < 30);
     const ovf = sum > 127 || sum < -128;
+    const wrapped = ((sum + 128) % 256 + 256) % 256 - 128;
     return {
       kind: 'mc', text: `Signed 8-bit math: does \`${a} + ${b >= 0 ? b : '(' + b + ')'}\` overflow?`,
       options: ['Yes — overflow', 'No — fits fine'], correct: ovf ? 0 : 1,
-      explain: `${a} + ${b} = ${sum}. The 8-bit signed range is −128…127, so it ${ovf ? 'overflows and wraps' : 'fits'}. Rule of thumb: overflow needs same-sign operands producing an opposite-sign result.`
+      explain: ovf
+        ? `${a} + ${b} = ${sum}, outside −128…127. In 8 bits it wraps to ${wrapped}, whose sign is opposite the same-sign operands — the overflow tell.`
+        : `${a} + ${b} = ${sum}, inside the 8-bit signed range −128…127, so it fits without overflow.`
     };
   }
   return {
@@ -431,12 +436,12 @@ const GAUNTLETS = [
   { id: 'b3', world: 1, title: 'Hex Runes', xp: 30, gen: genB3, intro: 'Hex is binary with the boring parts compressed. One digit per nibble — never do math across the boundary.' },
   { id: 'b4', world: 1, title: 'The Sign Bit', xp: 35, gen: genB4, intro: "Two's complement reading. The MSB is negative; everything else is normal. Decode the values." },
   { id: 'b5', world: 1, title: 'Negation Ritual', xp: 35, gen: genB5, intro: 'Invert every bit, add one. Encode negative numbers the way the silicon does.' },
-  { id: 'b6', world: 1, title: 'Overflow Omen', xp: 35, gen: genB6, intro: 'Ranges and the wraparound that ate a rocket. Know exactly where the cliff edge is.' },
+  { id: 'b6', world: 1, title: 'Overflow Omen', xp: 35, boss: true, gen: genB6, intro: 'Ranges and the wraparound that ate a rocket. Know exactly where the cliff edge is.' },
   { id: 'g1', world: 2, title: 'Meet the Gates', xp: 30, gen: genG1, intro: "A truth table is a gate's fingerprint. Identify the suspect from its prints." },
   { id: 'g3', world: 2, title: 'Universal Workshop', xp: 30, gen: genG3, intro: 'NAND and NOR can build anything — including each other. Work the inverted gates.' },
   { id: 'g4', world: 2, title: "De Morgan's Mirror", xp: 30, gen: genG4, intro: 'Break the bar, flip the operator. The most-used identity in all of digital design.' },
   { id: 'g5', world: 2, title: 'Boolean Cleanup', xp: 30, gen: genG5, intro: 'Fewer gates, same truth table. Simplify like a synthesis tool.' },
-  { id: 'g6', world: 2, title: 'Bubble Pusher', xp: 35, gen: genG6, intro: 'Slide inversion bubbles through gates and watch AND and OR trade places.' },
+  { id: 'g6', world: 2, title: 'Bubble Pusher', xp: 35, boss: true, gen: genG6, intro: 'Slide inversion bubbles through gates and watch AND and OR trade places.' },
   { id: 'f1', world: 6, title: 'State Tracer', xp: 35, gen: genF1, intro: 'Before you build state machines, learn to BE one. Trace this "detect 10" Moore machine by hand, cycle by cycle.' },
   { id: 'g7', world: 2, title: 'Karnaugh Forge', xp: 35, gen: genG7, intro: 'Fewer gates, same truth. Spot the minimal form the way a Karnaugh map (and a synthesis tool) would.' },
   { id: 's8', world: 5, title: 'Timing Trial', xp: 40, gen: genS8, intro: 'Registers only work if the data is there when the edge arrives. Setup, hold, and the clock period that ties them together.' },
@@ -535,7 +540,7 @@ const CODE_CHALLENGES_A = [
     test: { type: 'comb', vectors: combVecs([{ n: 'a', w: 4 }, { n: 'b', w: 4 }], (i) => ({ y_and: i.a & i.b, y_or: i.a | i.b, y_xor: i.a ^ i.b })) }
   },
   {
-    id: 'm6', world: 3, title: 'Nibble Swap', xp: 45,
+    id: 'm6', world: 3, title: 'Nibble Swap', xp: 45, boss: true,
     brief: "Pure wiring, zero gates. Take the 8-bit input `in_byte` and swap its halves: the low nibble `in_byte[3:0]` becomes the top of `out_byte`, and the high nibble drops to the bottom.\n\n`0xA5` becomes `0x5A`. Use part-selects and one concatenation — `{high_part, low_part}` builds a bus from pieces.",
     iface: { name: 'nibble_swap', ports: [{ n: 'in_byte', d: 'in', w: 8 }, { n: 'out_byte', d: 'out', w: 8 }] },
     starter: "module nibble_swap(\n  input  [7:0] in_byte,\n  output [7:0] out_byte\n);\n  // {low nibble, high nibble}\n\nendmodule\n",
@@ -940,15 +945,15 @@ function blitzGen(score, rng) {
   const t = rPick(rng, pool);
   switch (t) {
     case 'b2d4': { const v = rInt(rng, 1, 15); return { text: toBin(v, 4), sub: 'binary → decimal', check: checkDec(v), answer: String(v) }; }
-    case 'd2b4': { const v = rInt(rng, 1, 15); return { text: String(v), sub: 'decimal → binary', check: checkBin(v), answer: toBin(v, 4) }; }
+    case 'd2b4': { const v = rInt(rng, 1, 15); return { text: String(v), sub: 'decimal → binary', check: checkBin(v, 4), answer: toBin(v, 4) }; }
     case 'b2d8': { const v = rInt(rng, 16, 254); return { text: toBin(v, 8), sub: 'binary → decimal', check: checkDec(v), answer: String(v) }; }
-    case 'd2b8': { const v = rInt(rng, 16, 254); return { text: String(v), sub: 'decimal → binary (8-bit)', check: checkBin(v), answer: toBin(v, 8) }; }
+    case 'd2b8': { const v = rInt(rng, 16, 254); return { text: String(v), sub: 'decimal → binary (8-bit)', check: checkBin(v, 8), answer: toBin(v, 8) }; }
     case 'h2d': { const v = rInt(rng, 16, 255); return { text: '0x' + toHex(v, 8), sub: 'hex → decimal', check: checkDec(v), answer: String(v) }; }
     case 'd2h': { const v = rInt(rng, 16, 255); return { text: String(v), sub: 'decimal → hex', check: checkHex(v), answer: '0x' + toHex(v, 8) }; }
     case 'b2h': { const v = rInt(rng, 1, 255); return { text: toBin(v, 8), sub: 'binary → hex', check: checkHex(v), answer: '0x' + toHex(v, 8) }; }
-    case 'h2b': { const v = rInt(rng, 1, 255); return { text: '0x' + toHex(v, 8), sub: 'hex → binary', check: checkBin(v), answer: toBin(v, 8) }; }
+    case 'h2b': { const v = rInt(rng, 1, 255); return { text: '0x' + toHex(v, 8), sub: 'hex → binary', check: checkBin(v, 8), answer: toBin(v, 8) }; }
     case 'twos': { const v = rInt(rng, 128, 255); return { text: toBin(v, 8), sub: "8-bit two's comp → signed decimal", check: checkDec(v - 256), answer: String(v - 256) }; }
-    default: { const n = rInt(rng, 5, 125); return { text: '−' + n, sub: "→ 8-bit two's comp (bin or hex)", check: checkBinOrHex(256 - n), answer: '0x' + toHex(256 - n, 8) }; }
+    default: { const n = rInt(rng, 5, 125); return { text: '−' + n, sub: "→ 8-bit two's comp (bin or hex)", check: checkBinOrHex(256 - n, 8), answer: '0x' + toHex(256 - n, 8) }; }
   }
 }
 
@@ -1263,7 +1268,8 @@ const TOPIC_LIST = [
   { id: 'arith', label: 'Arithmetic' },
   { id: 'decode', label: 'Decode & Compare' },
   { id: 'seq', label: 'Sequential' },
-  { id: 'fsm', label: 'FSMs & Chips' },
+  { id: 'fsm', label: 'Finite State Machines' },
+  { id: 'integration', label: 'Datapath Integration' },
 ];
 const TOPIC_OF = {
   b1: 'numbers', b2: 'numbers', b3: 'numbers', b4: 'numbers', b5: 'numbers', b6: 'numbers',
@@ -1271,7 +1277,7 @@ const TOPIC_OF = {
   m1: 'gates', m2: 'gates', m3: 'arith', m4: 'boolean', m5: 'wiring', m6: 'wiring', m7: 'wiring',
   c1: 'mux', c2: 'mux', c3: 'arith', c4: 'arith', c5: 'decode', c6: 'arith', c7: 'decode', c8: 'decode', c9: 'arith', c10: 'decode', c11: 'arith',
   s1: 'seq', s2: 'seq', s3: 'seq', s4: 'seq', s5: 'seq', s6: 'seq', s7: 'seq', s8: 'seq',
-  f1: 'fsm', f2: 'fsm', f3: 'fsm', f4: 'fsm', chip1: 'fsm',
+  f1: 'fsm', f2: 'fsm', f3: 'fsm', f4: 'fsm', chip1: 'integration',
   tg_soup: 'boolean', tg_mux: 'mux', tg_slice: 'wiring', tg_count: 'seq', tg_cmp: 'decode', tg_range: 'decode', tg_shift: 'seq',
 };
 
