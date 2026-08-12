@@ -65,7 +65,7 @@ describe('post-processing pipeline', () => {
     let sharedTextureDisposals = 0;
     const texture = new THREE.Texture();
     const sharedTexture = new THREE.Texture();
-    sharedTexture.userData.shared = true;
+    sharedTexture.userData = { shared: true };
     texture.dispose = () => { textureDisposals++; };
     sharedTexture.dispose = () => { sharedTextureDisposals++; };
     material.map = texture;

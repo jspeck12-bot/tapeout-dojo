@@ -34,7 +34,7 @@ function caveTextures() {
     const t = new THREE.CanvasTexture(cv);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.encoding = sRGB ? THREE.sRGBEncoding : THREE.LinearEncoding;
-    t.userData.shared = true;
+    t.userData = { ...(t.userData || {}), shared: true };
     return t;
   }
   const crev = [44, 33, 21], mid = [96, 79, 52], ridge = [158, 134, 88];
