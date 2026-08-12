@@ -26,7 +26,6 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 // loaded directly from src/engine/verilog.js and merged into loadMod() below.
 const EXPORTS = [
   'App',
-  'FR',
 ];
 const REEXPORTS = [
   {
@@ -46,7 +45,7 @@ const REEXPORTS = [
   },
   {
     from: './telemetry/flight-recorder.js',
-    names: ['BUILD_TAG'],
+    names: ['BUILD_TAG', 'FR'],
   },
   {
     from: './world/progression.js',
