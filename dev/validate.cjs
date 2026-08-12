@@ -16,6 +16,7 @@ const { loadMod } = require('./_shared.cjs');
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 const PLAYER_R = 0.55;
+const MIN_STATION_SPACING = 5;
 
 function bfsReachesBoss(m, model, colliders) {
   const b = model.bounds;
@@ -97,6 +98,15 @@ function checkModel(m, w, model) {
   const stations = model.interactables.filter((i) => i.ord);
   const ords = stations.map((i) => i.ord).sort((a, x) => a - x);
   for (let i = 0; i < ords.length; i++) assert(ords[i] === i + 1, `world ${w}: station ords not contiguous (${ords.join(',')})`);
+  for (let left = 0; left < stations.length; left++) {
+    for (let right = left + 1; right < stations.length; right++) {
+      const a = stations[left], b2 = stations[right];
+      const distance = Math.hypot(a.x - b2.x, a.z - b2.z);
+      assert(distance >= MIN_STATION_SPACING,
+        `world ${w}: stations ${a.id} and ${b2.id} are only ${distance.toFixed(2)}u apart`);
+      checks++;
+    }
+  }
   const boss = model.interactables.find((i) => i.boss);
   assert(boss && boss.ord === ords.length, `world ${w}: boss is not the final station`);
   const bookCount = model.interactables.filter((i) => i.kind === 'book').length;
