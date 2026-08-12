@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rtl": "node dev/test_iverilog.cjs",
     "lint": "eslint src tests",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

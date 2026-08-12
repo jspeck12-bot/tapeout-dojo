@@ -105,6 +105,7 @@ the spec so you can't win from memory.
 npm install
 npm run dev      # http://localhost:5173
 npm run gate     # the test suite — must print GATE GREEN
+npm run test:rtl # independent Icarus compile/simulation (requires iverilog)
 npm run build    # production bundle
 ```
 

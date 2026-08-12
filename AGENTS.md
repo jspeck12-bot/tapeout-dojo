@@ -13,6 +13,8 @@
 - Dev server: `npm run dev` → http://localhost:5173.
 - Production build: `npm run build`.
 - Focused checks: `npm test`, `npm run lint`, `npm run format:check`.
+- `npm run test:rtl` independently compiles/simulates every export with Icarus
+  Verilog. It requires the `iverilog` executable; CI installs it explicitly.
 
 ### The gate (`npm run gate`) — RECONSTRUCTED, new coverage
 - The original `dev/*.cjs` gate scripts were never committed to this repo (absent
