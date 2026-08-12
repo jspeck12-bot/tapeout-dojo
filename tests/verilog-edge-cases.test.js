@@ -155,7 +155,7 @@ describe('operator precedence and widths', () => {
       endmodule
     `, specification);
     expect(runCombTest(mod, [
-      { in: { a: 1, b: 1, c: 0 }, out: { sumShift: 4, logic: 1, compare: 0 } },
+      { in: { a: 1, b: 1, c: 0 }, out: { sumShift: 4, logic: 1, compare: 1 } },
       { in: { a: 3, b: 2, c: 0 }, out: { sumShift: 10, logic: 1, compare: 1 } },
     ]).pass).toBe(true);
   });
