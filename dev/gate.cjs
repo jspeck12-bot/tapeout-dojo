@@ -11,6 +11,7 @@
 // Prints "GATE GREEN" only if every stage passes.
 // ============================================================
 const fs = require('fs');
+const path = require('path');
 const { spawnSync } = require('child_process');
 const shared = require('./_shared.cjs');
 
@@ -38,8 +39,9 @@ function stageArtifactCompat() {
 }
 
 function stageUnit() {
+  const vitestBin = path.join(path.dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
   const result = spawnSync(process.execPath, [
-    require.resolve('vitest/vitest.mjs'),
+    vitestBin,
     'run',
     '--reporter=dot',
   ], {
