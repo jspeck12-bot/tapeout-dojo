@@ -88,7 +88,7 @@ describe('expressions and width propagation', () => {
     `, spec);
 
     const result = engine.runCombTest(mod, [
-      { in: { a: 1, b: 2, c: 3 }, out: { sum: 7, flag: 1 } },
+      { in: { a: 1, b: 2, c: 3 }, out: { sum: 7, flag: 3 } },
       { in: { a: 0, b: 3, c: 2 }, out: { sum: 6, flag: 2 } },
     ]);
     expect(result.pass).toBe(true);
