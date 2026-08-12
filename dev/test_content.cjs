@@ -212,6 +212,26 @@ function run() {
     assert(c.ok, `REMIX ${id}: solution failed to compile — ${c.errors && c.errors[0] && c.errors[0].msg}`);
     const r = m.runChallengeTest(c.mod, rv.test);
     assert(r.pass && !r.runtimeError, `REMIX ${id}: solution failed test (${r.passCount}/${r.total})`);
+    const expected = r.kind === 'comb'
+      ? r.rows.map((row) => row.expect)
+      : r.trace.map((row) => row.expect);
+    assert(stableHash({
+      id: rv.id,
+      w: rv.w,
+      title: rv.title,
+      brief: rv.brief,
+      iface: rv.iface,
+      solution: rv.solution,
+      test: {
+        type: rv.test.type,
+        vectors: rv.test.vectors,
+        frames: rv.test.frames,
+        watch: rv.test.watch,
+        expected,
+      },
+    }) === GOLDEN.remixHashes[id],
+    `REMIX ${id}: canonical spec, solution, vectors, or expected outputs changed`);
+    checks++;
     checks += assertNetlist(m, c.mod, GOLDEN.netlists.remix[id], `REMIX ${id}`);
     if (rv.testHard) {
       const hardened = m.runChallengeTest(c.mod, rv.testHard);
