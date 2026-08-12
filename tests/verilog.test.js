@@ -6,6 +6,7 @@ import {
   vCompile,
   vTokenize,
 } from '../src/engine/verilog.js';
+import { genTTWrapper } from '../src/engine/debug/rtl-export.js';
 
 const require = createRequire(import.meta.url);
 const shared = require('../dev/_shared.cjs');
@@ -249,6 +250,29 @@ describe('hardware view and RTL export', () => {
     expect(artifact.testbench).toContain(`module tb_${challenge.iface.name}`);
     expect(artifact.wrapper).toContain(`module tt_um_${challenge.iface.name}`);
     expect(vCompile(artifact.module, challenge.iface).ok).toBe(true);
+  });
+
+  test('maps data inputs beyond bit 7 onto the Tiny Tapeout uio input bank', () => {
+    const challenge = gameModule.CODE_CHALLENGES.find((item) => item.id === 'c9');
+    const wrapper = gameModule.exportRTL(challenge).wrapper;
+
+    expect(wrapper).toContain('.a(ui_in[3:0])');
+    expect(wrapper).toContain('.b(ui_in[7:4])');
+    expect(wrapper).toContain('.op(uio_in[1:0])');
+    expect(wrapper).not.toMatch(/ui_in\[(?:[89]|\d{2,})/);
+  });
+
+  test('routes output bits 9–16 through uio and rejects wider wrappers', () => {
+    const challenge = gameModule.CODE_CHALLENGES.find((item) => item.id === 'm5');
+    const wrapper = gameModule.exportRTL(challenge).wrapper;
+
+    expect(wrapper).toContain('assign uo_out  = _tpo_out[7:0]');
+    expect(wrapper).toContain("assign uio_out = {4'b0, _tpo_out[11:8]}");
+    expect(wrapper).toContain("assign uio_oe  = {4'b0, 4'b1111}");
+    expect(() => genTTWrapper('too_wide', [
+      { n: 'a', d: 'in', w: 17 },
+      { n: 'y', d: 'out', w: 1 },
+    ])).toThrow(/at most 16 data input bits/);
   });
 });
 

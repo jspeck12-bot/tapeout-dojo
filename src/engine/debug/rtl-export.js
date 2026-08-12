@@ -16,18 +16,30 @@ function genTTWrapper(name, ports) {
   const hasReset = inputs.some(port => port.n === 'rst');
   const dataInputs = inputs.filter(port => port.n !== 'clk' && port.n !== 'rst');
   const connections = [];
+  const totalInputWidth = dataInputs.reduce((sum, port) => sum + port.w, 0);
+  const totalOutputWidth = outputs.reduce((sum, port) => sum + port.w, 0);
+  if (totalInputWidth > 16) {
+    throw new Error(`Tiny Tapeout wrapper supports at most 16 data input bits (got ${totalInputWidth}).`);
+  }
+  if (totalOutputWidth > 16) {
+    throw new Error(`Tiny Tapeout wrapper supports at most 16 output bits (got ${totalOutputWidth}).`);
+  }
+  const pinSlice = (bus, high, low) =>
+    high === low ? `${bus}[${low}]` : `${bus}[${high}:${low}]`;
+  const inputPins = (offset, width) => {
+    const high = offset + width - 1;
+    if (high < 8) return pinSlice('ui_in', high, offset);
+    if (offset >= 8) return pinSlice('uio_in', high - 8, offset - 8);
+    return `{${pinSlice('uio_in', high - 8, 0)}, ${pinSlice('ui_in', 7, offset)}}`;
+  };
   let bit = 0;
   dataInputs.forEach(port => {
-    const slice = port.w > 1
-      ? 'ui_in[' + (bit + port.w - 1) + ':' + bit + ']'
-      : 'ui_in[' + bit + ']';
-    connections.push('.' + port.n + '(' + slice + ')');
+    connections.push('.' + port.n + '(' + inputPins(bit, port.w) + ')');
     bit += port.w;
   });
   if (hasClock) connections.push('.clk(clk)');
   if (hasReset) connections.push('.rst(~rst_n)');
   outputs.forEach(port => connections.push('.' + port.n + '(' + port.n + '_w)'));
-  const totalOutputWidth = outputs.reduce((sum, port) => sum + port.w, 0);
   let source = "// Tiny Tapeout-style top wrapper — maps your module onto the standard TT pin interface.\n";
   source += "`default_nettype none\n";
   source += "module tt_um_" + name + " (\n";
@@ -36,11 +48,22 @@ function genTTWrapper(name, ports) {
     source += "  wire " + vectorWidth(port.w) + port.n + "_w;\n";
   });
   source += "  " + name + " dut (" + connections.join(", ") + ");\n";
-  const parts = [];
-  if (totalOutputWidth < 8) parts.push((8 - totalOutputWidth) + "'b0");
-  for (let index = outputs.length - 1; index >= 0; index--) parts.push(outputs[index].n + "_w");
-  source += "  assign uo_out  = " + (parts.length > 1 ? "{" + parts.join(", ") + "}" : parts[0]) + ";\n";
-  source += "  assign uio_out = 8'b0;\n  assign uio_oe  = 8'b0;\n";
+  const outputParts = [];
+  for (let index = outputs.length - 1; index >= 0; index--) outputParts.push(outputs[index].n + "_w");
+  const packedWidth = Math.max(1, totalOutputWidth);
+  source += "  wire [" + (packedWidth - 1) + ":0] _tpo_out = " +
+    (outputParts.length > 1 ? "{" + outputParts.join(", ") + "}" : (outputParts[0] || "1'b0")) + ";\n";
+  if (totalOutputWidth >= 8) source += "  assign uo_out  = _tpo_out[7:0];\n";
+  else if (totalOutputWidth > 0) source += "  assign uo_out  = {" + (8 - totalOutputWidth) + "'b0, _tpo_out};\n";
+  else source += "  assign uo_out  = 8'b0;\n";
+  if (totalOutputWidth > 8) {
+    const upperWidth = totalOutputWidth - 8;
+    const upper = `_tpo_out[${totalOutputWidth - 1}:8]`;
+    source += "  assign uio_out = " + (upperWidth === 8 ? upper : `{${8 - upperWidth}'b0, ${upper}}`) + ";\n";
+    source += "  assign uio_oe  = " + (upperWidth === 8 ? "8'hFF" : `{${8 - upperWidth}'b0, ${upperWidth}'b${'1'.repeat(upperWidth)}}`) + ";\n";
+  } else {
+    source += "  assign uio_out = 8'b0;\n  assign uio_oe  = 8'b0;\n";
+  }
   source += "  wire _unused = &{ena, uio_in, 1'b0};\n";
   source += "endmodule\n`default_nettype wire\n";
   return source;

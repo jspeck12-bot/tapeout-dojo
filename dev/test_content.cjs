@@ -175,7 +175,18 @@ function run() {
       ['ui_in', 'uo_out', 'uio_in', 'uio_out', 'uio_oe', 'ena', 'clk', 'rst_n']
         .every((portName) => ex.wrapper.includes(portName)),
     `${ch.id}: Tiny Tapeout wrapper is incomplete`);
-    checks += 4;
+    const pinIndices = [...ex.wrapper.matchAll(/\b(?:ui_in|uo_out|uio_in|uio_out|uio_oe)\[(\d+)/g)]
+      .map((match) => Number(match[1]));
+    assert(pinIndices.every((index) => index >= 0 && index <= 7),
+      `${ch.id}: Tiny Tapeout wrapper references a pin outside [7:0]`);
+    const outputBits = ch.iface.ports
+      .filter((port) => port.d === 'out')
+      .reduce((sum, port) => sum + port.w, 0);
+    if (outputBits > 8) {
+      assert(!ex.wrapper.includes('assign uio_oe  = 8\'b0'),
+        `${ch.id}: wrapper truncates outputs instead of driving uio`);
+    }
+    checks += outputBits > 8 ? 6 : 5;
   }
 
   // 6. NG+ REMIX variants compile + pass, impostor fails
