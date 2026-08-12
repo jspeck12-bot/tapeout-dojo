@@ -1,53 +1,60 @@
 # TAPEOUT — the Verilog dojo
 
-A first-person 3D RPG that teaches Verilog. `src/tapeout.jsx` is a SINGLE FILE
-(~670KB, ~14k lines) that must stay runnable both locally (Vite) and pasted
-into a Claude.ai artifact.
+A first-person browser RPG that teaches Verilog. The retired Claude artifact
+constraint no longer requires a monolith: game code is organized by subsystem
+under `src/`, with `src/tapeout.jsx` retained as the stable default-export entry.
 
 ## Hard constraints — do not violate
 
-1. **Single file.** All game code lives in `src/tapeout.jsx` with exactly ONE
-   `export default`. Do not split it into modules. `src/main.jsx` is the local
-   entry point only and is NOT part of the game.
-2. **three r128, core only.** No `three/examples/*`, no jsm imports, no
-   OrbitControls, no EffectComposer. `THREE.CapsuleGeometry` does not exist in
-   r128 — use Cylinder + Sphere. Post-processing is hand-rolled in
-   `makePostFX` with ShaderMaterial + WebGLRenderTarget.
-3. **No localStorage inside `tapeout.jsx`.** The artifact runtime forbids it.
-   The game calls the async `window.storage` API and degrades to in-memory
-   saves if absent. Local persistence comes from the shim in `src/main.jsx`.
-4. **All audio is synthesized** via Web Audio. No asset files, ever.
-5. **lucide-react** icons must be imported by name; `Map` must be aliased
-   (`Map as MapIcon`) because it collides with the global.
-6. **No new runtime dependencies.** react, react-dom, three, lucide-react only.
+1. **Pedagogy is canonical.** Do not casually rewrite challenge specifications,
+   test vectors, field-note content, or station learning order.
+2. **three.js remains pinned to r128.** Do not upgrade it as a side effect.
+   `THREE.CapsuleGeometry` does not exist in r128. Rendering migrations require
+   a standalone proposal and review.
+3. **Save compatibility is permanent.** Game modules use the async
+   `window.storage` API. Browser `localStorage` belongs only in the local shim
+   in `src/main.jsx`; do not redesign the save schema during unrelated work.
+4. **All audio remains synthesized** through Web Audio.
+5. **Visual assets are allowed** when their source/license is documented and
+   they meet the project performance budget.
+6. **lucide-react icons are imported by name.** Alias `Map as MapIcon` because
+   it collides with the global.
+7. **No new runtime dependencies without a standalone proposal.** Current
+   runtime packages are react, react-dom, three, and lucide-react.
 
 ## Workflow
 
-- Run `npm run gate` before considering any change done. It must print
-  `GATE GREEN`. It runs: esbuild bundle -> layout validation (all 7 worlds) ->
-  content validation (309 checks) -> visual harness (8 scenes) -> React smoke
-  test -> artifact-compatibility check.
-- The gate scripts import internals by appending an export line to a COPY of
-  the source in `.gate/` — never add exports to `tapeout.jsx` itself.
-- `npm run dev` for the actual game.
+- Run `npm run gate` after every meaningful change. It must print `GATE GREEN`.
+- The gate covers bundling, dependency/storage compatibility, fail-closed unit
+  tests, all-world layout/reachability, canonical content, real three.js scene
+  construction/progress synchronization, and React smoke behavior.
+- The historical 309-check scripts were never committed. The checked-in gate is
+  explicitly reconstructed coverage; strengthen it without claiming otherwise.
+- Gate scripts copy the complete `src/` module graph into `.gate/` and append
+  test-only exports to the copied entry. Never add test-only exports to runtime
+  modules.
+- Use `npm test`, `npm run lint`, and `npm run dev` for focused work.
 
 ## Navigation
 
-The file opens with a TABLE OF CONTENTS listing ~36 fenced sections. Grep a
-section title to jump. Major regions: VERILOG ENGINE, CONTENT, DEBUG BAY CORE,
-FLIGHT RECORDER, COMBAT SYSTEM, FAB CAMPUS, BIT MINES, TRAIL DUNGEON MODELS,
-ULTRA POST PIPELINE, ULTRA FAB LAYER, APP SHELL.
+- `src/engine/` — compiler, simulator, netlists, diagnostics, RTL export
+- `src/game/` — canonical content, RPG systems, recall scheduling
+- `src/world/` — collision, progression, layouts, pure world models
+- `src/graphics/` — three.js primitives, post FX, creatures, world builders
+- `src/audio/` — synthesized SFX, tracks, and music state machine
+- `src/ui/` — shared components and screen families
+- `src/app/` — save contracts and App shell
+- `src/telemetry/` — flight recorder
+- `dev/` and `tests/` — gate harnesses and focused tests
 
 ## Gotchas learned the hard way
 
-- **CodeScreen and the Forge share near-identical run() internals.** A
-  find-and-replace targeting one will silently hit both. Scope edits to the
-  function body, and always assert the match count is what you expect.
-- **World layouts are rasterized at 2-unit cell centers.** Rect edges landing
-  on odd coordinates create phantom walls that can seal a world. Keep world
-  dimensions and offsets EVEN. `npm run gate:layout` catches this.
-- **Gate colliders must span the full corridor opening**, or players walk
-  around them.
-- Station numbering (`ord`) comes from `stationSequence()` and must match
-  between the 3D world and the 2D world screen — both derive from
-  `challengesOf(w)`.
+- CodeScreen and Forge have similar execution pipelines with intentional
+  differences. Test both when changing compile/run behavior.
+- World layouts rasterize at 2-unit cell centers. Keep dimensions and offsets
+  even; odd edges create phantom walls.
+- Gate colliders must span the full corridor opening.
+- Station `ord` values must agree between 3D and 2D views and derive from the
+  canonical `challengesOf()` ordering.
+- Transparent/additive meshes must not cast shadows.
+- GLSL needs browser verification in addition to the headless gate.
