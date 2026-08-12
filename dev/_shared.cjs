@@ -38,8 +38,6 @@ const EXPORTS = [
   'mineModel', 'buildMineWorld', 'applyMineProgress',
   'valleyModel', 'canyonModel', 'dungeonGateOpen',
   'dungeonModel', 'buildDungeonWorld', 'applyDungeonProgress',
-  'campusModel', 'campusProgress', 'buildCampusWorld',
-  'buildFabUltra', 'applyCampusProgress',
   'arcadeModel', 'buildArcadeWorld',
 ];
 const REEXPORTS = [
@@ -58,6 +56,14 @@ const REEXPORTS = [
   {
     from: './world/progression.js',
     names: ['stationSequence'],
+  },
+  {
+    from: './world/campus.js',
+    names: ['campusModel', 'campusProgress'],
+  },
+  {
+    from: './graphics/world-builders.js',
+    names: ['buildCampusWorld', 'buildFabUltra', 'applyCampusProgress'],
   },
 ];
 
