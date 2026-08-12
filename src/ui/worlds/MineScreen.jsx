@@ -54,7 +54,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
   useEffect(() => {
     const mount = mountRef.current;
-    let renderer, raf = 0;
+    let renderer, post = null, raf = 0;
     const cleanup = [];
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
@@ -67,7 +67,6 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       canvas.style.display = 'block';
 
       const scene = new THREE.Scene();
-      let post = null;
       try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
       ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);

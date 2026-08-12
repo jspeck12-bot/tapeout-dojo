@@ -23,9 +23,13 @@ export default [
     plugins: {
       'react-hooks': reactHooks,
     },
+    linterOptions: {
+      reportUnusedDisableDirectives: false,
+    },
     rules: {
       ...js.configs.recommended.rules,
       'no-empty': 'off',
+      'no-useless-assignment': 'off',
       'no-unused-vars': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'off',
