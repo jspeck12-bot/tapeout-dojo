@@ -1,0 +1,53 @@
+# TAPEOUT — the Verilog dojo
+
+A first-person 3D RPG that teaches Verilog. `src/tapeout.jsx` is a SINGLE FILE
+(~670KB, ~14k lines) that must stay runnable both locally (Vite) and pasted
+into a Claude.ai artifact.
+
+## Hard constraints — do not violate
+
+1. **Single file.** All game code lives in `src/tapeout.jsx` with exactly ONE
+   `export default`. Do not split it into modules. `src/main.jsx` is the local
+   entry point only and is NOT part of the game.
+2. **three r128, core only.** No `three/examples/*`, no jsm imports, no
+   OrbitControls, no EffectComposer. `THREE.CapsuleGeometry` does not exist in
+   r128 — use Cylinder + Sphere. Post-processing is hand-rolled in
+   `makePostFX` with ShaderMaterial + WebGLRenderTarget.
+3. **No localStorage inside `tapeout.jsx`.** The artifact runtime forbids it.
+   The game calls the async `window.storage` API and degrades to in-memory
+   saves if absent. Local persistence comes from the shim in `src/main.jsx`.
+4. **All audio is synthesized** via Web Audio. No asset files, ever.
+5. **lucide-react** icons must be imported by name; `Map` must be aliased
+   (`Map as MapIcon`) because it collides with the global.
+6. **No new runtime dependencies.** react, react-dom, three, lucide-react only.
+
+## Workflow
+
+- Run `npm run gate` before considering any change done. It must print
+  `GATE GREEN`. It runs: esbuild bundle -> layout validation (all 7 worlds) ->
+  content validation (309 checks) -> visual harness (8 scenes) -> React smoke
+  test -> artifact-compatibility check.
+- The gate scripts import internals by appending an export line to a COPY of
+  the source in `.gate/` — never add exports to `tapeout.jsx` itself.
+- `npm run dev` for the actual game.
+
+## Navigation
+
+The file opens with a TABLE OF CONTENTS listing ~36 fenced sections. Grep a
+section title to jump. Major regions: VERILOG ENGINE, CONTENT, DEBUG BAY CORE,
+FLIGHT RECORDER, COMBAT SYSTEM, FAB CAMPUS, BIT MINES, TRAIL DUNGEON MODELS,
+ULTRA POST PIPELINE, ULTRA FAB LAYER, APP SHELL.
+
+## Gotchas learned the hard way
+
+- **CodeScreen and the Forge share near-identical run() internals.** A
+  find-and-replace targeting one will silently hit both. Scope edits to the
+  function body, and always assert the match count is what you expect.
+- **World layouts are rasterized at 2-unit cell centers.** Rect edges landing
+  on odd coordinates create phantom walls that can seal a world. Keep world
+  dimensions and offsets EVEN. `npm run gate:layout` catches this.
+- **Gate colliders must span the full corridor opening**, or players walk
+  around them.
+- Station numbering (`ord`) comes from `stationSequence()` and must match
+  between the 3D world and the 2D world screen — both derive from
+  `challengesOf(w)`.
