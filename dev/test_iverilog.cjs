@@ -179,7 +179,7 @@ function run() {
       ], `${challenge.id} wrapper testbench compile`);
       const wrapperResult = runCommand('vvp', [wrapperSimulation], `${challenge.id} wrapper simulation`);
       if (!wrapperResult.includes('WRAPPER PASS:')) {
-        throw new Error(`${challenge.id} wrapper mapping simulation failed`);
+        throw new Error(`${challenge.id} wrapper mapping simulation failed\n${wrapperResult.trim()}`);
       }
       checks += 2;
 
