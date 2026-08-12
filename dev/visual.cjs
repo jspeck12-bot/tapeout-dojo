@@ -13,7 +13,10 @@ const SCENE_FLOORS = require('./fixtures/visual-golden.cjs');
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 function blankSave() {
-  return { done: {}, doneNg: {}, lessons: {}, ngplus: false, tapeoutDone: false };
+  return {
+    done: {}, doneNg: {}, lessons: {}, ngplus: false, tapeoutDone: false,
+    exploration: { graces: {}, lore: {}, caches: {}, discovered: {} },
+  };
 }
 function finishStation(save, station) {
   if (station.kind === 'book') save.lessons[station.lid] = true;
@@ -63,6 +66,9 @@ function assertWorldApi(name, model, api) {
     `scene "${name}" has ${Object.keys(api.totems).length} totems for ${fights.length} fights`);
   assert(Object.keys(api.books).length === books.length,
     `scene "${name}" has ${Object.keys(api.books).length} books for ${books.length} notes`);
+  assert(api.exploration &&
+    Object.keys(api.exploration).length === model.exploration.features.length,
+  `scene "${name}" exploration props do not match model features`);
 }
 function assertStationProgress(m, name, model, api, applyProgress, world) {
   const save = blankSave();
@@ -125,6 +131,21 @@ function assertStationProgress(m, name, model, api, applyProgress, world) {
   const boss = fights.find((item) => item.boss);
   assert(api.totems[boss.id].beaconMat.color.getHex() === 0xfacc15,
     `scene "${name}" uncleared boss did not remain gold`);
+
+  const explorationSave = blankSave();
+  for (const feature of model.exploration.features) {
+    const entry = api.exploration[feature.id];
+    if (feature.kind === 'grace') explorationSave.exploration.graces[feature.id] = true;
+    else if (feature.kind === 'lore') explorationSave.exploration.lore[feature.id] = true;
+    else explorationSave.exploration.caches[feature.id] = true;
+    applyProgress(api, model, explorationSave);
+    if (feature.kind === 'cache') {
+      assert(entry.group.visible === false, `scene "${name}" collected cache ${feature.id} stayed visible`);
+    } else {
+      assert(entry.material.color.getHex() === 0x2ea56a,
+        `scene "${name}" completed feature ${feature.id} did not turn green`);
+    }
+  }
 }
 
 function run() {

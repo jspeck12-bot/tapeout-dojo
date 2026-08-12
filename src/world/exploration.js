@@ -1,0 +1,156 @@
+const WORLD_LORE = {
+  1: [
+    { title: '1947 · THE FIRST TRANSISTOR', body: 'Bardeen, Brattain, and Shockley demonstrated the first working transistor at Bell Labs. The first device was germanium and large enough to hold; modern chips print billions of transistor switches on one die.' },
+    { title: '1959 · THE MOSFET', body: 'Mohamed Atalla and Dawon Kahng built the MOSFET, the transistor structure that made dense integrated circuits practical. Its insulated gate is why a tiny voltage can control a much larger current path.' },
+  ],
+  2: [
+    { title: '1965 · MOORE’S OBSERVATION', body: 'Gordon Moore observed that economically useful component counts were doubling at a remarkable pace. It was an industry target, not a law of physics—and each generation demanded new materials, optics, and design methods.' },
+    { title: 'BOOLEAN ALGEBRA MEETS RELAYS', body: 'Claude Shannon’s 1937 master’s thesis showed that Boolean algebra could describe switching circuits. That bridge from symbols to physical switches is the foundation beneath modern RTL synthesis.' },
+  ],
+  3: [
+    { title: '1958 · THE INTEGRATED CIRCUIT', body: 'Jack Kilby and Robert Noyce independently developed ways to place multiple components on one substrate. Noyce’s planar approach made practical mass production possible.' },
+    { title: 'WHY HIERARCHY WON', body: 'Large chips are built as modules because no engineer can reason about billions of devices at once. Hierarchy lets teams verify contracts locally, then integrate them into systems.' },
+  ],
+  4: [
+    { title: '1994 · PENTIUM FDIV', body: 'A few missing lookup-table entries caused rare floating-point division errors in the Pentium processor. The recall cost Intel hundreds of millions of dollars and made exhaustive verification a boardroom concern.' },
+    { title: 'THE CRITICAL PATH', body: 'A synchronous chip can clock only as fast as its slowest register-to-register logic path. Faster arithmetic often spends extra area to compute carries and choices in parallel.' },
+  ],
+  5: [
+    { title: 'SETUP AND HOLD ARE PHYSICAL', body: 'A flip-flop needs data stable around its sampling edge. Violating that aperture can cause metastability: an analog indecision that digital simulation cannot model away.' },
+    { title: 'CLOCK TREES', body: 'A modern clock network drives enormous capacitance while trying to reach every register at nearly the same time. Clock-tree synthesis balances delay, power, skew, and routing congestion.' },
+  ],
+  6: [
+    { title: 'THE CONTROLLER/DATAPATH SPLIT', body: 'Processors and accelerators often separate a datapath that transforms values from a controller that sequences operations. FSMs are the compact language of that control.' },
+    { title: 'THE ARIANE 5 LESSON', body: 'A reused conversion overflowed during Ariane 5’s first launch, causing both redundant inertial systems to fail identically. Redundancy does not help when duplicated logic shares the same assumption.' },
+  ],
+  7: [
+    { title: 'WHY FABS COST BILLIONS', body: 'Leading-edge fabrication combines extreme-ultraviolet optics, atom-scale process control, ultrapure materials, and enormous facilities. Design data is cheap to copy; manufacturing precision is not.' },
+    { title: 'GDSII TO SILICON', body: 'Tapeout releases the final geometric database for mask preparation and fabrication. After that handoff, a logic mistake is no longer a quick rebuild—it is physical silicon and calendar time.' },
+  ],
+};
+
+const WORLD_LANDMARKS = {
+  1: 'The Wyrm Cathedral',
+  2: 'The Universal Monolith',
+  3: 'The Foundry Stack',
+  4: 'The Encoder Colossus',
+  5: 'The Clock Crown',
+  6: 'The State Keep',
+  7: 'The Golden Wafer',
+};
+
+function featureCandidates(model) {
+  const usable = model.rects.filter((rect) => rect.zone !== model.bossZone);
+  const points = [];
+  for (const rect of usable) {
+    const width = rect.x2 - rect.x1;
+    const depth = rect.z2 - rect.z1;
+    const dx = Math.min(5, Math.max(1.5, width * 0.22));
+    const dz = Math.min(5, Math.max(1.5, depth * 0.22));
+    const cx = (rect.x1 + rect.x2) / 2;
+    const cz = (rect.z1 + rect.z2) / 2;
+    points.push(
+      { x: cx, z: cz },
+      { x: cx - dx, z: cz - dz },
+      { x: cx + dx, z: cz + dz },
+      { x: cx - dx, z: cz + dz },
+      { x: cx + dx, z: cz - dz },
+    );
+  }
+  const occupied = model.interactables.slice();
+  return points.filter((point, index) => {
+    if (points.findIndex((other) => other.x === point.x && other.z === point.z) !== index) return false;
+    return occupied.every((item) => Math.hypot(item.x - point.x, item.z - point.z) >= 5);
+  });
+}
+
+function withExploration(model, world) {
+  if (model.exploration) return model;
+  const candidates = featureCandidates(model);
+  if (candidates.length < 6) {
+    throw new Error(`World ${world} has only ${candidates.length} safe exploration feature positions`);
+  }
+  candidates.sort((a, b) =>
+    Math.hypot(a.x - model.spawn.x, a.z - model.spawn.z) -
+    Math.hypot(b.x - model.spawn.x, b.z - model.spawn.z));
+  const chosen = [
+    candidates[0],
+    candidates[Math.floor(candidates.length * 0.28)],
+    candidates[Math.floor(candidates.length * 0.48)],
+    candidates[Math.floor(candidates.length * 0.65)],
+    candidates[Math.floor(candidates.length * 0.8)],
+    candidates[candidates.length - 1],
+  ];
+  const lore = WORLD_LORE[world];
+  const features = [
+    {
+      id: `grace_${world}`, kind: 'grace', world,
+      x: chosen[0].x, z: chosen[0].z, r: 2.7,
+      title: 'TRACE GRACE', prompt: 'SYNC CHECKPOINT',
+    },
+    ...lore.map((entry, index) => ({
+      id: `lore_${world}_${index + 1}`, kind: 'lore', world,
+      x: chosen[index + 1].x, z: chosen[index + 1].z, r: 2.5,
+      title: entry.title, body: entry.body, prompt: 'READ CHIP HISTORY',
+    })),
+    ...[0, 1, 2].map((index) => ({
+      id: `cache_${world}_${index + 1}`, kind: 'cache', world,
+      x: chosen[index + 3].x, z: chosen[index + 3].z, r: 2.2,
+      scrap: 12 + world * 3 + index * 4, prompt: 'RECOVER SCRAP CACHE',
+    })),
+  ];
+  model.interactables.push(...features);
+  model.exploration = {
+    features,
+    landmark: WORLD_LANDMARKS[world],
+    elevationZones: model.rects
+      .filter((rect) => rect.zone !== model.bossZone)
+      .sort((a, b) => ((b.x2 - b.x1) * (b.z2 - b.z1)) - ((a.x2 - a.x1) * (a.z2 - a.z1)))
+      .slice(0, 2)
+      .map((rect, index) => ({
+        x: (rect.x1 + rect.x2) / 2,
+        z: (rect.z1 + rect.z2) / 2,
+        radius: Math.max(5, Math.min(rect.x2 - rect.x1, rect.z2 - rect.z1) * 0.28),
+        height: 1.5 + index * 1.5,
+      })),
+  };
+  return model;
+}
+
+function explorationState(save) {
+  const state = save.exploration || {};
+  return {
+    graces: state.graces || {},
+    lore: state.lore || {},
+    caches: state.caches || {},
+    discovered: state.discovered || {},
+  };
+}
+
+function featureComplete(save, feature) {
+  const state = explorationState(save);
+  if (feature.kind === 'grace') return !!state.graces[feature.id];
+  if (feature.kind === 'lore') return !!state.lore[feature.id];
+  if (feature.kind === 'cache') return !!state.caches[feature.id];
+  return false;
+}
+
+function elevationAt(model, x, z) {
+  let elevation = 0;
+  for (const zone of model.exploration?.elevationZones || []) {
+    const distance = Math.hypot(x - zone.x, z - zone.z);
+    if (distance >= zone.radius) continue;
+    const t = 1 - distance / zone.radius;
+    elevation = Math.max(elevation, zone.height * t * t * (3 - 2 * t));
+  }
+  return elevation;
+}
+
+export {
+  WORLD_LANDMARKS,
+  WORLD_LORE,
+  explorationState,
+  elevationAt,
+  featureComplete,
+  withExploration,
+};

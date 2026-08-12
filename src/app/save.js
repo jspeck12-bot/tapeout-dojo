@@ -13,6 +13,7 @@ const DEFAULT_SAVE = {
   stats: { topics: {}, playMs: 0, runs: 0 },
   skill: {},
   noteRecall: {},
+  exploration: { graces: {}, lore: {}, caches: {}, discovered: {} },
   campusVisited: false,
   tutorial: { completed: false, skipped: false, step: 0, replays: 0 },
 };
@@ -26,6 +27,12 @@ function cloneSaveForMutation(previous) {
     ach: [...previous.ach],
     skill: { ...previous.skill },
     noteRecall: { ...previous.noteRecall },
+    exploration: {
+      graces: { ...previous.exploration.graces },
+      lore: { ...previous.exploration.lore },
+      caches: { ...previous.exploration.caches },
+      discovered: { ...previous.exploration.discovered },
+    },
     bugsSolved: [...previous.bugsSolved],
     bugClean: [...previous.bugClean],
     streak: { ...previous.streak },
@@ -48,6 +55,7 @@ function normalizeSaveBase(p) {
     Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
   const stats = objectOf(q.stats);
   const tutorial = objectOf(q.tutorial);
+  const exploration = objectOf(q.exploration);
   const hasLegacyProgress = !!p && (
     countOf(q.xp) > 0 ||
     Object.keys(objectOf(q.done)).length > 0 ||
@@ -77,6 +85,12 @@ function normalizeSaveBase(p) {
     },
     skill: { ...objectOf(q.skill) },
     noteRecall: { ...objectOf(q.noteRecall) },
+    exploration: {
+      graces: { ...objectOf(exploration.graces) },
+      lore: { ...objectOf(exploration.lore) },
+      caches: { ...objectOf(exploration.caches) },
+      discovered: { ...objectOf(exploration.discovered) },
+    },
     sound: typeof q.sound === 'boolean' ? q.sound : DEFAULT_SAVE.sound,
     tapeoutDone: !!q.tapeoutDone,
     ngplus: !!q.ngplus,

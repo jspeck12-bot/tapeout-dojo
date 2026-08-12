@@ -103,11 +103,12 @@ describe('save compatibility', () => {
     for (const key of [
       'done', 'doneNg', 'lessons', 'ach', 'skill', 'bugsSolved', 'bugClean',
       'streak', 'training', 'dailyDone', 'stats', 'gear', 'inv', 'combat', 'owned',
-      'tutorial', 'noteRecall',
+      'tutorial', 'noteRecall', 'exploration',
     ]) {
       expect(next[key]).not.toBe(previous[key]);
     }
     expect(next.stats.topics).not.toBe(previous.stats.topics);
+    expect(next.exploration.graces).not.toBe(previous.exploration.graces);
 
     next.inv.potions--;
     next.combat.kills++;

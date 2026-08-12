@@ -4,6 +4,7 @@ import { DUNGEON_CFG } from './dungeon-config.js';
 import { mineWalls } from './layout.js';
 import { dungeonBossFight, valleyModel, canyonModel } from './open-world.js';
 import { stationSequence } from './progression.js';
+import { withExploration } from './exploration.js';
 
 function dungeonModel(w, fights, lessonIds) {
   if (w === 2) return valleyModel(w, fights, lessonIds);
@@ -91,14 +92,14 @@ function dungeonModel(w, fights, lessonIds) {
   interactables.push({ id: boss.id, kind: 'fight', boss: true, ord: N + 1, x: xa, z: Math.round(Zend - chamberD / 2), r: 3.4, target: { name: boss.kind, id: boss.id }, xp: boss.xp, title: boss.title });
   interactables.push({ id: 'lift', kind: 'exit', x: 0, z: -3, r: 2.6, target: { name: 'surface' } });
 
-  return {
+  return withExploration({
     world: w, rects, colliders: walls, gateCollider,
     collidersClosed: walls.concat([gateCollider]),
     interactables, bounds, path: pts, trail: true,
     spawn: { x: 0, z: -8, yaw: 0 },
     gateZ, gateX, gateW, theme: cfg.theme, zone: cfg.zone, bossZone: cfg.bossZone,
     regularIds: regular.map(f => f.id), bossId: boss.id,
-  };
+  }, w);
 }
 
 function dungeonGateOpen(save, model) {

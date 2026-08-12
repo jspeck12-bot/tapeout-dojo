@@ -2,6 +2,7 @@ import { mkBox } from './collision.js';
 import { activeDone } from './challenges.js';
 import { mineWalkRects, mineWalls } from './layout.js';
 import { stationSequence } from './progression.js';
+import { withExploration } from './exploration.js';
 
 const MINE_FIGHTS = [
   { id: 'b1', x: -26, z: 45 }, { id: 'b2', x: 26, z: 37 },
@@ -36,14 +37,14 @@ function mineModel(lessonIds) {
     { x: -3.4, z: -10 }, { x: 0, z: -40 }, { x: -26, z: 45 }, { x: 26, z: 37 },
   ];
   const beams = [50, 30, 12, -6, -28, -46].map(z => ({ x: 0, z }));
-  return {
+  return withExploration({
     rects, colliders: walls, gateCollider,
     collidersClosed: walls.concat([gateCollider]),
     interactables, lanterns, beams, bounds,
     spawn: { x: 0, z: 68, yaw: 0 },
     gateZ: -57,
     path: [{ x: 0, z: 64 }, { x: 0, z: 40 }, { x: 0, z: 10 }, { x: 0, z: -20 }, { x: 0, z: -46 }, { x: 0, z: -57 }, { x: 0, z: -80 }],
-  };
+  }, 1);
 }
 
 function mineGateOpen(save) {

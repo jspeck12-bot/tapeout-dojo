@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BookOpen, ChevronLeft, Coins, Settings, X,
+  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, X,
 } from "lucide-react";
 import * as THREE from "three";
 import {
@@ -17,10 +17,12 @@ import { buildMineWorld, applyMineProgress } from '../../graphics/world-builders
 import { resolveCollisions, nearestInteractable } from '../../world/collision.js';
 import { activeDone } from '../../world/challenges.js';
 import { mineModel, mineGateOpen, mineZoneAt } from '../../world/mine.js';
+import { elevationAt, featureComplete } from '../../world/exploration.js';
 import { GauntletScreen } from '../challenges.jsx';
 import { NoteTerminal } from '../codex/NoteTerminal.jsx';
 import { Paragraphs } from '../foundations.jsx';
 import { TouchControls, CinematicFX, EnterFade } from '../world-shared.jsx';
+import { WorldMap } from './WorldMap.jsx';
 
 function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('heavy_press'); musicSetState('explore'); } catch (e) { } }, []);
@@ -31,6 +33,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [banner, setBanner] = useState('ENTRANCE GALLERY');
   const [showHelp, setShowHelp] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
   const ctxRef = useRef(null);
   const ambRef = useRef(null);
   const engineRef = useRef(null);
@@ -42,6 +45,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   const inputRef = useRef({ jx: 0, jy: 0, sprint: false });
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window;
   const lessonIds = (LESSONS[1] || []).map(l => l.id);
+  useEffect(() => { cb.onWorldDiscovered(1); }, []); // eslint-disable-line
 
   const openOverlay = useCallback((sc) => {
     try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
@@ -105,7 +109,14 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       ambRef.current = createAmbience(scene, 'mine');
       cleanup.push(() => { try { ambRef.current && ambRef.current.dispose(); } catch (e) { } });
 
-      const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.03 };
+      const grace = model.exploration?.features.find(feature =>
+        feature.kind === 'grace' && saveRefM.current.exploration?.graces?.[feature.id]);
+      const player = {
+        x: grace ? grace.x : model.spawn.x,
+        z: grace ? grace.z : model.spawn.z,
+        yaw: model.spawn.yaw,
+        pitch: -0.03,
+      };
       const keys = {};
       let dragging = false, lastTX = 0, lastTY = 0, promptKey = '', zoneNow = 'ENTRANCE GALLERY', frame = 0;
       let _moving = false, _sprint = false; const _bob = {};
@@ -120,6 +131,12 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         if (!it) return;
         if (lockedTest(it)) { AudioFX.bad(); return; }
         if (it.kind === 'exit') { AudioFX.click(); go({ name: 'menu' }); return; }
+        if (it.kind === 'grace' || it.kind === 'cache' || it.kind === 'lore') {
+          cb.onExploreFeature(it);
+          if (it.kind === 'lore') openOverlay({ name: 'lore', feature: it });
+          else AudioFX.good();
+          return;
+        }
         openOverlay({ ...it.target });
       };
       engineRef.current = { interact: tryInteract };
@@ -241,6 +258,12 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
               } else if (it.kind === 'book') {
                 const L = (LESSONS[1] || []).find(l => l.id === it.lid);
                 text = (isTouch ? '⏎ ' : '[E] ') + 'READ — ' + (it.ord ? '#' + it.ord + ' · ' : '') + (L ? L.title : 'field note');
+              } else if (it.kind === 'grace') {
+                text = (isTouch ? '⏎ ' : '[E] ') + 'SYNC — TRACE GRACE';
+              } else if (it.kind === 'lore') {
+                text = (isTouch ? '⏎ ' : '[E] ') + 'ARCHIVE — ' + it.title;
+              } else if (it.kind === 'cache') {
+                text = (isTouch ? '⏎ ' : '[E] ') + 'RECOVER — HIDDEN SCRAP CACHE';
               } else text = (isTouch ? '⏎ ' : '[E] ') + 'MENU — back to the main menu';
               setPrompt({ text, locked: !!lock });
             }
@@ -250,7 +273,8 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         }
         if (frame % 30 === 0) applyMineProgress(api, model, saveRefM.current);
         { const _an = scene.userData.anims; if (_an) { const _tn = now / 1000; for (let _i = 0; _i < _an.length; _i++) _an[_i](_tn, dt); } }
-        camera.position.set(player.x, 1.7, player.z);
+        const elevation = elevationAt(model, player.x, player.z);
+        camera.position.set(player.x, 1.7 + elevation, player.z);
         const _ov = overlayRef.current, _cfx = combatFxRef.current;
         const _tot = _ov && _ov.name === 'gauntlet' && api && api.totems ? api.totems[_ov.id] : null;
         if (_tot && _tot.creature) {
@@ -291,9 +315,9 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
           if (camera.fov !== 74) { camera.fov = 74; camera.updateProjectionMatrix(); }
           if (vignetteRef.current && vignetteRef.current.style.opacity !== '0') vignetteRef.current.style.opacity = '0';
         }
-        lamp.position.set(player.x, 1.78, player.z);
+        lamp.position.set(player.x, 1.78 + elevation, player.z);
         const fx2 = -Math.sin(player.yaw), fz2 = -Math.cos(player.yaw);
-        lamp.target.position.set(player.x + fx2 * 7, 1.0 + player.pitch * 4, player.z + fz2 * 7);
+        lamp.target.position.set(player.x + fx2 * 7, elevation + 1.0 + player.pitch * 4, player.z + fz2 * 7);
         if (api.creatures) { const _ct = now / 1000; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
         const _stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
@@ -331,16 +355,25 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
             onRecall={correct => cb.onLessonRecall(L.id, correct)} />
         </div>
       ) : <div style={{ marginTop: 20, color: '#76849A' }}>The pages have rotted away.</div>;
+    } else if (overlay.name === 'lore') {
+      label = 'CHIP HISTORY ARCHIVE';
+      body = (
+        <div className="card" style={{ padding: '20px', marginTop: 16, maxWidth: 680 }}>
+          <div className="eyebrow" style={{ color: '#A3E635' }}>optional recovered history</div>
+          <h2 style={{ margin: '8px 0' }}>{overlay.feature.title}</h2>
+          <div style={{ color: '#B9C6D6', lineHeight: 1.65 }}>{overlay.feature.body}</div>
+        </div>
+      );
     }
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: overlay.name === 'gauntlet' ? 'radial-gradient(ellipse at 50% 40%, rgba(3,5,9,0.28) 0%, rgba(3,5,9,0.88) 80%)' : 'rgba(3,5,9,0.93)', overflowY: 'auto' }}>
         <div style={{ maxWidth: 1060, margin: '0 auto', padding: '14px 18px 60px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderBottom: '1px solid #161D29', paddingBottom: 10 }}>
-            <span className="eyebrow" style={{ color: overlay.name === 'note' ? '#9FB2C9' : '#FF8B82', letterSpacing: '0.14em' }}>{overlay.name === 'note' ? '✦ ' : '⚔ '}{label}</span>
+            <span className="eyebrow" style={{ color: overlay.name === 'note' || overlay.name === 'lore' ? '#9FB2C9' : '#FF8B82', letterSpacing: '0.14em' }}>{overlay.name === 'note' || overlay.name === 'lore' ? '✦ ' : '⚔ '}{label}</span>
             <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, color: '#FFC76B', fontVariantNumeric: 'tabular-nums' }}><Coins size={13} /> {save.scrap || 0}</span>
             {overlay.name !== 'note' && <button className="lnk" onClick={() => { AudioFX.click(); setNotesOpen(v => !v); }}><BookOpen size={12} /> field notes</button>}
             <button className="lnk" onClick={() => { AudioFX.click(); setNotesOpen(false); setOverlay(null); }}>
-              {overlay.name === 'note' ? 'close' : 'flee'} <X size={12} />
+              {overlay.name === 'note' || overlay.name === 'lore' ? 'close' : 'flee'} <X size={12} />
             </button>
           </div>
           {body}
@@ -373,7 +406,10 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     return (
       <div style={{ marginTop: 22, maxWidth: 640, position: 'relative' }}>
         {overlay && renderOverlay()}
-        <button className="lnk" onClick={() => go({ name: 'menu' })}><ChevronLeft size={14} /> main menu</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="lnk" onClick={() => go({ name: 'menu' })}><ChevronLeft size={14} /> main menu</button>
+          <button className="lnk" onClick={() => setMapOpen(true)}><MapIcon size={13} /> map</button>
+        </div>
         <div className="card" style={{ padding: '16px 18px', marginTop: 8 }}>
           <div className="eyebrow" style={{ color: '#FF8B82', marginBottom: 8 }}>NO WEBGL SIGNAL</div>
           <div style={{ fontSize: 13, color: '#B9C6D6', marginBottom: 14 }}>
@@ -405,12 +441,28 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
                 </button>
               );
             })}
+            {model.exploration.features.map(feature => {
+              const complete = featureComplete(save, feature);
+              return (
+                <button key={feature.id} className="card"
+                  style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer', borderColor: complete ? '#2E6F52' : '#273245' }}
+                  onClick={() => {
+                    cb.onExploreFeature(feature);
+                    if (feature.kind === 'lore') openOverlay({ name: 'lore', feature });
+                  }}>
+                  <span style={{ fontSize: 12.5, color: feature.kind === 'cache' ? '#FFC76B' : feature.kind === 'lore' ? '#A3E635' : '#7DEFFF' }}>
+                    {feature.kind === 'cache' ? 'SECRET CACHE' : feature.kind === 'lore' ? feature.title : 'TRACE GRACE'} {complete ? '✓' : ''}
+                  </span>
+                </button>
+              );
+            })}
             <button className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
               onClick={() => go({ name: 'menu' })}>
               <span style={{ fontSize: 13 }}>MAIN MENU</span>
             </button>
           </div>
         </div>
+        {mapOpen && <WorldMap model={model} save={save} world={1} accent="#FFC76B" onClose={() => setMapOpen(false)} />}
       </div>
     );
   }
@@ -427,6 +479,10 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
         <ChevronLeft size={12} /> menu
+      </button>
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: 25 }}
+        onClick={() => { AudioFX.click(); setMapOpen(true); }}>
+        <MapIcon size={12} /> map
       </button>
 
       {!overlay && !isTouch && (
@@ -468,6 +524,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       <div ref={vignetteRef} style={{ position: 'absolute', inset: 0, zIndex: 39, pointerEvents: 'none', opacity: 0, background: 'radial-gradient(ellipse at center, rgba(170,20,20,0) 38%, rgba(140,8,8,0.92) 100%)' }} />
 
       {overlay && renderOverlay()}
+      {mapOpen && <WorldMap model={mineModel(lessonIds)} save={save} world={1} accent="#FFC76B" onClose={() => setMapOpen(false)} />}
     </div>
   );
 }

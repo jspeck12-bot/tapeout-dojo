@@ -6,6 +6,7 @@ import { nextStationOf } from '../world/progression.js';
 import { CAMPUS_SIZE, CAMPUS_DISTRICTS } from '../world/campus.js';
 import { mineGateOpen } from '../world/mine.js';
 import { dungeonGateOpen } from '../world/dungeon.js';
+import { explorationState } from '../world/exploration.js';
 import {
   WALL_H, makeTextCanvas, groundTexture, matStd, addBoxMesh, mineLabelSprite,
 } from './primitives.js';
@@ -15,6 +16,100 @@ import {
   fieldNoteProp,
 } from './rock.js';
 import { creatureSpec, makeCreature } from './creatures.js';
+
+function buildExplorationProps(scene, model, accent) {
+  const built = {};
+  for (const zone of model.exploration?.elevationZones || []) {
+    const overlook = new THREE.Mesh(
+      new THREE.CylinderGeometry(zone.radius * 0.55, zone.radius, zone.height, 28),
+      matStd(0x263242, { roughness: 0.9, metalness: 0.18 }),
+    );
+    overlook.position.set(zone.x, zone.height / 2 - 0.05, zone.z);
+    overlook.receiveShadow = true;
+    scene.add(overlook);
+    const rail = new THREE.Mesh(
+      new THREE.TorusGeometry(zone.radius * 0.58, 0.08, 6, 36),
+      new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.36 }),
+    );
+    rail.rotation.x = Math.PI / 2;
+    rail.position.set(zone.x, zone.height + 0.06, zone.z);
+    scene.add(rail);
+  }
+  for (const feature of (model.exploration && model.exploration.features) || []) {
+    const group = new THREE.Group();
+    group.position.set(feature.x, 0, feature.z);
+    if (feature.kind === 'grace') {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(1.35, 0.12, 8, 28),
+        new THREE.MeshBasicMaterial({ color: 0x7defff }),
+      );
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = 0.18;
+      group.add(ring);
+      const pillar = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.22, 2.8, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }),
+      );
+      pillar.position.y = 1.4;
+      group.add(pillar);
+      group.add(fxCone(0x7defff, 1.4, 4.2, 0.05, 0, 0));
+      const label = mineLabelSprite('TRACE GRACE', '#7DEFFF', 0.55);
+      label.position.y = 3.3;
+      group.add(label);
+      (scene.userData.anims = scene.userData.anims || []).push((time) => {
+        ring.rotation.z = time * 0.8;
+        pillar.material.opacity = 0.55 + Math.sin(time * 2) * 0.18;
+      });
+      built[feature.id] = { group, material: ring.material, feature };
+    } else if (feature.kind === 'lore') {
+      const terminal = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 1.8, 0.45),
+        matStd(0x182534, { emissive: accent, emissiveIntensity: 0.28, metalness: 0.7 }),
+      );
+      terminal.position.y = 0.9;
+      group.add(terminal);
+      const screen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.72, 0.72),
+        new THREE.MeshBasicMaterial({ color: accent }),
+      );
+      screen.position.set(0, 1.05, 0.231);
+      group.add(screen);
+      built[feature.id] = { group, material: screen.material, feature };
+    } else {
+      const crate = new THREE.Mesh(
+        new THREE.BoxGeometry(1.25, 0.8, 1.05),
+        matStd(0x49351e, { emissive: 0x6f4819, emissiveIntensity: 0.35, metalness: 0.35 }),
+      );
+      crate.position.y = 0.4;
+      group.add(crate);
+      const trace = new THREE.Mesh(
+        new THREE.TorusGeometry(0.42, 0.06, 6, 18),
+        new THREE.MeshBasicMaterial({ color: 0xffc76b }),
+      );
+      trace.rotation.x = Math.PI / 2;
+      trace.position.y = 0.84;
+      group.add(trace);
+      built[feature.id] = { group, material: trace.material, feature };
+    }
+    scene.add(group);
+  }
+  return built;
+}
+
+function applyExplorationProgress(api, save) {
+  if (!api || !api.exploration) return;
+  const state = explorationState(save);
+  Object.values(api.exploration).forEach((entry) => {
+    const feature = entry.feature;
+    const complete = feature.kind === 'grace'
+      ? !!state.graces[feature.id]
+      : feature.kind === 'lore'
+        ? !!state.lore[feature.id]
+        : !!state.caches[feature.id];
+    if (feature.kind === 'cache') entry.group.visible = !complete;
+    else entry.material.color.setHex(complete ? 0x2ea56a : feature.kind === 'grace' ? 0x7defff : 0xffc76b);
+  });
+}
 
 function buildFabUltra(scene, model, api) {
   const low = typeof window !== 'undefined' && 'ontouchstart' in window;
@@ -842,6 +937,7 @@ function buildMineWorld(scene, model) {
 
   caveDressing(scene, model);
   lightScene(scene, model.bounds, { ceil: true, dust: 0x6a5030, glowSize: 4.8, glowOpacity: 0.8 });
+  api.exploration = buildExplorationProps(scene, model, 0xf5b14c);
 
   return api;
 }
@@ -864,6 +960,7 @@ function applyMineProgress(api, model, save) {
     if (nx) { api.nextGrp.visible = true; api.nextGrp.position.set(nx.x, 0, nx.z); }
     else api.nextGrp.visible = false;
   }
+  applyExplorationProgress(api, save);
 }
 
 function buildArcadeWorld(scene, model) {
@@ -973,6 +1070,7 @@ function buildDungeonNodes(scene, model, theme, api) {
   const ll = mineLabelSprite('SURFACE LIFT', '#7DEFFF', 0.8);
   ll.position.set(lift.x, 3.1, lift.z); scene.add(ll);
   api.nextGrp = makeNextBeacon(scene, acc, !theme.ceil);
+  api.exploration = buildExplorationProps(scene, model, acc);
 }
 
 function scatterStructures(scene, model, theme) {
@@ -1134,9 +1232,11 @@ function applyDungeonProgress(api, model, save) {
     if (nx) { api.nextGrp.visible = true; api.nextGrp.position.set(nx.x, 0, nx.z); }
     else api.nextGrp.visible = false;
   }
+  applyExplorationProgress(api, save);
 }
 
 export {
+  buildExplorationProps, applyExplorationProgress,
   buildFabUltra, buildCampusWorld, applyCampusProgress, makeNextBeacon,
   skyDome, cliffRun, valleyMountains, buildPathTrail,
   buildValley, buildCanyon, buildMineWorld, applyMineProgress,

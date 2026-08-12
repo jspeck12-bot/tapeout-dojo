@@ -301,6 +301,25 @@ export function App() {
 
   const onVisited = useCallback(() => { mutate((s) => { s.campusVisited = true; }); }, [mutate]);
 
+  const onWorldDiscovered = useCallback((world) => {
+    mutate((s) => { s.exploration.discovered[world] = true; });
+  }, [mutate]);
+
+  const onExploreFeature = useCallback((feature) => {
+    const state = saveRef.current.exploration;
+    const bucket = feature.kind === 'grace' ? 'graces' : feature.kind === 'lore' ? 'lore' : 'caches';
+    if (state[bucket][feature.id]) return;
+    try { FR.ev('discover', { id: feature.id, kind: feature.kind }); } catch (e) { }
+    mutate((s, ctx) => {
+      s.exploration[bucket][feature.id] = true;
+      if (feature.kind === 'cache') s.scrap += feature.scrap;
+      if (feature.kind === 'lore') ctx.addXp(2, 'chip-history terminal recovered');
+    });
+    if (feature.kind === 'grace') toast('TRACE GRACE SYNCED', 'Checkpoint and retry node online.', 'ach');
+    else if (feature.kind === 'cache') toast(`+${feature.scrap} SCRAP`, 'Hidden cache recovered.');
+    else toast('HISTORY ARCHIVED', feature.title);
+  }, [mutate, toast]);
+
   const onBossWin = useCallback((ng) => {
     setTimeout(() => { setTapeoutModal(ng ? 'ng' : 'base'); setConfetti(['#FACC15', '#FFE27A', '#FB923C', '#7DEFFF', '#A3E635']); }, 600);
   }, []);
@@ -444,6 +463,8 @@ export function App() {
     onBlitzEnd,
     onBugSolve,
     onVisited,
+    onWorldDiscovered,
+    onExploreFeature,
     onCombatEnd,
     onConsume,
     onBuy,
@@ -456,7 +477,8 @@ export function App() {
     readSlot,
   }), [
     onLessonRecall, completeChallenge, onBossWin, onStat, onTrainingClear,
-    onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip,
+    onBlitzEnd, onBugSolve, onVisited, onWorldDiscovered, onExploreFeature,
+    onCombatEnd, onConsume, onBuy, onEquip,
     activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot,
   ]);
 
