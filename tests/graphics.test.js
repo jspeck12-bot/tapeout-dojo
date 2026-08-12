@@ -61,6 +61,15 @@ describe('post-processing pipeline', () => {
     const material = new THREE.MeshBasicMaterial();
     let geometryDisposals = 0;
     let materialDisposals = 0;
+    let textureDisposals = 0;
+    let sharedTextureDisposals = 0;
+    const texture = new THREE.Texture();
+    const sharedTexture = new THREE.Texture();
+    sharedTexture.userData.shared = true;
+    texture.dispose = () => { textureDisposals++; };
+    sharedTexture.dispose = () => { sharedTextureDisposals++; };
+    material.map = texture;
+    material.alphaMap = sharedTexture;
     geometry.dispose = () => { geometryDisposals++; };
     material.dispose = () => { materialDisposals++; };
     scene.add(new THREE.Mesh(geometry, material));
@@ -70,5 +79,7 @@ describe('post-processing pipeline', () => {
 
     expect(geometryDisposals).toBe(1);
     expect(materialDisposals).toBe(1);
+    expect(textureDisposals).toBe(1);
+    expect(sharedTextureDisposals).toBe(0);
   });
 });

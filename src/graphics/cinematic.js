@@ -132,6 +132,7 @@ function glowTexture() {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
   const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding;
+  t.userData.shared = true;
   glowTexture._t = t; return t;
 }
 
@@ -233,6 +234,7 @@ function disposeScene(scene) {
   if (!scene) return;
   const disposedGeometries = new Set();
   const disposedMaterials = new Set();
+  const disposedTextures = new Set();
   scene.traverse((object) => {
     if (object.geometry && !disposedGeometries.has(object.geometry)) {
       disposedGeometries.add(object.geometry);
@@ -242,6 +244,11 @@ function disposeScene(scene) {
     for (const material of materials) {
       if (!material || disposedMaterials.has(material)) continue;
       disposedMaterials.add(material);
+      for (const value of Object.values(material)) {
+        if (!value || !value.isTexture || value.userData.shared || disposedTextures.has(value)) continue;
+        disposedTextures.add(value);
+        try { value.dispose(); } catch (error) { }
+      }
       try { material.dispose(); } catch (error) { }
     }
   });
