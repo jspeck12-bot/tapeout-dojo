@@ -24,7 +24,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install independent Verilog simulator
+        run: sudo apt-get update && sudo apt-get install -y iverilog
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm run gate
+      - run: npm run test:rtl
       - name: Build GitHub Pages bundle
         run: GH_PAGES_BASE="/${{ github.event.repository.name }}/" npm run build
       - uses: actions/configure-pages@v5
