@@ -33,6 +33,25 @@ import {
   musicSetTrack, musicCycleTrack,
 } from './audio/index.js';
 import { BUILD_TAG, FR } from './telemetry/flight-recorder.js';
+import {
+  mkBox, circleVsAABB, resolveCollisions, nearestInteractable,
+} from './world/collision.js';
+import {
+  ALL_CHALLENGES, WORLD_ORDER, challengesOf, worldDone, activeDone,
+  worldUnlocked, worldUnlockedEx,
+} from './world/challenges.js';
+import { stationSequence, nextStationOf } from './world/progression.js';
+import { MINE_CELL, mineWalls } from './world/layout.js';
+import { DUNGEON_CFG } from './world/dungeon-config.js';
+import {
+  CAMPUS_SIZE, COURT_HALF, CAMPUS_DISTRICTS, campusModel, campusProgress,
+} from './world/campus.js';
+import {
+  MINE_FIGHTS, mineModel, mineGateOpen, mineZoneAt,
+} from './world/mine.js';
+import { arcadeModel } from './world/arcade.js';
+import { valleyModel, canyonModel } from './world/open-world.js';
+import { dungeonModel, dungeonGateOpen } from './world/dungeon.js';
 
 // ============================================================
 // TAPEOUT — the Verilog dojo · single-file React artifact
@@ -573,26 +592,10 @@ function Header({ save, onHome, onToggleSound, onSettings }) {
   );
 }
 
-// ---------- challenge registry helpers ----------
-const ALL_CHALLENGES = [];
-GAUNTLETS.forEach(g => ALL_CHALLENGES.push({ kind: 'gauntlet', id: g.id, world: g.world, title: g.title, xp: g.xp, def: g }));
-TRUTH_CHALLENGES.forEach(t => ALL_CHALLENGES.push({ kind: 'truth', id: t.id, world: t.world, title: t.title, xp: t.xp, def: t }));
-CODE_CHALLENGES.forEach(c => ALL_CHALLENGES.push({ kind: 'code', id: c.id, world: c.world, title: c.title, xp: c.xp, boss: c.boss, def: c }));
 // ============================================================
-// WORLD INDEX + 2D SCREENS — challengesOf, WorldScreen
+// WORLD INDEX + 2D SCREENS — WorldScreen
+// Pure challenge registry and unlock helpers live in ./world/challenges.js.
 // ============================================================
-const WORLD_ORDER = { b1: 1, b2: 2, b3: 3, b4: 4, b5: 5, b6: 6, g1: 1, g2: 2, g3: 3, g4: 4, g5: 5, g7: 6, g6: 7, m1: 1, m2: 2, m3: 3, m4: 4, m5: 5, m7: 6, m6: 7, c1: 1, c2: 2, c3: 3, c4: 4, c5: 5, c6: 6, c8: 7, c9: 8, c10: 9, c11: 10, c7: 11, s1: 1, s2: 2, s3: 3, s4: 4, s5: 5, s6: 6, s8: 7, s7: 8, f1: 1, f4: 2, f2: 3, f3: 4 };
-function challengesOf(w) {
-  return ALL_CHALLENGES.filter(c => c.world === w).sort((a, b) => (WORLD_ORDER[a.id] || 99) - (WORLD_ORDER[b.id] || 99) || a.id.localeCompare(b.id));
-}
-function worldDone(w, save) { return challengesOf(w).every(c => save.done[c.id]); }
-function activeDone(save) { return save.ngplus ? (save.doneNg || {}) : save.done; }
-function worldUnlockedEx(w, save) { return save.ngplus ? true : worldUnlocked(w, save); }
-function worldUnlocked(w, save) {
-  if (w === 1) return true;
-  if (w === 7) return [1, 2, 3, 4, 5, 6].every(x => worldDone(x, save));
-  return worldDone(w - 1, save);
-}
 const WORLD_ICONS = { 1: Pickaxe, 2: Binary, 3: Flame, 4: Mountain, 5: Clock, 6: Castle, 7: Cpu };
 
 function WorldScreen({ w, save, go, onLessonRead }) {
@@ -2813,154 +2816,8 @@ function LevelUpModal({ info, save, onClose }) {
 // FAB CAMPUS CORE — model, pure logic, 3D builders
 // ============================================================
 
-const CAMPUS_SIZE = 260;
-const COURT_HALF = 28;
+// Pure collision and campus model helpers live in ./world/.
 const WALL_H = 5;
-const CAMPUS_DISTRICTS = [
-  { w: 1, name: 'Bit Mines', x: -75, z: 62, color: 0xFFB86B },
-  { w: 2, name: 'Gate Valley', x: 75, z: 62, color: 0x7DEFFF },
-  { w: 3, name: 'Module Foundry', x: -95, z: 0, color: 0xFB923C },
-  { w: 4, name: 'Combinational Canyon', x: 95, z: 0, color: 0xA3E635 },
-  { w: 5, name: 'Clock Tower', x: -75, z: -62, color: 0x22D3EE },
-  { w: 6, name: 'FSM Fortress', x: 75, z: -62, color: 0xC4B5FD },
-  { w: 7, name: 'TAPEOUT', x: 0, z: -95, color: 0xFACC15 },
-];
-
-// ---------- pure helpers (headless-testable) ----------
-function mkBox(cx, cz, sx, sz, tag) { return { minX: cx - sx / 2, maxX: cx + sx / 2, minZ: cz - sz / 2, maxZ: cz + sz / 2, tag: tag || '' }; }
-function circleVsAABB(px, pz, r, b) {
-  const cx = Math.max(b.minX, Math.min(px, b.maxX));
-  const cz = Math.max(b.minZ, Math.min(pz, b.maxZ));
-  const dx = px - cx, dz = pz - cz;
-  const d2 = dx * dx + dz * dz;
-  if (d2 >= r * r) return null;
-  if (d2 > 1e-9) { const d = Math.sqrt(d2), push = r - d; return { x: dx / d * push, z: dz / d * push }; }
-  const cands = [
-    { x: (b.minX - r) - px, z: 0 }, { x: (b.maxX + r) - px, z: 0 },
-    { x: 0, z: (b.minZ - r) - pz }, { x: 0, z: (b.maxZ + r) - pz },
-  ];
-  let best = cands[0], bd = Infinity;
-  for (const c of cands) { const m = Math.abs(c.x) + Math.abs(c.z); if (m < bd) { bd = m; best = c; } }
-  return best;
-}
-function resolveCollisions(px, pz, r, colliders) {
-  let x = px, z = pz;
-  for (let pass = 0; pass < 3; pass++) {
-    let moved = false;
-    for (let i = 0; i < colliders.length; i++) {
-      const b = colliders[i];
-      if (b.off) continue;
-      const p = circleVsAABB(x, z, r, b);
-      if (p) { x += p.x; z += p.z; moved = true; }
-    }
-    if (!moved) break;
-  }
-  return { x, z };
-}
-function nearestInteractable(px, pz, items) {
-  let best = null, bd = Infinity;
-  for (const it of items) {
-    const dx = px - it.x, dz = pz - it.z;
-    const d = Math.sqrt(dx * dx + dz * dz);
-    if (d <= it.r && d < bd) { bd = d; best = it; }
-  }
-  return best;
-}
-function districtFacing(d) {
-  const dx = -d.x, dz = -d.z;
-  if (Math.abs(dx) >= Math.abs(dz)) return { fx: dx > 0 ? 1 : -1, fz: 0, side: dx > 0 ? '+x' : '-x' };
-  return { fx: 0, fz: dz > 0 ? 1 : -1, side: dz > 0 ? '+z' : '-z' };
-}
-
-// Build the full walkable model: colliders, gates, interactables, layout anchors.
-function campusModel() {
-  const colliders = [];
-  const gates = [];
-  const interactables = [];
-  const anchors = {}; // per-district placement info for builders
-
-  // die edge (keep player on the platform)
-  const H = CAMPUS_SIZE / 2, T = 6;
-  colliders.push(mkBox(0, -H - T / 2, CAMPUS_SIZE + T * 2, T, 'edge'));
-  colliders.push(mkBox(0, H + T / 2, CAMPUS_SIZE + T * 2, T, 'edge'));
-  colliders.push(mkBox(-H - T / 2, 0, T, CAMPUS_SIZE + T * 2, 'edge'));
-  colliders.push(mkBox(H + T / 2, 0, T, CAMPUS_SIZE + T * 2, 'edge'));
-
-  const OPEN = 14;  // gate opening width
-  const WT = 1.6;   // wall thickness
-
-  CAMPUS_DISTRICTS.forEach(d => {
-    const f = districtFacing(d);
-    const C = COURT_HALF;
-    // wall segments: 3 solid sides + flanks around the opening on the facing side
-    const sides = ['+x', '-x', '+z', '-z'];
-    sides.forEach(side => {
-      const horiz = side === '+z' || side === '-z'; // wall runs along X
-      const off = side === '+x' ? { x: C, z: 0 } : side === '-x' ? { x: -C, z: 0 } : side === '+z' ? { x: 0, z: C } : { x: 0, z: -C };
-      const wx = d.x + off.x, wz = d.z + off.z;
-      if (side === f.side) {
-        // two flank segments leaving an OPEN gap in the middle
-        const span = C * 2, flank = (span - OPEN) / 2;
-        if (horiz) {
-          colliders.push(mkBox(d.x - (OPEN / 2 + flank / 2), wz, flank, WT, 'wall' + d.w));
-          colliders.push(mkBox(d.x + (OPEN / 2 + flank / 2), wz, flank, WT, 'wall' + d.w));
-        } else {
-          colliders.push(mkBox(wx, d.z - (OPEN / 2 + flank / 2), WT, flank, 'wall' + d.w));
-          colliders.push(mkBox(wx, d.z + (OPEN / 2 + flank / 2), WT, flank, 'wall' + d.w));
-        }
-        // gate collider sits in the opening; toggled by progression
-        const gateBox = horiz ? mkBox(d.x, wz, OPEN, WT, 'gate' + d.w) : mkBox(wx, d.z, WT, OPEN, 'gate' + d.w);
-        colliders.push(gateBox);
-        gates.push({ w: d.w, x: horiz ? d.x : wx, z: horiz ? wz : d.z, horiz, collider: gateBox, name: d.name });
-      } else {
-        if (horiz) colliders.push(mkBox(d.x, wz, C * 2 + WT, WT, 'wall' + d.w));
-        else colliders.push(mkBox(wx, d.z, WT, C * 2 + WT, 'wall' + d.w));
-      }
-    });
-
-    // placement anchors inside the courtyard
-    const consolePos = { x: d.x + f.fx * 10, z: d.z + f.fz * 10 };
-    const landmarkPos = { x: d.x - f.fx * 9, z: d.z - f.fz * 9 };
-    const px = f.fz !== 0 ? 1 : 0, pz = f.fx !== 0 ? 1 : 0; // perpendicular axis
-    const padPos = { x: d.x + px * 17 + f.fx * 16, z: d.z + pz * 17 + f.fz * 16 };
-    anchors[d.w] = { facing: f, consolePos, landmarkPos, padPos };
-
-    interactables.push({
-      id: 'console' + d.w, kind: 'console', w: d.w,
-      x: consolePos.x, z: consolePos.z, r: 3.4,
-      prompt: 'OPEN ' + d.name.toUpperCase() + ' CONSOLE',
-      target: { name: 'world', w: d.w },
-    });
-    interactables.push({
-      id: 'pad' + d.w, kind: 'pad', w: d.w,
-      x: padPos.x, z: padPos.z, r: 2.6,
-      prompt: 'FAST TRAVEL',
-      target: { name: 'fasttravel' },
-    });
-  });
-
-  // plaza kiosks (always-reachable hub at origin)
-  const plazaItems = [
-    { id: 'k_training', label: 'TRAINING GROUNDS', x: -22, z: 16, target: { name: 'training' }, needsW3: true },
-    { id: 'k_blitz', label: 'BINARY BLITZ', x: 22, z: 16, target: { name: 'blitz' } },
-    { id: 'k_bugs', label: 'BUG BOUNTY', x: -22, z: -14, target: { name: 'bugs' }, needsW3: true },
-    { id: 'k_ach', label: 'SERVICE RECORD', x: 22, z: -14, target: { name: 'ach' } },
-    { id: 'k_manual', label: 'FIELD MANUAL', x: 7, z: 30, target: { name: 'manual' } },
-    { id: 'k_shop', label: 'SCRAP EXCHANGE', x: -7, z: 30, target: { name: 'shop' } },
-  ];
-  plazaItems.forEach(k => {
-    colliders.push(mkBox(k.x, k.z, 2.2, 2.2, k.id));
-    interactables.push({ id: k.id, kind: 'arcade', x: k.x, z: k.z, r: 3.4, prompt: 'OPEN ' + k.label, target: k.target, needsW3: !!k.needsW3, label: k.label });
-  });
-  interactables.push({ id: 'pad_plaza', kind: 'pad', w: 0, x: 0, z: 44, r: 2.6, prompt: 'FAST TRAVEL', target: { name: 'fasttravel' } });
-
-  return {
-    colliders, gates, interactables, anchors,
-    districts: CAMPUS_DISTRICTS,
-    spawn: { x: 0, z: 96, yaw: 0 },
-    padSpots: [{ w: 0, name: 'Central Plaza', x: 0, z: 44 }].concat(CAMPUS_DISTRICTS.map(d => ({ w: d.w, name: d.name, x: anchors[d.w].padPos.x, z: anchors[d.w].padPos.z }))),
-  };
-}
 
 // ---------- canvas-texture helpers (browser only) ----------
 function makeTextCanvas(lines, opts) {
@@ -3562,21 +3419,6 @@ function applyCampusProgress(api, model, progress) {
 // ============================================================
 // FAB CAMPUS SCREEN — walkable fab, overlay bridge, HUD
 // ============================================================
-
-function campusProgress(save) {
-  const perWorld = {};
-  for (let w = 1; w <= 7; w++) {
-    const chs = challengesOf(w);
-    const dmap = activeDone(save);
-    const done = chs.filter(c => dmap[c.id]).length;
-    perWorld[w] = {
-      unlocked: worldUnlockedEx(w, save),
-      complete: chs.length > 0 && done === chs.length,
-      frac: chs.length ? done / chs.length : 0,
-    };
-  }
-  return { perWorld, tapeoutDone: save.tapeoutDone, ngplus: save.ngplus };
-}
 
 function CampusScreen({ save, go, cb }) {
   const mountRef = useRef(null);
@@ -5018,57 +4860,13 @@ function updateCreature(group, t, opts) {
 
 // ============================================================
 // OPEN-WORLD MODELS — valley + canyon layouts (pure, testable)
-// valleyModel (world 2): open basin you cross, gated golem grounds at the far end.
-// canyonModel (world 4): a winding S-shaped ravine, gated colossus mesa at the end.
-// Both return the SAME shape as dungeonModel + { biome, gateX, gateW } so the
-// generic DungeonScreen / progress / gate logic all work unchanged. Reuses
-// mineWalls (perimeter colliders + openings where rects connect) and mkBox.
+// Pure layouts live in ./world/open-world.js.
 // ============================================================
 
 // ============================================================
 // PROGRESSION OVERHAUL — stations, learning order, next-beacon
+// Pure station sequencing lives in ./world/progression.js.
 // ============================================================
-// Interleave lessons with the challenges that use them: each field note is
-// followed by its share of the world's regular challenges. This sequence IS
-// the learning order, and station numbers everywhere refer to it.
-function stationSequence(regular, lessonIds) {
-  const lids = lessonIds || [];
-  if (!lids.length) return regular.map(f => ({ kind: 'fight', f }));
-  const G = lids.length, F = regular.length, base = Math.floor(F / G), extra = F % G;
-  const seq = []; let fi = 0;
-  for (let g = 0; g < G; g++) {
-    seq.push({ kind: 'book', lid: lids[g] });
-    const take = base + (g < extra ? 1 : 0);
-    for (let k = 0; k < take; k++, fi++) seq.push({ kind: 'fight', f: regular[fi] });
-  }
-  return seq;
-}
-// Order free-placed spots by how far along the world's path they sit.
-function sortByPathProgress(spots, path) {
-  if (!path || path.length < 2) return spots.slice();
-  const cum = [0];
-  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i].x - path[i - 1].x, path[i].z - path[i - 1].z));
-  const prog = (p) => {
-    let best = 1e9, arc = 0;
-    for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i], b = path[i + 1], dx = b.x - a.x, dz = b.z - a.z, L2 = dx * dx + dz * dz;
-      let t = L2 ? ((p.x - a.x) * dx + (p.z - a.z) * dz) / L2 : 0; t = Math.max(0, Math.min(1, t));
-      const d = Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
-      if (d < best) { best = d; arc = cum[i] + Math.sqrt(L2) * t; }
-    }
-    return arc;
-  };
-  return spots.slice().sort((a, b) => prog(a) - prog(b));
-}
-// First station (by number) the player hasn't finished — notes read, fights won.
-function nextStationOf(model, save) {
-  const d = activeDone(save), lr = save.lessons || {};
-  const st = model.interactables.filter(i => i.ord).sort((a, b) => a.ord - b.ord);
-  for (const it of st) {
-    if (it.kind === 'book' ? !lr[it.lid] : !d[it.id]) return it;
-  }
-  return null;
-}
 // A tall, unmistakable "come here next" marker, repositioned as you progress.
 function makeNextBeacon(scene, acc, tall) {
   const g = new THREE.Group();
@@ -5084,91 +4882,6 @@ function makeNextBeacon(scene, acc, tall) {
   g.visible = false;
   scene.add(g);
   return g;
-}
-
-function openModel(w, fights, lessonIds, layout) {
-  const cfg = DUNGEON_CFG[w];
-  const { walls, bounds } = mineWalls(layout.rects);
-  const gateCollider = mkBox(layout.gateX, layout.gateZ, layout.gateW, 1.8, 'gate');
-
-  const boss = dungeonBossFight(fights);
-  const regular = fights.filter(f => f !== boss);
-  // Stations in learning order along the route: each field note, then the
-  // challenges that use it. Spots are walked in path order, so station #1 is
-  // the first thing you meet and the boss is the last.
-  const seq = stationSequence(regular, lessonIds);
-  const sc = sortByPathProgress(layout.scatter, layout.path);
-
-  const interactables = [];
-  seq.forEach((s, i) => {
-    const p = sc[i % sc.length], ord = i + 1;
-    if (s.kind === 'book') interactables.push({ id: 'book_' + s.lid, kind: 'book', lid: s.lid, ord, x: p.x, z: p.z, r: 2.4, target: { name: 'note', id: s.lid } });
-    else interactables.push({ id: s.f.id, kind: 'fight', boss: false, ord, x: p.x, z: p.z, r: 3.4, target: { name: s.f.kind, id: s.f.id }, xp: s.f.xp, title: s.f.title });
-  });
-  interactables.push({ id: boss.id, kind: 'fight', boss: true, ord: seq.length + 1, x: layout.boss.x, z: layout.boss.z, r: 3.4, target: { name: boss.kind, id: boss.id }, xp: boss.xp, title: boss.title });
-  interactables.push({ id: 'lift', kind: 'exit', x: layout.lift.x, z: layout.lift.z, r: 2.6, target: { name: 'surface' } });
-
-  return {
-    world: w, rects: layout.rects, colliders: walls, gateCollider,
-    collidersClosed: walls.concat([gateCollider]),
-    interactables, bounds, path: layout.path,
-    spawn: layout.spawn,
-    gateZ: layout.gateZ, gateX: layout.gateX, gateW: layout.gateW,
-    theme: cfg.theme, zone: cfg.zone, bossZone: cfg.bossZone,
-    regularIds: regular.map(f => f.id), bossId: boss.id,
-    biome: layout.biome,
-  };
-}
-
-function valleyModel(w, fights, lessonIds) {
-  return openModel(w, fights, lessonIds, {
-    biome: 'valley',
-    rects: [
-      { x1: -62, z1: -100, x2: 62, z2: 0, zone: DUNGEON_CFG[w].zone },        // massive basin (124 x 100)
-      { x1: -20, z1: -142, x2: 20, z2: -100, zone: DUNGEON_CFG[w].bossZone },  // golem grounds, deep north
-    ],
-    spawn: { x: 0, z: -8, yaw: 0 },
-    lift: { x: 0, z: -3 },
-    gateZ: -100, gateX: 0, gateW: 42,
-    boss: { x: 0, z: -122 },
-    path: [{ x: 0, z: -8 }, { x: 0, z: -52 }, { x: 0, z: -98 }, { x: 0, z: -120 }],
-    scatter: [
-      { x: -44, z: -22 }, { x: 46, z: -24 }, { x: -52, z: -54 }, { x: 50, z: -56 },
-      { x: -26, z: -42 }, { x: 26, z: -40 }, { x: 0, z: -30 }, { x: -48, z: -84 },
-      { x: 46, z: -86 }, { x: -8, z: -74 }, { x: 30, z: -80 }, { x: -28, z: -90 },
-    ],
-  });
-}
-
-function canyonModel(w, fights, lessonIds) {
-  const Z = DUNGEON_CFG[w].zone, BZ = DUNGEON_CFG[w].bossZone;
-  const S = 1.7, sc = (n) => 2 * Math.round(n * S / 2); // even-snapped: keeps rect edges off raster centers
-  const baseRects = [
-    { x1: -8, z1: -14, x2: 8, z2: 0, zone: Z },      // A entry (south)
-    { x1: -26, z1: -26, x2: 8, z2: -14, zone: Z },   // B turn left
-    { x1: -26, z1: -50, x2: -10, z2: -26, zone: Z },  // C climb
-    { x1: -26, z1: -62, x2: 24, z2: -50, zone: Z },   // D cross right
-    { x1: 6, z1: -86, x2: 24, z2: -62, zone: BZ },    // E colossus mesa
-  ];
-  const baseScatter = [
-    { x: 0, z: -9 }, { x: -20, z: -20 }, { x: -2, z: -20 }, { x: -18, z: -32 },
-    { x: -18, z: -44 }, { x: -18, z: -56 }, { x: 8, z: -56 }, { x: 20, z: -56 },
-    { x: -10, z: -19 }, { x: -22, z: -46 }, { x: 0, z: -56 }, { x: 12, z: -56 },
-    { x: -8, z: -56 }, { x: -14, z: -38 }, { x: 6, z: -23 },
-  ];
-  const basePath = [
-    { x: 0, z: -7 }, { x: -9, z: -20 }, { x: -18, z: -38 }, { x: -1, z: -56 }, { x: 15, z: -74 },
-  ];
-  return openModel(w, fights, lessonIds, {
-    biome: 'canyon',
-    rects: baseRects.map(r => ({ x1: sc(r.x1), z1: sc(r.z1), x2: sc(r.x2), z2: sc(r.z2), zone: r.zone })),
-    spawn: { x: 0, z: sc(-7), yaw: 0 },
-    lift: { x: 0, z: sc(-3) },
-    gateZ: sc(-62), gateX: 25, gateW: 32,
-    boss: { x: sc(15), z: sc(-74) },
-    scatter: baseScatter.map(s => ({ x: sc(s.x), z: sc(s.z) })),
-    path: basePath.map(p => ({ x: sc(p.x), z: sc(p.z) })),
-  });
 }
 
 // ============================================================
@@ -5482,124 +5195,8 @@ function updateViewModel(vm, now, moving, jabT) {
 
 // ============================================================
 // BIT MINES MODEL (pure, testable)
+// Pure layout and mine model helpers live in ./world/.
 // ============================================================
-
-const MINE_CELL = 2;
-
-function mineWalkRects() {
-  return [
-    { x1: -10, z1: 58, x2: 10, z2: 74, zone: 'ENTRANCE GALLERY' },
-    { x1: -4, z1: -52, x2: 4, z2: 60, zone: 'MAIN SHAFT' },
-    // west galleries (b1, b3, b5) + spurs
-    { x1: -34, z1: 38, x2: -18, z2: 52, zone: 'WEST GALLERIES' },
-    { x1: -18, z1: 43, x2: -4, z2: 48, zone: 'WEST GALLERIES' },
-    { x1: -34, z1: 6, x2: -18, z2: 20, zone: 'WEST GALLERIES' },
-    { x1: -18, z1: 11, x2: -4, z2: 16, zone: 'WEST GALLERIES' },
-    { x1: -34, z1: -28, x2: -18, z2: -14, zone: 'WEST GALLERIES' },
-    { x1: -18, z1: -23, x2: -4, z2: -18, zone: 'WEST GALLERIES' },
-    // east galleries (b2, b4) + spurs
-    { x1: 18, z1: 30, x2: 34, z2: 44, zone: 'EAST GALLERIES' },
-    { x1: 4, z1: 35, x2: 18, z2: 40, zone: 'EAST GALLERIES' },
-    { x1: 18, z1: -4, x2: 34, z2: 10, zone: 'EAST GALLERIES' },
-    { x1: 4, z1: 1, x2: 18, z2: 6, zone: 'EAST GALLERIES' },
-    // gate corridor + boss arena
-    { x1: -4, z1: -62, x2: 4, z2: -52, zone: 'THE DEEP GATE' },
-    { x1: -26, z1: -108, x2: 26, z2: -62, zone: 'WYRM HOLLOW' },
-  ];
-}
-
-function mineWalls(rects) {
-  // rasterize to cells, emit run-merged wall boxes on walkable/non-walkable edges
-  let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
-  rects.forEach(r => { minX = Math.min(minX, r.x1); maxX = Math.max(maxX, r.x2); minZ = Math.min(minZ, r.z1); maxZ = Math.max(maxZ, r.z2); });
-  const cs = MINE_CELL;
-  const nx = Math.round((maxX - minX) / cs), nz = Math.round((maxZ - minZ) / cs);
-  const walk = (ix, iz) => {
-    if (ix < 0 || iz < 0 || ix >= nx || iz >= nz) return false;
-    const cx = minX + (ix + 0.5) * cs, cz = minZ + (iz + 0.5) * cs;
-    return rects.some(r => cx > r.x1 && cx < r.x2 && cz > r.z1 && cz < r.z2);
-  };
-  const T = 1.4, H = [];
-  // horizontal walls (along x) at z-lines: key by (iz-line, side) -> runs over ix
-  for (let iz = 0; iz <= nz; iz++) {
-    let runStart = -1;
-    for (let ix = 0; ix <= nx; ix++) {
-      const edge = ix < nx && (walk(ix, iz - 1) !== walk(ix, iz));
-      if (edge && runStart < 0) runStart = ix;
-      if (!edge && runStart >= 0) {
-        const x1 = minX + runStart * cs, x2 = minX + ix * cs, zl = minZ + iz * cs;
-        H.push(mkBox((x1 + x2) / 2, zl, x2 - x1 + T, T, 'wall'));
-        runStart = -1;
-      }
-    }
-  }
-  for (let ix = 0; ix <= nx; ix++) {
-    let runStart = -1;
-    for (let iz = 0; iz <= nz; iz++) {
-      const edge = iz < nz && (walk(ix - 1, iz) !== walk(ix, iz));
-      if (edge && runStart < 0) runStart = iz;
-      if (!edge && runStart >= 0) {
-        const z1 = minZ + runStart * cs, z2 = minZ + iz * cs, xl = minX + ix * cs;
-        H.push(mkBox(xl, (z1 + z2) / 2, T, z2 - z1 + T, 'wall'));
-        runStart = -1;
-      }
-    }
-  }
-  return { walls: H, bounds: { minX, maxX, minZ, maxZ } };
-}
-
-const MINE_FIGHTS = [
-  { id: 'b1', x: -26, z: 45 }, { id: 'b2', x: 26, z: 37 },
-  { id: 'b3', x: -26, z: 13 }, { id: 'b4', x: 26, z: 3 },
-  { id: 'b5', x: -26, z: -21 }, { id: 'b6', x: 0, z: -84, boss: true },
-];
-const MINE_BOOK_SPOTS = [
-  { x: 2.5, z: 54 }, { x: -30, z: 49 }, { x: 30, z: 7 },
-  { x: -2.5, z: -34 }, { x: 22, z: 33 }, { x: -30, z: -25 },
-];
-
-function mineModel(lessonIds) {
-  const lids = lessonIds || [];
-  const rects = mineWalkRects();
-  const { walls, bounds } = mineWalls(rects);
-  const gateCollider = mkBox(0, -57, 8.6, 1.8, 'gate');
-  const interactables = [];
-  // learning order: each field note followed by the drills that use it
-  const seqM = stationSequence(MINE_FIGHTS.filter(f => !f.boss).map(f => ({ id: f.id })), lids);
-  const ordOf = {}; seqM.forEach((s, i) => { ordOf[s.kind === 'book' ? 'book_' + s.lid : s.f.id] = i + 1; });
-  MINE_FIGHTS.forEach(f => {
-    interactables.push({ id: f.id, kind: 'fight', boss: !!f.boss, ord: f.boss ? seqM.length + 1 : ordOf[f.id], x: f.x, z: f.z, r: 3.4, target: { name: 'gauntlet', id: f.id } });
-  });
-  const bs = MINE_BOOK_SPOTS.slice().sort((a, b) => b.z - a.z);
-  lids.forEach((lid, i) => {
-    const s = bs[i % bs.length];
-    interactables.push({ id: 'book_' + lid, kind: 'book', lid, ord: ordOf['book_' + lid], x: s.x, z: s.z, r: 2.4, target: { name: 'note', id: lid } });
-  });
-  interactables.push({ id: 'lift', kind: 'exit', x: 0, z: 71, r: 2.6, target: { name: 'surface' } });
-  const lanterns = [
-    { x: 0, z: 64 }, { x: 3.4, z: 44 }, { x: -3.4, z: 24 }, { x: 3.4, z: 8 },
-    { x: -3.4, z: -10 }, { x: 0, z: -40 }, { x: -26, z: 45 }, { x: 26, z: 37 },
-  ];
-  const beams = [50, 30, 12, -6, -28, -46].map(z => ({ x: 0, z }));
-  return {
-    rects, colliders: walls, gateCollider,
-    collidersClosed: walls.concat([gateCollider]),
-    interactables, lanterns, beams, bounds,
-    spawn: { x: 0, z: 68, yaw: 0 },
-    gateZ: -57,
-    path: [{ x: 0, z: 64 }, { x: 0, z: 40 }, { x: 0, z: 10 }, { x: 0, z: -20 }, { x: 0, z: -46 }, { x: 0, z: -57 }, { x: 0, z: -80 }],
-  };
-}
-
-function mineGateOpen(save) {
-  const d = activeDone(save);
-  return ['b1', 'b2', 'b3', 'b4', 'b5'].every(id => !!d[id]);
-}
-
-function mineZoneAt(rects, x, z) {
-  const r = rects.find(r => x > r.x1 && x < r.x2 && z > r.z1 && z < r.z2);
-  return r ? r.zone : null;
-}
 
 // ============================================================
 // BIT MINES SCREEN — renderer + walkable world
@@ -6240,27 +5837,8 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
 // ============================================================
 // ARCADE HUB MODEL (pure, testable) — reuses mineWalls()
+// Pure arcade layout lives in ./world/arcade.js.
 // ============================================================
-
-function arcadeModel() {
-  const rects = [
-    { x1: -22, z1: -22, x2: 22, z2: 26, zone: 'THE ARCADE' },
-    { x1: -4, z1: 26, x2: 4, z2: 32, zone: 'ARCADE LANDING' },
-  ];
-  const { walls, bounds } = mineWalls(rects);
-  const cabs = [
-    { id: 'a_training', x: -14, z: -18, target: { name: 'training' }, label: 'TRAINING GROUNDS', accent: '#7DEFFF' },
-    { id: 'a_blitz', x: 0, z: -18, target: { name: 'blitz' }, label: 'BINARY BLITZ', accent: '#FF7DF0' },
-    { id: 'a_bugs', x: 14, z: -18, target: { name: 'bugs' }, label: 'BUG BOUNTY', accent: '#FFC76B' },
-    { id: 'a_ach', x: -18, z: -2, target: { name: 'ach' }, label: 'SERVICE RECORD', accent: '#A3E635' },
-    { id: 'a_saves', x: -18, z: 10, target: { name: 'profiles' }, label: 'SAVE TERMINAL', accent: '#7DEFFF' },
-    { id: 'a_manual', x: 18, z: -2, target: { name: 'manual' }, label: 'FIELD MANUAL', accent: '#9FB4FF' },
-    { id: 'a_shop', x: 18, z: 10, target: { name: 'shop' }, label: 'SCRAP EXCHANGE', accent: '#FFE27A' },
-  ];
-  const interactables = cabs.map(c => ({ ...c, kind: 'arcade', r: 3.0 }));
-  interactables.push({ id: 'lift', kind: 'exit', x: 0, z: 29, r: 2.6, target: { name: 'menu' }, label: 'MAIN MENU', accent: '#FF8B82' });
-  return { rects, colliders: walls, interactables, bounds, spawn: { x: 0, z: 20, yaw: 0 } };
-}
 
 // ============================================================
 // MAIN MENU + ARCADE SCREEN
@@ -6876,150 +6454,8 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
 // ============================================================
 // TRAIL DUNGEON MODELS — serpentine worlds 3/5/6/7 + DUNGEON_CFG
-// One engine, themed + laid out per world. Worlds 2-7.
+// Pure dungeon configuration and models live in ./world/.
 // ============================================================
-
-const DUNGEON_CFG = {
-  2: {
-    zone: 'GATE VALLEY', bossZone: 'GOLEM GROUNDS',
-    theme: { bg: 0x0a1206, fog: 0.026, floorCol: 0x10180a, gridCol: 0x3a5a1a, wallCol: 0x1c2a12, accent: 0xa3e635, ambient: 0.85, ceil: false, prop: 'arch' },
-    descend: { label: 'ENTER GATE VALLEY', sub: 'Cross the valley. The gates judge every step. A golem waits at the far end.' },
-  },
-  3: {
-    trail: { legs: 3, Lv: 48, H: 58, W: 24 }, chamberW: 40, chamberD: 34,
-    zone: 'THE FOUNDRY FLOOR', bossZone: 'HIERARCH CORE',
-    theme: { bg: 0x04101a, fog: 0.03, floorCol: 0x081722, gridCol: 0x155e6b, wallCol: 0x0c2630, accent: 0x22d3ee, ambient: 0.7, ceil: true, prop: 'pipe' },
-    descend: { label: 'ENTER THE FOUNDRY', sub: 'Walk the foundry floor. Compile under heat. The Hierarch presides over the core.' },
-  },
-  4: {
-    zone: 'THE CANYON', bossZone: 'COLOSSUS MESA',
-    theme: { bg: 0x140a04, fog: 0.022, floorCol: 0x1c1108, gridCol: 0x7a4a1a, wallCol: 0x3a2412, accent: 0xfb923c, ambient: 0.88, ceil: false, prop: 'mesa' },
-    descend: { label: 'DESCEND INTO THE CANYON', sub: 'Pick through the canyon. Pure logic, no memory. A colossus blocks the pass.' },
-  },
-  5: {
-    trail: { legs: 4, Lv: 42, H: 48, W: 20 }, chamberW: 40, chamberD: 34,
-    zone: 'THE CLOCKWORKS', bossZone: "THE TYRANT'S MOVEMENT",
-    theme: { bg: 0x0c081a, fog: 0.03, floorCol: 0x140e22, gridCol: 0x5a3aa0, wallCol: 0x201838, accent: 0xa78bfa, ambient: 0.72, ceil: true, prop: 'gear' },
-    descend: { label: 'CLIMB THE CLOCK TOWER', sub: 'Wind through the clockworks. Mind the rising edges. The Tyrant keeps time.' },
-  },
-  6: {
-    trail: { legs: 2, Lv: 58, H: 70, W: 28 }, chamberW: 44, chamberD: 36,
-    zone: 'FORTRESS HALLS', bossZone: 'THE THRONE STATE',
-    theme: { bg: 0x12060a, fog: 0.03, floorCol: 0x1a0c10, gridCol: 0x7a2a3a, wallCol: 0x2e1820, accent: 0xfb7185, ambient: 0.76, ceil: true, prop: 'crenel' },
-    descend: { label: 'STORM THE FORTRESS', sub: 'Breach the fortress halls. Every room is a state. The engine rules them all.' },
-  },
-  7: {
-    trail: { legs: 2, Lv: 36, H: 44, W: 24 }, chamberW: 40, chamberD: 32,
-    zone: 'THE TAPEOUT FLOOR', bossZone: 'THE ALTAR',
-    theme: { bg: 0x12100a, fog: 0.02, floorCol: 0x1a1608, gridCol: 0x7a6310, wallCol: 0x2e2810, accent: 0xfacc15, ambient: 0.92, ceil: true, prop: 'altar' },
-    descend: { label: 'WALK TO TAPEOUT', sub: 'One floor. One altar. One shot at silicon.' },
-  },
-};
-
-function dungeonBossFight(fights) {
-  return fights.find(f => f.boss) || fights[fights.length - 1];
-}
-
-function dungeonModel(w, fights, lessonIds) {
-  if (w === 2) return valleyModel(w, fights, lessonIds);
-  if (w === 4) return canyonModel(w, fights, lessonIds);
-  const cfg = DUNGEON_CFG[w];
-  const T = cfg.trail, W = T.W, half = W / 2;
-  const chamberW = cfg.chamberW, chamberD = cfg.chamberD;
-
-  const boss = dungeonBossFight(fights);
-  const regular = fights.filter(f => f !== boss);
-  const seq = stationSequence(regular, lessonIds);
-  const N = seq.length;
-
-  // Serpentine trail: vertical legs alternating between two columns, joined by
-  // wide galleries. Auto-extends so N stations sit ~16u apart along the walk.
-  const build = (Lv) => {
-    const rects = [], pts = [{ x: 0, z: -6 }];
-    let zTop = 0, xa = 0;
-    for (let i = 0; i < T.legs; i++) {
-      const xi = (i % 2 === 0) ? 0 : T.H;
-      rects.push({ x1: xi - half, z1: zTop - Lv, x2: xi + half, z2: zTop, zone: cfg.zone });
-      if (i < T.legs - 1) {
-        const xn = ((i + 1) % 2 === 0) ? 0 : T.H;
-        const bz2 = zTop - Lv, bz1 = bz2 - W;
-        rects.push({ x1: Math.min(xi, xn) - half, z1: bz1, x2: Math.max(xi, xn) + half, z2: bz2, zone: cfg.zone });
-        const bc = bz2 - W / 2;
-        pts.push({ x: xi, z: bc }, { x: xn, z: bc });
-        zTop = bz1;
-      } else {
-        zTop = zTop - Lv;
-      }
-      xa = xi;
-    }
-    const Zend = zTop;
-    rects.push({ x1: xa - chamberW / 2, z1: Zend - chamberD, x2: xa + chamberW / 2, z2: Zend, zone: cfg.bossZone });
-    pts.push({ x: xa, z: Zend + 5 });
-    pts.push({ x: xa, z: Math.round(Zend - chamberD / 2) });
-    return { rects, pts, xa, Zend };
-  };
-  const arcOf = (pts, upto) => { let s = 0; for (let i = 1; i <= upto; i++) s += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z); return s; };
-  let Lv = T.Lv, lay = build(Lv);
-  const usable = () => arcOf(lay.pts, lay.pts.length - 2) - 24;
-  const need = N * 16;
-  if (usable() < need) { Lv += Math.ceil((need - usable()) / T.legs); if (Lv % 2) Lv++; lay = build(Lv); }
-
-  const { rects, pts, xa, Zend } = lay;
-  const { walls, bounds } = mineWalls(rects);
-  const gateZ = Zend, gateX = xa, gateW = W + 0.6;
-  const gateCollider = mkBox(gateX, gateZ, gateW, 1.8, 'gate');
-
-  // stations at even spacing along the trail, weaving left/right of the line
-  const total = arcOf(pts, pts.length - 2);
-  const s0 = 15, s1 = total - 9;
-  const atArc = (s) => {
-    let acc = 0;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1], L = Math.hypot(b.x - a.x, b.z - a.z);
-      if (acc + L >= s || i === pts.length - 2) {
-        const t = Math.max(0, Math.min(1, (s - acc) / (L || 1)));
-        const dx = (b.x - a.x) / (L || 1), dz = (b.z - a.z) / (L || 1);
-        return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t, px: -dz, pz: dx, dx, dz };
-      }
-      acc += L;
-    }
-    return { x: pts[0].x, z: pts[0].z, px: 1, pz: 0, dx: 0, dz: -1 };
-  };
-  const off = Math.max(0, half - 4.8);
-  const inz = (x, z) => rects.some(r => x > r.x1 + 1.1 && x < r.x2 - 1.1 && z > r.z1 + 1.1 && z < r.z2 - 1.1);
-  const interactables = [];
-  seq.forEach((s, i) => {
-    const a = atArc(s0 + (i + 0.5) * (s1 - s0) / N);
-    const sd = (i % 2 === 0 ? 1 : -1) * off;
-    let x = Math.round(a.x + a.px * sd), z = Math.round(a.z + a.pz * sd);
-    if (!inz(x, z)) {
-      // near a turn seam — slide along the trail until solidly inside
-      for (const k of [2, -2, 3, -3, 4, -4, 6, -6, 8, -8, 10, -10]) {
-        const nx = Math.round(a.x + a.dx * k + a.px * sd), nz = Math.round(a.z + a.dz * k + a.pz * sd);
-        if (inz(nx, nz)) { x = nx; z = nz; break; }
-      }
-    }
-    const ord = i + 1;
-    if (s.kind === 'book') interactables.push({ id: 'book_' + s.lid, kind: 'book', lid: s.lid, ord, x, z, r: 2.4, target: { name: 'note', id: s.lid } });
-    else interactables.push({ id: s.f.id, kind: 'fight', boss: false, ord, x, z, r: 3.4, target: { name: s.f.kind, id: s.f.id }, xp: s.f.xp, title: s.f.title });
-  });
-  interactables.push({ id: boss.id, kind: 'fight', boss: true, ord: N + 1, x: xa, z: Math.round(Zend - chamberD / 2), r: 3.4, target: { name: boss.kind, id: boss.id }, xp: boss.xp, title: boss.title });
-  interactables.push({ id: 'lift', kind: 'exit', x: 0, z: -3, r: 2.6, target: { name: 'surface' } });
-
-  return {
-    world: w, rects, colliders: walls, gateCollider,
-    collidersClosed: walls.concat([gateCollider]),
-    interactables, bounds, path: pts, trail: true,
-    spawn: { x: 0, z: -8, yaw: 0 },
-    gateZ, gateX, gateW, theme: cfg.theme, zone: cfg.zone, bossZone: cfg.bossZone,
-    regularIds: regular.map(f => f.id), bossId: boss.id,
-  };
-}
-
-function dungeonGateOpen(save, model) {
-  const d = activeDone(save);
-  return model.regularIds.every(id => !!d[id]);
-}
 
 // ============================================================
 // DUNGEON SCREEN — renderer + walkable worlds 2-7
