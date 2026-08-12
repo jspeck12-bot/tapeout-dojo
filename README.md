@@ -1,9 +1,9 @@
 # TAPEOUT — the Verilog dojo
 
-[![gate](https://github.com/USERNAME/tapeout-dojo/actions/workflows/gate.yml/badge.svg)](https://github.com/USERNAME/tapeout-dojo/actions/workflows/gate.yml)
+[![gate](https://github.com/jspeck12-bot/tapeout-dojo/actions/workflows/gate.yml/badge.svg)](https://github.com/jspeck12-bot/tapeout-dojo/actions/workflows/gate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**[▶ Play it in the browser](https://USERNAME.github.io/tapeout-dojo/)**
+**[▶ Play it in the browser](https://jspeck12-bot.github.io/tapeout-dojo/)**
 
 **A first-person 3D RPG that teaches you to design chips.** You walk seven
 worlds, read field notes, fight creatures by writing Verilog, and export your
