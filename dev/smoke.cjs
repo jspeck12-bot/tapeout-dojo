@@ -133,7 +133,7 @@ async function run() {
       name: 'dungeon-2',
       Component: m.DungeonScreen,
       props: { ...common, w: 2 },
-      markers: m.challengesOf(2).filter((challenge) => !challenge.boss)
+      markers: m.challengesOf(2).slice(0, -1)
         .map((challenge) => challenge.title)
         .concat(
           ['SEALED — clear the hall first'],
