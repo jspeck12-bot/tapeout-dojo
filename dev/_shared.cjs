@@ -16,12 +16,13 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src', 'tapeout.jsx');
 const GATE_DIR = path.join(ROOT, '.gate');
-const GATE_SRC_DIR = path.join(GATE_DIR, 'src');
+const RUN_ID = `${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const RUN_DIR = path.join(GATE_DIR, `run-${RUN_ID}`);
+const GATE_SRC_DIR = path.join(RUN_DIR, 'src');
 const GEN = path.join(GATE_SRC_DIR, 'tapeout.gen.jsx');
-const BUNDLE = path.join(GATE_DIR, 'bundle.cjs');
+const BUNDLE = path.join(RUN_DIR, 'bundle.cjs');
 
-// Top-level game identifiers surfaced for testing. Verilog engine exports are
-// loaded directly from src/engine/verilog.js and merged into loadMod() below.
+// Test-only exports are appended to an isolated copy of the real module graph.
 const EXPORTS = [];
 const REEXPORTS = [
   {
@@ -131,6 +132,9 @@ const REEXPORTS = [
 ];
 
 let _mod = null;
+process.once('exit', () => {
+  try { fs.rmSync(RUN_DIR, { recursive: true, force: true }); } catch (error) { }
+});
 
 function copySourceTree(sourceDir, destinationDir) {
   fs.mkdirSync(destinationDir, { recursive: true });
@@ -304,7 +308,7 @@ function installDom() {
 }
 
 module.exports = {
-  ROOT, SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE,
+  ROOT, SRC, GATE_DIR, RUN_DIR, GATE_SRC_DIR, GEN, BUNDLE,
   EXPORTS, REEXPORTS,
   loadMod, buildOnly, installDom, makeCanvas,
 };
