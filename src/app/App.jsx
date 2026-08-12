@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Cpu, Zap, Trophy,
   RotateCcw,
@@ -396,6 +396,31 @@ export function App() {
     return () => clearTimeout(t);
   }, [confetti]);
 
+  const worldCallbacks = useMemo(() => ({
+    onLessonRead,
+    completeChallenge,
+    onBossWin,
+    onStat,
+    onTrainingClear,
+    onBlitzEnd,
+    onBugSolve,
+    onVisited,
+    onCombatEnd,
+    onConsume,
+    onBuy,
+    onEquip,
+    activeSlot,
+    onLoadSlot,
+    onNewSlot,
+    onDeleteSlot,
+    onImport,
+    readSlot,
+  }), [
+    onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear,
+    onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip,
+    activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot,
+  ]);
+
   if (!loaded) {
     return (
       <div className="tk-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -420,10 +445,10 @@ export function App() {
         {screen.name === 'code' && <CodeScreen key={screen.id + '|' + (save.ngplus ? 'ng' : save.mode)} id={screen.id} save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'blitz' && <BlitzScreen save={save} go={go} onBlitzEnd={onBlitzEnd} />}
         {screen.name === 'bugs' && <BugScreen save={save} go={go} onBugSolve={onBugSolve} />}
-        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} cb={{ onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear, onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip, activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot }} />}
-        {screen.name === 'mine' && <MineScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={{ onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear, onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip, activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot }} />}
-        {screen.name === 'arcade' && <ArcadeScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={{ onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear, onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip, activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot }} />}
-        {screen.name === 'dungeon' && <DungeonScreen w={screen.w} save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={{ onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear, onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip, activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot }} />}
+        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} cb={worldCallbacks} />}
+        {screen.name === 'mine' && <MineScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
+        {screen.name === 'arcade' && <ArcadeScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
+        {screen.name === 'dungeon' && <DungeonScreen key={screen.w} w={screen.w} save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}

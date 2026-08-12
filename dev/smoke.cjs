@@ -283,6 +283,7 @@ async function run() {
       const callsBefore = rendererCalls;
       const disposalsBefore = rendererDisposals;
       const lossesBefore = contextLosses;
+      const pointerExitsBefore = document._exitPointerLockCalls;
       const positiveRoot = await mountAndFlush(
         TR,
         React,
@@ -304,7 +305,9 @@ async function run() {
         `${positiveCase.name}: renderer was not disposed on unmount`);
       assert(contextLosses === lossesBefore + 1,
         `${positiveCase.name}: WebGL context was not released on unmount`);
-      checks += 6;
+      assert(document._exitPointerLockCalls === pointerExitsBefore + 1,
+        `${positiveCase.name}: pointer lock was not released on unmount`);
+      checks += 7;
     }
   } finally {
     THREE.WebGLRenderer = OriginalRenderer;

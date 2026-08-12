@@ -5,7 +5,7 @@ import {
 import * as THREE from "three";
 import { AudioFX } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import { makePostFX } from '../../graphics/cinematic.js';
+import { disposeScene, makePostFX } from '../../graphics/cinematic.js';
 import {
   buildFabUltra, buildCampusWorld, applyCampusProgress,
 } from '../../graphics/world-builders.js';
@@ -40,8 +40,10 @@ function CampusScreen({ save, go, cb }) {
   const forgeKey = useRef(0);
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window;
 
-  useEffect(() => { if (!save.campusVisited) cb.onVisited(); /* once */ // eslint-disable-line
-  }, []); // eslint-disable-line
+  useEffect(() => {
+    setShowHelp(!save.campusVisited);
+    if (!save.campusVisited) cb.onVisited();
+  }, [cb.activeSlot]); // eslint-disable-line
 
   const openOverlay = useCallback((sc) => {
     try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
@@ -60,7 +62,7 @@ function CampusScreen({ save, go, cb }) {
   // ---------- engine ----------
   useEffect(() => {
     const mount = mountRef.current;
-    let renderer, post = null, raf = 0;
+    let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
@@ -71,7 +73,7 @@ function CampusScreen({ save, go, cb }) {
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
       const camera = new THREE.PerspectiveCamera(72, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 600);
       camera.rotation.order = 'YXZ';
@@ -184,6 +186,7 @@ function CampusScreen({ save, go, cb }) {
       const clock = new THREE.Clock();
       const camVec = new THREE.Vector3();
       const loop = () => {
+        if (!alive) return;
         raf = requestAnimationFrame(loop);
         const dt = Math.min(0.05, clock.getDelta());
         const t = clock.elapsedTime;
@@ -248,12 +251,13 @@ function CampusScreen({ save, go, cb }) {
       loop();
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
-      setFailed(true);
-      try { renderer && renderer.dispose && renderer.dispose(); } catch (e2) { } try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
-      return () => { };
+      if (alive) setFailed(true);
     }
     return () => {
+      alive = false;
       cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
       try {
         renderer.dispose(); try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
         if (renderer.domElement && renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);

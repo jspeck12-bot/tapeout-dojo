@@ -260,7 +260,8 @@ function installDom() {
     documentElement: makeEl('html'),
     head: makeEl('head'),
     addEventListener() {}, removeEventListener() {},
-    exitPointerLock() {}, querySelector() { return null; },
+    _exitPointerLockCalls: 0,
+    exitPointerLock() { this._exitPointerLockCalls++; }, querySelector() { return null; },
     querySelectorAll() { return []; }, getElementById() { return null; },
     visibilityState: 'visible', hidden: false, fonts: { ready: Promise.resolve() },
   };

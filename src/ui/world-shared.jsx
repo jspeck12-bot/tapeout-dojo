@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 function TouchControls({ inputRef, onInteract }) {
   const baseRef = useRef(null);
   const [knob, setKnob] = useState({ x: 0, y: 0, on: false });
+  const [sprinting, setSprinting] = useState(!!inputRef.current.sprint);
   const handle = (e, end) => {
     if (end) { inputRef.current.jx = 0; inputRef.current.jy = 0; setKnob({ x: 0, y: 0, on: false }); return; }
     const t = e.touches[0];
@@ -25,8 +26,8 @@ function TouchControls({ inputRef, onInteract }) {
       </div>
       <button onTouchStart={(e) => { e.preventDefault(); onInteract(); }}
         style={{ position: 'absolute', bottom: 44, right: 26, width: 66, height: 66, borderRadius: 99, border: '1.5px solid #155E6B', background: 'rgba(13,30,38,0.8)', color: '#7DEFFF', fontSize: 22, zIndex: 24, touchAction: 'none' }}>⏎</button>
-      <button onTouchStart={() => { inputRef.current.sprint = !inputRef.current.sprint; }}
-        style={{ position: 'absolute', bottom: 120, right: 36, width: 46, height: 46, borderRadius: 99, border: '1px solid #1D2632', background: inputRef.current.sprint ? 'rgba(34,211,238,0.25)' : 'rgba(10,14,20,0.6)', color: '#A9B7C9', fontSize: 11, zIndex: 24, touchAction: 'none' }}>RUN</button>
+      <button onTouchStart={() => { const next = !sprinting; inputRef.current.sprint = next; setSprinting(next); }}
+        style={{ position: 'absolute', bottom: 120, right: 36, width: 46, height: 46, borderRadius: 99, border: '1px solid #1D2632', background: sprinting ? 'rgba(34,211,238,0.25)' : 'rgba(10,14,20,0.6)', color: '#A9B7C9', fontSize: 11, zIndex: 24, touchAction: 'none' }}>RUN</button>
     </>
   );
 }

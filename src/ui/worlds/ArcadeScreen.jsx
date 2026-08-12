@@ -7,7 +7,7 @@ import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,
 } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import { tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
+import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
 import { buildArcadeWorld } from '../../graphics/world-builders.js';
 import { resolveCollisions, nearestInteractable } from '../../world/collision.js';
@@ -54,7 +54,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
   useEffect(() => {
     const mount = mountRef.current;
-    let renderer, post = null, raf = 0;
+    let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
@@ -66,7 +66,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
       ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
@@ -157,6 +157,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       let last = performance.now();
       const tick = () => {
+        if (!alive) return;
         raf = requestAnimationFrame(tick);
         const now = performance.now();
         const dt = Math.min(0.05, (now - last) / 1000);
@@ -202,14 +203,20 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
-      setFailed(true);
+      if (alive) setFailed(true);
     }
     return () => {
+      alive = false;
       cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
       if (renderer) {
         try { renderer.dispose(); } catch (e) { } try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
         try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
       }
+      ctxRef.current = null;
+      ambRef.current = null;
+      engineRef.current = null;
     };
   }, []); // eslint-disable-line
 

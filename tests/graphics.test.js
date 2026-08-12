@@ -5,6 +5,7 @@ import {
   POST_BRIGHT_FS,
   POST_COMP_FS,
   POST_VS,
+  disposeScene,
   makePostFX,
 } from '../src/graphics/cinematic.js';
 
@@ -52,5 +53,22 @@ describe('post-processing pipeline', () => {
     expect(renderCalls).toBeGreaterThanOrEqual(9);
     expect(targetCalls).toBeGreaterThanOrEqual(9);
     expect(() => post.dispose()).not.toThrow();
+  });
+
+  test('disposes unique scene geometries and materials exactly once', () => {
+    const scene = new THREE.Scene();
+    const geometry = new THREE.BoxGeometry();
+    const material = new THREE.MeshBasicMaterial();
+    let geometryDisposals = 0;
+    let materialDisposals = 0;
+    geometry.dispose = () => { geometryDisposals++; };
+    material.dispose = () => { materialDisposals++; };
+    scene.add(new THREE.Mesh(geometry, material));
+    scene.add(new THREE.Mesh(geometry, material));
+
+    disposeScene(scene);
+
+    expect(geometryDisposals).toBe(1);
+    expect(materialDisposals).toBe(1);
   });
 });

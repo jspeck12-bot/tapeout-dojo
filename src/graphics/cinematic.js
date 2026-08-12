@@ -229,9 +229,27 @@ function applyGfx(ctx, g) {
   } catch (e) { }
 }
 
+function disposeScene(scene) {
+  if (!scene) return;
+  const disposedGeometries = new Set();
+  const disposedMaterials = new Set();
+  scene.traverse((object) => {
+    if (object.geometry && !disposedGeometries.has(object.geometry)) {
+      disposedGeometries.add(object.geometry);
+      try { object.geometry.dispose(); } catch (error) { }
+    }
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    for (const material of materials) {
+      if (!material || disposedMaterials.has(material)) continue;
+      disposedMaterials.add(material);
+      try { material.dispose(); } catch (error) { }
+    }
+  });
+}
+
 export {
   POST_VS, POST_BRIGHT_FS, POST_BLUR_FS, POST_COMP_FS,
   tuneRenderer, fxCone, makePostFX, glowTexture,
   glowSprite, dustField, keyLight, lightScene,
-  applyGfx,
+  applyGfx, disposeScene,
 };

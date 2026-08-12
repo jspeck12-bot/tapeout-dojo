@@ -9,7 +9,7 @@ import {
 import { FR } from '../../telemetry/flight-recorder.js';
 import { GAUNTLETS, LESSON_DEPTH, LESSONS } from '../../game/content.js';
 import { enemyFor } from '../../game/rpg.js';
-import { tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
+import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
 import { spawnShatter } from '../../graphics/rock.js';
 import { updateCreature, makeViewModel, updateViewModel } from '../../graphics/creatures.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
@@ -44,6 +44,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
   const openOverlay = useCallback((sc) => {
     try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+    combatFxRef.current = null;
     AudioFX.click();
     setOverlay(sc);
   }, []);
@@ -54,7 +55,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
   useEffect(() => {
     const mount = mountRef.current;
-    let renderer, post = null, raf = 0;
+    let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
@@ -66,7 +67,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
       ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
@@ -178,6 +179,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         tex.needsUpdate = true;
       };
       const tick = () => {
+        if (!alive) return;
         raf = requestAnimationFrame(tick);
         const now = performance.now();
         const dt = Math.min(0.05, (now - last) / 1000);
@@ -262,6 +264,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
           if (sk > 0) { camera.position.x += (Math.random() - 0.5) * 0.55 * sk; camera.position.y += (Math.random() - 0.5) * 0.45 * sk; }
           if (vignetteRef.current) vignetteRef.current.style.opacity = String(0.7 * Math.max(0, 1 - (now - _vigT) / 380));
         } else {
+          _prevE = null; _prevP = null; _prevOver = null; _prevPhase = 1; _lastBar = -1;
           camera.rotation.y = player.yaw; camera.rotation.x = player.pitch;
           if (_hp) _hp.visible = false;
           if (_flash) _flash.intensity = 0;
@@ -281,14 +284,21 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
-      setFailed(true);
+      if (alive) setFailed(true);
     }
     return () => {
+      alive = false;
       cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
       if (renderer) {
         try { renderer.dispose(); } catch (e) { } try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
         try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
       }
+      ctxRef.current = null;
+      ambRef.current = null;
+      engineRef.current = null;
+      combatFxRef.current = null;
     };
   }, []); // eslint-disable-line
 
