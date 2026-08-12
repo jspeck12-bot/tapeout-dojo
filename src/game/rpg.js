@@ -89,7 +89,11 @@ function rpgFix(s) {
   if (!s.inv || typeof s.inv !== 'object') s.inv = {};
   s.inv = { potions: Math.max(0, Math.min(5, s.inv.potions | 0)), flux: Math.max(0, Math.min(5, s.inv.flux | 0)) };
   if (!s.combat || typeof s.combat !== 'object') s.combat = {};
-  s.combat = { kills: s.combat.kills | 0, deaths: s.combat.deaths | 0, flawless: s.combat.flawless | 0 };
+  s.combat = {
+    kills: Math.max(0, s.combat.kills | 0),
+    deaths: Math.max(0, s.combat.deaths | 0),
+    flawless: Math.max(0, s.combat.flawless | 0),
+  };
   if (s.lvlSeen === undefined) s.lvlSeen = levelFromXp(s.xp || 0);
   return s;
 }
