@@ -4,6 +4,20 @@
 // values intentionally do not derive from the runtime content graph: they make
 // accidental reordering, deletion, or test-vector changes fail the gate.
 module.exports = {
+  catalogHashes: {
+    basePresentation: 'e027ff6d53502367',
+    remixPresentation: '5bca32dee3005f11',
+    worlds: '5d101d54c709e127',
+    achievements: 'dd0a0ed51d72e261',
+    ranks: '78207507fed113fc',
+    lessonDepth: '41c0bc59a92c2efe',
+    bugs: '7505db3a9db030f9',
+    topics: '17fbb86e93348a41',
+    modes: '6be1aa74d9c4674b',
+    training: '285827ebd7953a05',
+    gauntletMeta: '9e128cbcf3a82d57',
+    truthMeta: 'f2d219c448e13a6c',
+  },
   worldChallengeIds: {
     1: ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'],
     2: ['g1', 'g2', 'g3', 'g4', 'g5', 'g7', 'g6'],

@@ -39,8 +39,10 @@ const REEXPORTS = [
   {
     from: './game/content.js',
     names: [
-      'combVecs', 'WORLDS', 'LESSONS', 'GAUNTLETS', 'TRUTH_CHALLENGES',
-      'CODE_CHALLENGES', 'REMIX', 'TOPIC_OF',
+      'combVecs', 'WORLDS', 'LESSONS', 'LESSON_DEPTH',
+      'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX',
+      'BUG_HUNTS', 'ACHIEVEMENTS', 'RANKS', 'MODES',
+      'TOPIC_LIST', 'TOPIC_OF', 'TRAINING_GENS',
     ],
   },
   {

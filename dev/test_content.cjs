@@ -75,6 +75,56 @@ function run() {
   const m = loadMod();
   let checks = 0;
 
+  const presentationOf = (challenge) => ({
+    id: challenge.id,
+    world: challenge.world,
+    title: challenge.title,
+    xp: challenge.xp,
+    kind: challenge.kind,
+    boss: !!challenge.boss,
+    brief: challenge.brief,
+    starter: challenge.starter,
+    hints: challenge.hints,
+    iface: challenge.iface,
+  });
+  const catalogValues = {
+    basePresentation: m.CODE_CHALLENGES.map(presentationOf),
+    remixPresentation: Object.entries(m.REMIX).map(([id, remix]) =>
+      presentationOf({ ...m.CODE_CHALLENGES.find((challenge) => challenge.id === id), ...remix })),
+    worlds: m.WORLDS,
+    achievements: m.ACHIEVEMENTS,
+    ranks: m.RANKS,
+    lessonDepth: m.LESSON_DEPTH,
+    bugs: m.BUG_HUNTS,
+    topics: { list: m.TOPIC_LIST, map: m.TOPIC_OF },
+    modes: m.MODES,
+    training: m.TRAINING_GENS.map((generator) => ({
+      gid: generator.gid,
+      name: generator.name,
+      blurb: generator.blurb,
+    })),
+    gauntletMeta: m.GAUNTLETS.map((gauntlet) => ({
+      id: gauntlet.id,
+      world: gauntlet.world,
+      title: gauntlet.title,
+      xp: gauntlet.xp,
+      intro: gauntlet.intro,
+    })),
+    truthMeta: m.TRUTH_CHALLENGES.map((truth) => ({
+      id: truth.id,
+      world: truth.world,
+      title: truth.title,
+      xp: truth.xp,
+      intro: truth.intro,
+      labels: truth.pool.map((row) => row.label),
+    })),
+  };
+  for (const [name, value] of Object.entries(catalogValues)) {
+    assert(stableHash(value) === GOLDEN.catalogHashes[name],
+      `canonical ${name} catalog changed`);
+    checks++;
+  }
+
   // External characterization fixtures make content/order checks independent
   // from the runtime helpers that consume the same data.
   for (const world of m.WORLDS) {
