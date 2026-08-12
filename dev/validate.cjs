@@ -18,9 +18,8 @@ function assert(cond, msg) { if (!cond) throw new Error(msg); }
 const PLAYER_R = 0.55;
 const MIN_STATION_SPACING = 5;
 
-function bfsReachesBoss(m, model, colliders) {
+function bfsReaches(m, model, colliders, target) {
   const b = model.bounds;
-  const boss = model.interactables.find((i) => i.boss);
   const spawn = model.spawn;
   const step = 1;
   const key = (ix, iz) => ix + ',' + iz;
@@ -57,7 +56,7 @@ function bfsReachesBoss(m, model, colliders) {
     if (++guard > 4000000) throw new Error('BFS guard tripped');
     const { ix, iz } = q[head++];
     const x = atX(ix), z = atZ(iz);
-    if (Math.hypot(x - boss.x, z - boss.z) <= boss.r) return true;
+    if (Math.hypot(x - target.x, z - target.z) <= target.r) return true;
     const nbrs = [[ix + 1, iz], [ix - 1, iz], [ix, iz + 1], [ix, iz - 1]];
     for (const [nx, nz] of nbrs) {
       const k = key(nx, nz);
@@ -122,8 +121,13 @@ function checkModel(m, w, model) {
   checks++;
 
   // boss reachability — the gate really seals the world
-  assert(bfsReachesBoss(m, model, model.colliders), `world ${w}: boss UNREACHABLE with gate open (phantom wall / sealed world)`);
-  assert(!bfsReachesBoss(m, model, model.collidersClosed), `world ${w}: boss REACHABLE with gate closed (gate does not span the corridor)`);
+  for (const station of model.interactables.filter((item) => !item.boss)) {
+    assert(bfsReaches(m, model, model.collidersClosed, station),
+      `world ${w}: ${station.id} is unreachable from spawn with the boss gate closed`);
+    checks++;
+  }
+  assert(bfsReaches(m, model, model.colliders, boss), `world ${w}: boss UNREACHABLE with gate open (phantom wall / sealed world)`);
+  assert(!bfsReaches(m, model, model.collidersClosed, boss), `world ${w}: boss REACHABLE with gate closed (gate does not span the corridor)`);
   checks += 2;
 
   return checks;
