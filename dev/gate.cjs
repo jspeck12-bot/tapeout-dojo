@@ -11,6 +11,7 @@
 // Prints "GATE GREEN" only if every stage passes.
 // ============================================================
 const fs = require('fs');
+const { spawnSync } = require('child_process');
 const shared = require('./_shared.cjs');
 
 function stageBuild() {
@@ -36,10 +37,28 @@ function stageArtifactCompat() {
   return `1 default export · no localStorage · ${imports.length} imports all core`;
 }
 
+function stageUnit() {
+  const result = spawnSync(process.execPath, [
+    require.resolve('vitest/vitest.mjs'),
+    'run',
+    '--reporter=dot',
+  ], {
+    cwd: shared.ROOT,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    const output = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
+    throw new Error(`Vitest failed${output ? `\n${output}` : ''}`);
+  }
+  const match = result.stdout.match(/(\d+) passed/);
+  return match ? `${match[1]} tests` : 'Vitest passed';
+}
+
 async function main() {
   const stages = [
     ['build', () => stageBuild()],
     ['artifact', () => stageArtifactCompat()],
+    ['unit', () => stageUnit()],
     ['layout', () => `${require('./validate.cjs').run()} checks`],
     ['content', () => `${require('./test_content.cjs').run()} checks`],
     ['visual', () => { const r = require('./visual.cjs').run(); return `${r.scenes} scenes · ${r.checks} checks`; }],

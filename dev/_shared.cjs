@@ -23,7 +23,9 @@ const BUNDLE = path.join(GATE_DIR, 'bundle.cjs');
 // src/tapeout.jsx (functions / consts at module scope).
 const EXPORTS = [
   'App',
-  'vCompile', 'runCombTest', 'runSeqTest', 'runChallengeTest', 'exportRTL',
+  'vTokenize', 'VParser', 'evalExpr', 'VSim', 'vCompile',
+  'runCombTest', 'runSeqTest', 'runChallengeTest',
+  'netlistOf', 'levelizeNetlist', 'exportRTL',
   'combVecs',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
   'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX',
