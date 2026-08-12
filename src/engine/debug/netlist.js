@@ -31,15 +31,108 @@ function nlContainsHold(e) {
   }
 }
 
+function expressionWidth(expr, mod) {
+  if (!expr) return 1;
+  if (expr.kind === 'num') return expr.w || 1;
+  if (expr.kind === 'sig') {
+    if (mod.params.has(expr.name)) {
+      const parameter = mod.params.get(expr.name);
+      return parameter && typeof parameter === 'object' ? parameter.w : 32;
+    }
+    return (mod.signals.get(expr.name) || { width: 1 }).width;
+  }
+  if (expr.kind === 'bit') return 1;
+  if (expr.kind === 'part' && expr.msbE.kind === 'num' && expr.lsbE.kind === 'num') {
+    return Math.max(1, expr.msbE.v - expr.lsbE.v + 1);
+  }
+  return 1;
+}
+
+function caseIsExhaustive(stmt, mod) {
+  const width = expressionWidth(stmt.subj, mod);
+  if (width > 8) return false;
+  const values = new Set();
+  for (const item of stmt.items) {
+    for (const label of item.labels) {
+      if (label.kind !== 'num') return false;
+      values.add(label.v);
+    }
+  }
+  return values.size === Math.pow(2, width);
+}
+
+function stmtAlwaysAssigns(stmt, target, mod) {
+  if (!stmt) return false;
+  switch (stmt.kind) {
+    case 'assign':
+      return lvalueNames(stmt.lhs).some((entry) => entry.name === target);
+    case 'block':
+      return stmt.stmts.some((child) => stmtAlwaysAssigns(child, target, mod));
+    case 'if':
+      return !!stmt.els &&
+        stmtAlwaysAssigns(stmt.then, target, mod) &&
+        stmtAlwaysAssigns(stmt.els, target, mod);
+    case 'case':
+      return (stmt.def || caseIsExhaustive(stmt, mod)) &&
+        stmt.items.every((item) => stmtAlwaysAssigns(item.body, target, mod)) &&
+        (!stmt.def || stmtAlwaysAssigns(stmt.def, target, mod));
+    default:
+      return false;
+  }
+}
+
 // Fold a statement tree into a single expression for `target`'s next value.
-function muxifyStmt(stmt, target, cur) {
+function substituteSignals(expr, substitutions) {
+  if (!expr || typeof expr !== 'object') return expr;
+  if (expr.kind === 'sig' && substitutions.has(expr.name)) return substitutions.get(expr.name);
+  if (expr.kind === 'un') return { ...expr, e: substituteSignals(expr.e, substitutions) };
+  if (expr.kind === 'bin') {
+    return {
+      ...expr,
+      l: substituteSignals(expr.l, substitutions),
+      r: substituteSignals(expr.r, substitutions),
+    };
+  }
+  if (expr.kind === 'tern') {
+    return {
+      ...expr,
+      c: substituteSignals(expr.c, substitutions),
+      t: substituteSignals(expr.t, substitutions),
+      f: substituteSignals(expr.f, substitutions),
+    };
+  }
+  if (expr.kind === 'concat') {
+    return { ...expr, parts: expr.parts.map((part) => substituteSignals(part, substitutions)) };
+  }
+  if (expr.kind === 'repl') {
+    return {
+      ...expr,
+      countE: substituteSignals(expr.countE, substitutions),
+      e: substituteSignals(expr.e, substitutions),
+    };
+  }
+  return expr;
+}
+
+function muxifyStmt(stmt, target, cur, blocking = false) {
   if (!stmt) return cur;
   switch (stmt.kind) {
     case 'empty': return cur;
     case 'block': {
+      if (blocking && stmt.stmts.every((child) => child.kind === 'assign' || child.kind === 'empty')) {
+        let value = cur;
+        const substitutions = new Map();
+        for (const child of stmt.stmts) {
+          if (child.kind !== 'assign' || child.lhs.kind !== 'sig') continue;
+          const expression = substituteSignals(child.expr, substitutions);
+          substitutions.set(child.lhs.name, expression);
+          if (child.lhs.name === target) value = expression;
+        }
+        return value;
+      }
       let c = cur;
       for (const s of stmt.stmts) {
-        c = muxifyStmt(s, target, c);
+        c = muxifyStmt(s, target, c, blocking);
         if (c && c.kind === 'procfail') return c;
       }
       return c;
@@ -50,18 +143,18 @@ function muxifyStmt(stmt, target, cur) {
       return { kind: 'procfail' };
     }
     case 'if': {
-      const t = muxifyStmt(stmt.then, target, cur);
-      const f = muxifyStmt(stmt.els, target, cur);
+      const t = muxifyStmt(stmt.then, target, cur, blocking);
+      const f = muxifyStmt(stmt.els, target, cur, blocking);
       if (t.kind === 'procfail' || f.kind === 'procfail') return { kind: 'procfail' };
       if (t === cur && f === cur) return cur;
       return { kind: 'tern', c: stmt.cond, t, f, line: stmt.line };
     }
     case 'case': {
-      let acc = stmt.def ? muxifyStmt(stmt.def, target, cur) : cur;
+      let acc = stmt.def ? muxifyStmt(stmt.def, target, cur, blocking) : cur;
       if (acc.kind === 'procfail') return acc;
       for (let i = stmt.items.length - 1; i >= 0; i--) {
         const it = stmt.items[i];
-        const body = muxifyStmt(it.body, target, cur);
+        const body = muxifyStmt(it.body, target, cur, blocking);
         if (body.kind === 'procfail') return body;
         let cond = null;
         for (const label of it.labels) {
@@ -98,6 +191,12 @@ function netlistOf(mod) {
   };
 
   const drivers = new Map();
+  const addProceduralFallback = (name, assign) => {
+    const existing = drivers.get(name);
+    const statement = { ...assign, kind: 'assign' };
+    if (existing && existing.procs) existing.procs.push(statement);
+    else drivers.set(name, { procs: [statement] });
+  };
   for (const assign of mod.assigns) {
     if (assign.lhs.kind === 'sig') drivers.set(assign.lhs.name, { a: assign.expr });
     else if (assign.lhs.kind === 'concat') {
@@ -110,11 +209,9 @@ function netlistOf(mod) {
           offset -= widths[index];
           drivers.set(name, { cat: { shared, off: offset, w: widths[index] } });
         });
-      } else {
-        parts.forEach(name => name && drivers.set(name, { proc: assign }));
-      }
+      } else parts.forEach(name => name && addProceduralFallback(name, assign));
     } else if (assign.lhs.name) {
-      drivers.set(assign.lhs.name, { proc: assign });
+      addProceduralFallback(assign.lhs.name, assign);
     }
   }
 
@@ -123,17 +220,19 @@ function netlistOf(mod) {
       if (block.kind === 'clocked') {
         drivers.set(target, {
           ff: {
-            dExpr: muxifyStmt(block.stmt, target, NL_HOLD),
+            dExpr: muxifyStmt(block.stmt, target, NL_HOLD, false),
             clk: (block.edges && block.edges[0]) || 'clk',
             stmt: block.stmt,
           },
         });
       } else {
-        const expr = muxifyStmt(block.stmt, target, NL_HOLD);
+        const expr = muxifyStmt(block.stmt, target, NL_HOLD, true);
         drivers.set(target, {
           comb: {
             expr,
-            latch: expr.kind !== 'procfail' && nlContainsHold(expr),
+            latch: expr.kind === 'procfail'
+              ? !stmtAlwaysAssigns(block.stmt, target, mod)
+              : nlContainsHold(expr),
             stmt: block.stmt,
           },
         });
@@ -165,12 +264,16 @@ function netlistOf(mod) {
         return resolve(expr.name);
       }
       case 'bit':
-        return add({
-          type: 'SLICE',
-          label: '[' + (expr.idxE && expr.idxE.kind === 'num' ? expr.idxE.v : '·') + ']',
-          w: 1,
-          ins: [exprNode({ kind: 'sig', name: expr.name, line: expr.line }, holdId)],
-        });
+        {
+          const inputs = [exprNode({ kind: 'sig', name: expr.name, line: expr.line }, holdId)];
+          if (expr.idxE && expr.idxE.kind !== 'num') inputs.push(exprNode(expr.idxE, holdId));
+          return add({
+            type: 'SLICE',
+            label: '[' + (expr.idxE && expr.idxE.kind === 'num' ? expr.idxE.v : '·') + ']',
+            w: 1,
+            ins: inputs,
+          });
+        }
       case 'part': {
         const msb = expr.msbE && expr.msbE.kind === 'num' ? expr.msbE.v : '·';
         const lsb = expr.lsbE && expr.lsbE.kind === 'num' ? expr.lsbE.v : '·';
@@ -190,8 +293,16 @@ function netlistOf(mod) {
           ins,
         });
       }
-      case 'repl':
-        return add({ type: 'REPL', label: '{n{·}}', w: 1, ins: [exprNode(expr.e, holdId)] });
+      case 'repl': {
+        const input = exprNode(expr.e, holdId);
+        let count = 1;
+        if (expr.countE.kind === 'num') count = expr.countE.v;
+        else if (expr.countE.kind === 'sig' && mod.params.has(expr.countE.name)) {
+          const parameter = mod.params.get(expr.countE.name);
+          count = parameter && typeof parameter === 'object' ? parameter.v : parameter;
+        }
+        return add({ type: 'REPL', label: '{n{·}}', w: count * (nodes[input].w || 1), ins: [input] });
+      }
       case 'un': {
         const input = exprNode(expr.e, holdId);
         if (expr.op === '~') return add({ type: 'NOT', label: '~', w: nodes[input].w, ins: [input] });
@@ -204,11 +315,17 @@ function netlistOf(mod) {
         const right = exprNode(expr.r, holdId);
         const type = NL_BIN[expr.op];
         if (type) {
+          const logical = expr.op === '&&' || expr.op === '||';
+          const multiply = type === 'MUL';
           return add({
             type,
             label: expr.op,
-            w: Math.max(nodes[left].w || 1, nodes[right].w || 1) +
-              (type === 'ADD' || type === 'SUB' ? 1 : 0),
+            w: logical
+              ? 1
+              : multiply
+                ? Math.min(32, (nodes[left].w || 1) + (nodes[right].w || 1))
+                : Math.max(nodes[left].w || 1, nodes[right].w || 1) +
+                  (type === 'ADD' || type === 'SUB' ? 1 : 0),
             ins: [left, right],
           });
         }
@@ -260,9 +377,11 @@ function netlistOf(mod) {
         id = add({ type: 'LATCH', label: name, w: sigW(name), ins: [null], fbIns: [0] });
         memo.set(name, id);
         latched.push(name);
-        nodes[id].ins[0] = exprNode(driver.comb.expr, id);
+        nodes[id].ins[0] = driver.comb.expr.kind === 'procfail'
+          ? procNode(name, driver.comb.stmt)
+          : exprNode(driver.comb.expr, id);
       } else {
-        id = driver.comb.expr.kind === 'procfail'
+        id = driver.comb.expr.kind === 'procfail' || nlContainsHold(driver.comb.expr)
           ? procNode(name, driver.comb.stmt)
           : exprNode(driver.comb.expr, -1);
         memo.set(name, id);
@@ -276,8 +395,8 @@ function netlistOf(mod) {
         ins: [driver.cat.shared.srcId],
       });
       memo.set(name, id);
-    } else if (driver.proc) {
-      id = procNode(name, driver.proc.stmt || { kind: 'empty' });
+    } else if (driver.procs) {
+      id = procNode(name, { kind: 'block', stmts: driver.procs });
       memo.set(name, id);
     } else {
       id = exprNode(driver.a, -1);

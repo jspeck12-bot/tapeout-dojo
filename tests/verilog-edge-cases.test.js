@@ -601,3 +601,82 @@ describe('audited compiler regressions', () => {
     expect(result.rows.at(-1).got.y).toBe(1);
   });
 });
+
+describe('audited netlist equivalence regressions', () => {
+  test('preserves blocking assignment order between procedural outputs', () => {
+    const mod = expectOk(`
+      module dut(input a, input b, output reg y, output reg z);
+        always @(*) begin
+          y = a;
+          z = y;
+          y = b;
+        end
+      endmodule
+    `, iface('dut', [
+      port('a', 'in'), port('b', 'in'), port('y', 'out'), port('z', 'out'),
+    ]));
+    const netlist = netlistOf(mod);
+    const output = netlist.nodes.find((node) => node.type === 'OUT' && node.label === 'z');
+    const driver = netlist.nodes[output.ins[0]];
+    expect(driver.label).toBe('a');
+  });
+
+  test('marks partial procedural holds as latches and exhaustive cases as combinational', () => {
+    const partial = expectOk(`
+      module dut(input en, input d, output reg [1:0] y);
+        always @(*) if (en) y[0] = d;
+      endmodule
+    `, iface('dut', [port('en', 'in'), port('d', 'in'), port('y', 'out', 2)]));
+    expect(netlistOf(partial).latched).toEqual(['y']);
+
+    const exhaustive = expectOk(`
+      module dut(input sel, input a, input b, output reg y);
+        always @(*) case (sel)
+          1'b0: y = a;
+          1'b1: y = b;
+        endcase
+      endmodule
+    `, iface('dut', [
+      port('sel', 'in'), port('a', 'in'), port('b', 'in'), port('y', 'out'),
+    ]));
+    expect(netlistOf(exhaustive).latched).toEqual([]);
+  });
+
+  test('represents parameter constants, dynamic indices, and operator widths', () => {
+    const mod = expectOk(`
+      module dut(input [3:0] a, input [1:0] idx, input b,
+                 output bit_out, output [3:0] repeated,
+                 output logic_out, output [3:0] product, output param_out);
+        localparam P = 1'b1;
+        assign bit_out = a[idx];
+        assign repeated = {4{b}};
+        assign logic_out = a && repeated;
+        assign product = a[1:0] * repeated[1:0];
+        assign param_out = P;
+      endmodule
+    `, iface('dut', [
+      port('a', 'in', 4), port('idx', 'in', 2), port('b', 'in'),
+      port('bit_out', 'out'), port('repeated', 'out', 4),
+      port('logic_out', 'out'), port('product', 'out', 4), port('param_out', 'out'),
+    ]));
+    const netlist = netlistOf(mod);
+    const slice = netlist.nodes.find((node) => node.type === 'SLICE' && node.label === '[·]');
+    expect(slice.ins.map((id) => netlist.nodes[id].label)).toContain('idx');
+    expect(netlist.nodes.find((node) => node.type === 'REPL').w).toBe(4);
+    expect(netlist.nodes.find((node) => node.label === '&&').w).toBe(1);
+    expect(netlist.nodes.find((node) => node.type === 'MUL').w).toBe(4);
+    expect(netlist.nodes.some((node) => node.type === 'CONST' && node.label === '1')).toBe(true);
+  });
+
+  test('keeps all dependencies for disjoint partial continuous drivers', () => {
+    const mod = expectOk(`
+      module dut(input a, input b, output [1:0] y);
+        assign y[1] = a;
+        assign y[0] = b;
+      endmodule
+    `, iface('dut', [port('a', 'in'), port('b', 'in'), port('y', 'out', 2)]));
+    const netlist = netlistOf(mod);
+    const proc = netlist.nodes.find((node) => node.type === 'PROC');
+    expect(proc.ins.map((id) => netlist.nodes[id].label).sort()).toEqual(['a', 'b']);
+  });
+});
