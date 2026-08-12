@@ -5,10 +5,9 @@ import App from "./tapeout.jsx";
 // ============================================================
 // LOCAL ENTRY POINT — not part of the game.
 //
-// The game file (tapeout-rpg_4.jsx) must stay artifact-legal, so it never
-// touches localStorage directly. Instead it calls an async `window.storage`
-// API and degrades to in-memory saves if that API is absent. This shim
-// provides local persistence backed by localStorage for `npm run dev`.
+// Runtime game modules never touch localStorage directly. They call an async
+// `window.storage` API and degrade to in-memory saves if it is absent. This
+// local entry shim provides browser persistence for `npm run dev`.
 // ============================================================
 if (typeof window !== "undefined" && !window.storage) {
   const PREFIX = "tapeout:";

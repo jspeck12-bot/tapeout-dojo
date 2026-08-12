@@ -15,7 +15,8 @@ health bars *are* test vectors. When your circuit fails, the game shows you the
 waveform, the exact cycle where reality diverged, and a schematic of the gates
 your code actually became.
 
-One file. No engine, no asset pipeline, no backend.
+No backend and no game engine. The source is organized by subsystem and ships
+as a static Vite bundle.
 
 ```bash
 npm install && npm run dev
@@ -52,8 +53,9 @@ non-blocking assignment, `if`/`else`, `case`, vectors, part-selects, bit-selects
 concatenation and replication, and the full operator set — bitwise, logical,
 arithmetic, comparison, shift, reduction.
 
-**Not supported, deliberately:** module instantiation, `parameter`, `$display`,
-delays, four-state logic. The dojo teaches the synthesizable core.
+**Not supported, deliberately:** module instantiation, `$display`, delays,
+four-state logic, and advanced generate constructs. Parameters/localparams are
+supported; hierarchical instantiation is a planned compiler extension.
 
 ### Failure teaches
 
@@ -112,18 +114,23 @@ Requires Node 18+.
 
 ## The gate
 
-`npm run gate` runs six stages, fail-fast:
+`npm run gate` runs fail-fast:
 
 | stage | what it proves |
 |---|---|
-| **build** | the file bundles |
+| **build** | the complete module graph bundles |
+| **compatibility** | one public default export, approved dependencies, storage boundary, and three.js constraints |
+| **unit** | compiler, simulator, save, recall, and RPG tests pass with no skipped/todo tests |
 | **validate** | all 7 world layouts — containment, spacing, station numbering, and boss reachability by BFS through the real colliders (gate closed ⇒ unreachable, open ⇒ reachable) |
-| **content** | 309 checks: every solution compiles and passes; a stuck-at-0 impostor **fails** every test; RTL exports recompile; netlists extract and lay out finitely; gauntlet generators are sane; learning order is correct |
-| **visual** | all 8 scenes build against real three.js with a stub DOM; progress sync and the NEXT beacon behave |
-| **smoke** | the real React tree mounts headlessly — menu, Tapeout Bay, no-WebGL fallback, flight recorder |
-| **artifact compat** | one default export · no localStorage · core three only |
+| **content** | canonical solutions/remixes pass, impostors fail, external fixtures pin teaching order and vectors, RTL exports are complete, netlists stay finite, and generated rounds remain deterministic |
+| **visual** | all 9 scenes build against real three.js; scene density, gates, progress colors, and NEXT-beacon wiring are validated |
+| **smoke** | the real React tree mounts headlessly — menu, Tapeout Bay, all no-WebGL fallbacks, and a positive stub-renderer path |
 
 Individual stages: `npm run gate:layout`, `gate:content`, `gate:visual`, `gate:smoke`.
+
+The original gate scripts described by the early README were not present in
+repository history. The checked-in suite is an explicitly reconstructed and
+expanded replacement; it does not claim historical check-count equivalence.
 
 This is not decoration. The gate has caught, in shipped code: a rasterization
 parity bug that **sealed an entire world** behind phantom walls, a boss gate
@@ -136,35 +143,36 @@ vacuously because it checked the wrong field name.
 ## Layout
 
 ```
-src/tapeout.jsx    the entire game — one file, one default export
-src/main.jsx       local entry point + window.storage shim (not part of the game)
-dev/               gate scripts
-.cursorrules       hard constraints, for AI-assisted editing
+src/tapeout.jsx    stable two-line default-export entry
+src/app/           App shell and versioned save contracts
+src/engine/        Verilog compiler/simulator, netlists, diagnostics, RTL export
+src/game/          canonical content, RPG systems, spaced recall
+src/world/         collision, progression, layouts, pure world models
+src/graphics/      three.js primitives, post FX, creatures, world builders
+src/audio/         synthesized SFX, tracks, and music engine
+src/ui/            shared UI and screen families
+src/telemetry/     flight recorder
+dev/ + tests/      quality gate and focused regression tests
 ```
 
-`src/tapeout.jsx` opens with a table of contents listing 36 sections — grep a
-title to jump. Major regions: `VERILOG ENGINE`, `CONTENT`, `DEBUG BAY CORE`,
-`FLIGHT RECORDER`, `COMBAT SYSTEM`, `FAB CAMPUS`, `BIT MINES`,
-`TRAIL DUNGEON MODELS`, `ULTRA POST PIPELINE`, `ULTRA FAB LAYER`, `APP SHELL`.
+Subsystem filenames deliberately mirror the former section banners, so a new
+contributor can move from engine → game → world → graphics → UI without tracing
+a monolithic scope.
 
 ---
 
 ## Constraints (and why)
 
-The file has to run in two places: locally under Vite, and pasted straight into
-a Claude.ai artifact. That forces real discipline:
+The retired Claude-artifact constraint no longer requires a monolith.
 
-- **One file, one default export** — no module splitting
-- **three r128, core only** — no `three/examples/*`; bloom, chromatic
-  aberration, vignette and grain are hand-written ShaderMaterial passes, and the
-  pipeline self-checks on startup and falls back cleanly if a shader won't
-  compile on the host GPU
-- **No localStorage in the game file** — it calls an async `window.storage` API;
-  local persistence comes from a shim in `main.jsx`, so the game file stays
-  artifact-legal
-- **All audio synthesized** — 10 tracks of Web Audio, zero asset files
-
-`npm run gate` enforces every one of these.
+- **three.js remains r128** — the custom bloom, chromatic aberration, vignette,
+  and grain pipeline self-checks and falls back cleanly.
+- **Save compatibility is stable** — game code uses async `window.storage`;
+  local persistence remains isolated to the `main.jsx` shim.
+- **All audio is synthesized** — 10 procedural Web Audio tracks.
+- **Visual assets are permitted** when their source/license is documented.
+- **Runtime dependencies stay deliberate** — upgrades and additions are
+  standalone proposals rather than feature-phase side effects.
 
 ---
 
@@ -183,12 +191,12 @@ notes — a play session compressed into a work list.
 
 **Shipped:** worlds and progression · station-ordered learning · graphics pass ·
 Debug Bay (waveforms, divergence diagnosis, latch detection, schematic view) ·
-RTL export · flight recorder.
+RTL export · flight recorder · spaced review scheduling and Recall Lab.
 
-**Next:** Recall Engine (retrieval questions gating field-note XP, mastery map,
-weakest-topic-first review) → compiler expansion (`parameter`, module
-instantiation) → a content wave using those features → single-cycle datapath
-capstone (PC → register file → ALU → control → integrated datapath).
+**Next:** guided onboarding → interactive Codex (retrieval questions gating
+field-note XP, live widgets, mastery map) → world/graphics/boss overhauls →
+module instantiation → hierarchical content → single-cycle datapath capstone
+(PC → register file → ALU → control → integrated datapath).
 
 ---
 

@@ -3,17 +3,16 @@
 ## Cursor Cloud specific instructions
 
 ### Layout
-- The single-file game is `src/tapeout.jsx` (one `export default function App()`),
-  matching the README and `.cursorrules`. `src/main.jsx` is the local Vite entry
-  point (React 18 `createRoot` + the async `window.storage` localStorage shim);
-  it is glue, NOT part of the game, and stays out of the artifact-legal file.
-  `index.html` loads `/src/main.jsx`.
+- `src/tapeout.jsx` is the stable two-line default-export entry. The game is
+  modular: `engine/`, `game/`, `world/`, `graphics/`, `audio/`, `ui/`, `app/`,
+  and `telemetry/` each own one subsystem.
+- `src/main.jsx` is local Vite glue (React 18 `createRoot` plus the async
+  `window.storage` localStorage shim). `index.html` loads `/src/main.jsx`.
 
 ### Running
-- Dev server: `npm run dev` → http://localhost:5173. Babel prints a one-time
-  "code generator has deoptimised the styling …" notice because `src/tapeout.jsx`
-  is ~670KB; it is harmless.
+- Dev server: `npm run dev` → http://localhost:5173.
 - Production build: `npm run build`.
+- Focused checks: `npm test`, `npm run lint`, `npm run format:check`.
 
 ### The gate (`npm run gate`) — RECONSTRUCTED, new coverage
 - The original `dev/*.cjs` gate scripts were never committed to this repo (absent
@@ -21,20 +20,17 @@
   is a REBUILT approximation that exercises the real game internals. Its check
   counts are its own — it does NOT reproduce the README's original 309-check
   content suite. Treat the numbers as this suite's, not the historical ones.
-- Stages (fail-fast, must print `GATE GREEN`): build · artifact-compat · layout
-  (`gate:layout`) · content (`gate:content`) · visual (`gate:visual`) · smoke
-  (`gate:smoke`).
-- Mechanism (per `.cursorrules`): `dev/_shared.cjs` copies the source to `.gate/`,
-  appends a single `export { … }` line, and esbuild-bundles that COPY to CJS —
-  it NEVER adds exports to `src/tapeout.jsx`. `react`/`three`/`lucide-react` are
-  left external so there is one React instance (needed by the smoke test's
-  react-test-renderer). `.gate/` is gitignored.
-- Content stage compiles+simulates every reference solution and NG+ remix with
-  the real `vCompile`, asserts a stuck-at-0 impostor fails, and recompiles RTL
-  exports. Layout stage BFS-checks boss reachability through the true colliders
-  (gate closed ⇒ unreachable, open ⇒ reachable) — this is the sealed-world /
-  phantom-wall detector. Visual builds all 3D scene graphs headless. Smoke mounts
-  `<App/>` and routes into a world to hit the no-WebGL fallback.
+- Stages (fail-fast, must print `GATE GREEN`): build · compatibility · unit ·
+  layout (`gate:layout`) · content (`gate:content`) · visual (`gate:visual`) ·
+  smoke (`gate:smoke`).
+- `dev/_shared.cjs` copies the complete `src/` module graph into `.gate/`,
+  appends test-only exports to the copied entry, and bundles that copy to CJS.
+  Runtime modules never receive test-only exports.
+- Content fixtures independently pin lesson/challenge/station order, vectors,
+  truth tables, generated rounds, netlists, and RTL exports. Layout BFS-checks
+  boss reachability through true colliders. Visual checks scene density,
+  progress synchronization, every campus gate, and NEXT behavior. Smoke covers
+  all four no-WebGL consoles plus a positive stub-renderer path.
 
 ### Headless / computer-use rendering caveat
 - In GPU-less environments (the computer-use browser, the gate's smoke/visual

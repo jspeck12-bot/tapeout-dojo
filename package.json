@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "TAPEOUT - the Verilog dojo. Single-file React RPG that teaches Verilog.",
+  "description": "TAPEOUT - a browser RPG that teaches Verilog and chip design.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
