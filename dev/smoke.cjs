@@ -100,6 +100,32 @@ async function run() {
     setGfx: noop,
     onSettings: noop,
   };
+  const mineFallbackModel = m.mineModel((m.LESSONS[1] || []).map((lesson) => lesson.id));
+  const mineMarkers = mineFallbackModel.interactables
+    .filter((item) => item.ord)
+    .sort((left, right) => left.ord - right.ord)
+    .map((item) => {
+      if (item.kind === 'book') {
+        return m.LESSONS[1].find((lesson) => lesson.id === item.lid).title;
+      }
+      if (item.boss) return 'SEALED — clear the outer galleries';
+      return m.challengesOf(1).find((challenge) => challenge.id === item.id).title;
+    });
+  const dungeonFallbackModel = m.dungeonModel(
+    2,
+    m.challengesOf(2),
+    (m.LESSONS[2] || []).map((lesson) => lesson.id),
+  );
+  const dungeonMarkers = dungeonFallbackModel.interactables
+    .filter((item) => item.ord)
+    .sort((left, right) => left.ord - right.ord)
+    .map((item) => {
+      if (item.kind === 'book') {
+        return m.LESSONS[2].find((lesson) => lesson.id === item.lid).title;
+      }
+      if (item.boss) return 'SEALED — clear the hall first';
+      return m.challengesOf(2).find((challenge) => challenge.id === item.id).title;
+    });
 
   // Every renderer failure path must remain a complete playable console, not
   // merely a banner that can hide a permanently broken 3D implementation.
@@ -114,12 +140,8 @@ async function run() {
       name: 'mines',
       Component: m.MineScreen,
       props: common,
-      markers: m.challengesOf(1).filter((challenge) => challenge.id !== 'b6')
-        .map((challenge) => challenge.title)
-        .concat(
-          ['SEALED — clear the outer galleries'],
-          (m.LESSONS[1] || []).map((lesson) => lesson.title),
-        ),
+      markers: mineMarkers,
+      ordered: true,
     },
     {
       name: 'arcade',
@@ -133,12 +155,8 @@ async function run() {
       name: 'dungeon-2',
       Component: m.DungeonScreen,
       props: { ...common, w: 2 },
-      markers: m.challengesOf(2).slice(0, -1)
-        .map((challenge) => challenge.title)
-        .concat(
-          ['SEALED — clear the hall first'],
-          (m.LESSONS[2] || []).map((lesson) => lesson.title),
-        ),
+      markers: dungeonMarkers,
+      ordered: true,
     },
   ];
   for (const testCase of fallbackCases) {
@@ -146,9 +164,16 @@ async function run() {
     const fallbackText = textOf(fallbackRoot.toJSON());
     assert(/NO WEBGL|can't render the arcade floor/.test(fallbackText),
       `${testCase.name}: renderer failure did not enter its console fallback`);
+    let previousMarker = -1;
     for (const marker of testCase.markers) {
       assert(fallbackText.includes(marker),
         `${testCase.name}: fallback missing "${marker}"`);
+      if (testCase.ordered) {
+        const markerIndex = fallbackText.indexOf(marker);
+        assert(markerIndex > previousMarker,
+          `${testCase.name}: fallback station "${marker}" is out of learning order`);
+        previousMarker = markerIndex;
+      }
       checks++;
     }
     act(() => { fallbackRoot.unmount(); });

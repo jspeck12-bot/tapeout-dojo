@@ -375,8 +375,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   if (failed) {
     const model = modelMemo;
     const gateOpen = dungeonGateOpen(save, model);
-    const ordOfL = {}; model.interactables.forEach(i => { if (i.kind === 'book') ordOfL[i.lid] = i.ord; });
-    const fightsOrdered = model.interactables.filter(i => i.kind === 'fight').slice().sort((a, b) => (a.ord || 99) - (b.ord || 99));
+    const stationsOrdered = model.interactables.filter(i => i.ord).slice().sort((a, b) => a.ord - b.ord);
     return (
       <div style={{ marginTop: 22, maxWidth: 640, position: 'relative' }}>
         {overlay && renderOverlay()}
@@ -387,25 +386,28 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
             This device can't render {world.name} in 3D. Pick a fight below — same battles, no walking.
           </div>
           <div className="twocol" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {fightsOrdered.map(it => {
-              const en = enemyFor(it.id, w, it.xp || 30, it.boss, activeMode, save.ngplus);
-              const sealed = it.boss && !gateOpen;
-              const done = !!activeDone(save)[it.id];
+            {stationsOrdered.map(it => {
+              if (it.kind === 'fight') {
+                const en = enemyFor(it.id, w, it.xp || 30, it.boss, activeMode, save.ngplus);
+                const sealed = it.boss && !gateOpen;
+                const done = !!activeDone(save)[it.id];
+                return (
+                  <button key={it.id} className="card" disabled={sealed}
+                    style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: sealed ? 'not-allowed' : 'pointer', opacity: sealed ? 0.45 : 1, borderColor: it.boss ? '#7A6310' : undefined }}
+                    onClick={() => openOverlay({ ...it.target })}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: done ? '#7CE7A2' : it.boss ? '#FFE27A' : '#E8F1FA' }}>{it.boss ? '★ FINAL · ' : '#' + it.ord + ' · '}{en.name}{done ? ' ✓' : ''}</span>
+                    <div style={{ fontSize: 11, color: '#76849A' }}>{sealed ? 'SEALED — clear the hall first' : (it.title || it.id)}</div>
+                  </button>
+                );
+              }
+              const lesson = lessonList.find(item => item.id === it.lid);
               return (
-                <button key={it.id} className="card" disabled={sealed}
-                  style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: sealed ? 'not-allowed' : 'pointer', opacity: sealed ? 0.45 : 1, borderColor: it.boss ? '#7A6310' : undefined }}
-                  onClick={() => openOverlay({ ...it.target })}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: done ? '#7CE7A2' : it.boss ? '#FFE27A' : '#E8F1FA' }}>{it.boss ? '★ FINAL · ' : it.ord ? '#' + it.ord + ' · ' : ''}{en.name}{done ? ' ✓' : ''}</span>
-                  <div style={{ fontSize: 11, color: '#76849A' }}>{sealed ? 'SEALED — clear the hall first' : (it.title || it.id)}</div>
+                <button key={it.id} className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+                  onClick={() => openOverlay({ name: 'note', id: it.lid })}>
+                  <span style={{ fontSize: 13, color: accHex }}>#{it.ord} · FIELD NOTE — {lesson ? lesson.title : it.lid}{save.lessons && save.lessons[it.lid] ? ' ✓' : ''}</span>
                 </button>
               );
             })}
-            {lessonList.map(L => (
-              <button key={L.id} className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
-                onClick={() => openOverlay({ name: 'note', id: L.id })}>
-                <span style={{ fontSize: 13, color: accHex }}>{ordOfL[L.id] ? '#' + ordOfL[L.id] + ' · ' : ''}FIELD NOTE — {L.title}{save.lessons && save.lessons[L.id] ? ' ✓' : ''}</span>
-              </button>
-            ))}
             <button className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
               onClick={() => go({ name: 'menu' })}>
               <span style={{ fontSize: 13 }}>MAIN MENU</span>

@@ -375,28 +375,31 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
             This device can't render the mine in 3D. Pick a fight below — same battles, no walking.
           </div>
           <div className="twocol" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {model.interactables.filter(i => i.kind === 'fight').map(it => {
-              const en = enemyFor(it.id, 1, 30, it.boss, 'engineer', false);
-              const g = GAUNTLETS.find(x => x.id === it.id);
-              const sealed = it.boss && !gateOpen;
-              const done = !!activeDone(save)[it.id];
+            {model.interactables.filter(i => i.ord).sort((a, b) => a.ord - b.ord).map(it => {
+              if (it.kind === 'fight') {
+                const en = enemyFor(it.id, 1, 30, it.boss, 'engineer', false);
+                const g = GAUNTLETS.find(x => x.id === it.id);
+                const sealed = it.boss && !gateOpen;
+                const done = !!activeDone(save)[it.id];
+                return (
+                  <button key={it.id} className="card" disabled={sealed}
+                    style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: sealed ? 'not-allowed' : 'pointer', opacity: sealed ? 0.45 : 1, borderColor: it.boss ? '#7A6310' : undefined }}
+                    onClick={() => openOverlay({ ...it.target })}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: done ? '#7CE7A2' : it.boss ? '#FFE27A' : '#E8F1FA' }}>
+                      {it.boss ? '★ FINAL · ' : '#' + it.ord + ' · '}{en.name}{done ? ' ✓' : ''}
+                    </span>
+                    <div style={{ fontSize: 11, color: '#76849A' }}>{sealed ? 'SEALED — clear the outer galleries' : (g ? g.title : it.id)}</div>
+                  </button>
+                );
+              }
+              const lesson = (LESSONS[1] || []).find(item => item.id === it.lid);
               return (
-                <button key={it.id} className="card" disabled={sealed}
-                  style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: sealed ? 'not-allowed' : 'pointer', opacity: sealed ? 0.45 : 1, borderColor: it.boss ? '#7A6310' : undefined }}
-                  onClick={() => openOverlay({ ...it.target })}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: done ? '#7CE7A2' : it.boss ? '#FFE27A' : '#E8F1FA' }}>
-                    {en.name}{done ? ' ✓' : ''}
-                  </span>
-                  <div style={{ fontSize: 11, color: '#76849A' }}>{sealed ? 'SEALED — clear the outer galleries' : (g ? g.title : it.id)}</div>
+                <button key={it.id} className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+                  onClick={() => openOverlay({ name: 'note', id: it.lid })}>
+                  <span style={{ fontSize: 13, color: '#7DEFFF' }}>#{it.ord} · FIELD NOTE — {lesson ? lesson.title : it.lid}{save.lessons && save.lessons[it.lid] ? ' ✓' : ''}</span>
                 </button>
               );
             })}
-            {(LESSONS[1] || []).map(L => (
-              <button key={L.id} className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
-                onClick={() => openOverlay({ name: 'note', id: L.id })}>
-                <span style={{ fontSize: 13, color: '#7DEFFF' }}>FIELD NOTE — {L.title}{save.lessons && save.lessons[L.id] ? ' ✓' : ''}</span>
-              </button>
-            ))}
             <button className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
               onClick={() => go({ name: 'menu' })}>
               <span style={{ fontSize: 13 }}>MAIN MENU</span>
