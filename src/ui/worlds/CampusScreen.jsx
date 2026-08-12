@@ -335,13 +335,19 @@ function CampusScreen({ save, go, cb }) {
             This device can't render the 3D fab. Direct console uplinks below — same destinations, no walking.
           </div>
           <div className="twocol" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {WORLDS.map(w => (
-              <button key={w.id} className="card" disabled={!worldUnlockedEx(w.id, save)}
-                style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: worldUnlockedEx(w.id, save) ? 'pointer' : 'not-allowed', opacity: worldUnlockedEx(w.id, save) ? 1 : 0.45 }}
-                onClick={() => openOverlay({ name: 'world', w: w.id })}>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{w.name}</span>
-              </button>
-            ))}
+            {WORLDS.map(w => {
+              const unlocked = worldUnlockedEx(w.id, save);
+              return (
+                <button key={w.id} className="card" disabled={!unlocked}
+                  style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: unlocked ? 'pointer' : 'not-allowed', opacity: unlocked ? 1 : 0.58 }}
+                  onClick={() => openOverlay({ name: 'world', w: w.id })}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{w.name}</span>
+                  <div style={{ fontSize: 10.5, color: unlocked ? '#5A6A80' : '#FF8B82', marginTop: 2 }}>
+                    {unlocked ? 'console ready' : 'SEALED — clear the previous district'}
+                  </div>
+                </button>
+              );
+            })}
             {[['Training Grounds', { name: 'training' }], ['Binary Blitz', { name: 'blitz' }], ['Bug Bounty', { name: 'bugs' }], ['Service Record', { name: 'ach' }], ['Field Manual', { name: 'manual' }], ['Scrap Exchange', { name: 'shop' }]].map(([nm, tg]) => (
               <button key={nm} className="card" style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }} onClick={() => openOverlay(tg)}>
                 <span style={{ fontSize: 13 }}>{nm}</span>
