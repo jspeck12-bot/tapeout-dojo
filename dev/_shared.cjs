@@ -34,8 +34,6 @@ const EXPORTS = [
   'worldDone', 'worldUnlocked',
   'nextStationOf',
   'mkBox', 'circleVsAABB', 'resolveCollisions',
-  'MINE_CELL', 'mineWalls', 'MINE_FIGHTS', 'mineGateOpen',
-  'mineModel', 'buildMineWorld', 'applyMineProgress',
   'valleyModel', 'canyonModel', 'dungeonGateOpen',
   'dungeonModel', 'buildDungeonWorld', 'applyDungeonProgress',
   'arcadeModel', 'buildArcadeWorld',
@@ -62,8 +60,19 @@ const REEXPORTS = [
     names: ['campusModel', 'campusProgress'],
   },
   {
+    from: './world/layout.js',
+    names: ['MINE_CELL', 'mineWalls'],
+  },
+  {
+    from: './world/mine.js',
+    names: ['MINE_FIGHTS', 'mineGateOpen', 'mineModel'],
+  },
+  {
     from: './graphics/world-builders.js',
-    names: ['buildCampusWorld', 'buildFabUltra', 'applyCampusProgress'],
+    names: [
+      'buildCampusWorld', 'buildFabUltra', 'applyCampusProgress',
+      'buildMineWorld', 'applyMineProgress',
+    ],
   },
 ];
 
