@@ -6,7 +6,7 @@
 module.exports = {
   catalogHashes: {
     basePresentation: '3364a304dd7cfe31',
-    remixPresentation: '5bca32dee3005f11',
+    remixPresentation: '9a3972324cf80c96',
     worlds: '5d101d54c709e127',
     achievements: 'dd0a0ed51d72e261',
     ranks: '78207507fed113fc',
