@@ -15,6 +15,26 @@ const DEFAULT_SAVE = {
   campusVisited: false,
 };
 function normalizeSave(p) { return rpgFix(normalizeSaveBase(p)); }
+function cloneSaveForMutation(previous) {
+  return {
+    ...previous,
+    done: { ...previous.done },
+    doneNg: { ...previous.doneNg },
+    lessons: { ...previous.lessons },
+    ach: [...previous.ach],
+    skill: { ...previous.skill },
+    bugsSolved: [...previous.bugsSolved],
+    bugClean: [...previous.bugClean],
+    streak: { ...previous.streak },
+    training: { ...previous.training },
+    dailyDone: { ...previous.dailyDone },
+    stats: { ...previous.stats, topics: { ...previous.stats.topics } },
+    gear: { ...previous.gear },
+    inv: { ...previous.inv },
+    combat: { ...previous.combat },
+    owned: [...previous.owned],
+  };
+}
 function normalizeSaveBase(p) {
   const q = p && typeof p === 'object' && !Array.isArray(p) ? p : {};
   const objectOf = (value) =>
@@ -63,6 +83,7 @@ export {
   normalizeSlot,
   DEFAULT_SAVE,
   normalizeSave,
+  cloneSaveForMutation,
   normalizeSaveBase,
   todayStr,
   yesterdayStr,

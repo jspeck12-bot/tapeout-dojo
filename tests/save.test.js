@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_SAVE, normalizeSave, normalizeSlot } from '../src/app/save.js';
+import {
+  DEFAULT_SAVE,
+  cloneSaveForMutation,
+  normalizeSave,
+  normalizeSlot,
+} from '../src/app/save.js';
 import { exportSave, importSave } from '../src/ui/meta.jsx';
 
 describe('save compatibility', () => {
@@ -81,5 +86,33 @@ describe('save compatibility', () => {
     expect(normalizeSlot(0)).toBe(1);
     expect(normalizeSlot(999)).toBe(1);
     expect(normalizeSlot('broken')).toBe(1);
+  });
+
+  test('clones every nested branch mutated by App callbacks', () => {
+    const previous = normalizeSave({
+      done: { m1: { stars: 1 } },
+      gear: { weapon: 'w_iron', armor: 'a_cloth', tool: null },
+      inv: { potions: 2, flux: 1 },
+      combat: { kills: 3, deaths: 1, flawless: 2 },
+      owned: ['w_iron', 'a_cloth'],
+    });
+    const next = cloneSaveForMutation(previous);
+
+    for (const key of [
+      'done', 'doneNg', 'lessons', 'ach', 'skill', 'bugsSolved', 'bugClean',
+      'streak', 'training', 'dailyDone', 'stats', 'gear', 'inv', 'combat', 'owned',
+    ]) {
+      expect(next[key]).not.toBe(previous[key]);
+    }
+    expect(next.stats.topics).not.toBe(previous.stats.topics);
+
+    next.inv.potions--;
+    next.combat.kills++;
+    next.gear.weapon = 'w_copper';
+    next.owned.push('w_copper');
+    expect(previous.inv.potions).toBe(2);
+    expect(previous.combat.kills).toBe(3);
+    expect(previous.gear.weapon).toBe('w_iron');
+    expect(previous.owned).not.toContain('w_copper');
   });
 });

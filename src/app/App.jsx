@@ -15,7 +15,7 @@ import {
 } from '../game/rpg.js';
 import {
   SAVE_KEY, META_KEY, SLOT_KEY,
-  normalizeSave, normalizeSlot, todayStr, yesterdayStr,
+  normalizeSave, normalizeSlot, cloneSaveForMutation, todayStr, yesterdayStr,
 } from './save.js';
 import {
   AudioFX,
@@ -136,16 +136,7 @@ export function App() {
   // ---- xp / achievements core ----
   const mutate = useCallback((fn) => {
     const prev = saveRef.current;
-    const next = {
-      ...prev,
-      done: { ...prev.done }, doneNg: { ...prev.doneNg },
-      lessons: { ...prev.lessons }, ach: [...prev.ach],
-      skill: { ...prev.skill },
-      bugsSolved: [...prev.bugsSolved], bugClean: [...prev.bugClean],
-      streak: { ...prev.streak }, training: { ...prev.training },
-      dailyDone: { ...prev.dailyDone },
-      stats: { ...prev.stats, topics: { ...prev.stats.topics } },
-    };
+    const next = cloneSaveForMutation(prev);
     const fx = [];
     const ctx = {
       addXp: (n, label) => { next.xp += n; if (label) fx.push([`+${n} XP`, label, undefined]); },
