@@ -51,7 +51,8 @@ const FR = {
     const by = {};
     this.evs.forEach(e => { (by[e.type] = by[e.type] || []).push(e); });
     if (by.clear) L.push('CLEARED  ' + by.clear.map(e => e.id + (e.stars ? '★' + e.stars : '')).join(' '));
-    if (by.read) L.push('NOTES READ  ' + by.read.map(e => e.id).join(' '));
+    const noteEvents = (by.read || []).concat(by['recall-pass'] || []);
+    if (noteEvents.length) L.push('NOTES READ  ' + [...new Set(noteEvents.map(e => e.id))].join(' '));
     const fails = {};
     ['cfail', 'bfail', 'rfail', 'sfail', 'gfail', 'tfail'].forEach(t => (by[t] || []).forEach(e => { fails[e.id] = (fails[e.id] || 0) + 1; }));
     if (Object.keys(fails).length) L.push('FAILS  ' + Object.entries(fails).map(([k, v]) => k + '×' + v).join(' '));

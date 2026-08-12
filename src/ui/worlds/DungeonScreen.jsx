@@ -25,6 +25,7 @@ import { dungeonModel, dungeonGateOpen } from '../../world/dungeon.js';
 import {
   GauntletScreen, TruthScreen, CodeScreen,
 } from '../challenges.jsx';
+import { NoteTerminal } from '../codex/NoteTerminal.jsx';
 import { Paragraphs } from '../foundations.jsx';
 import { TouchControls, CinematicFX, EnterFade } from '../world-shared.jsx';
 
@@ -338,23 +339,10 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       const read = !!(save.lessons && save.lessons[overlay.id]);
       label = 'FIELD NOTE';
       body = L ? (
-        <div style={{ marginTop: 16, maxWidth: 640 }}>
-          <div className="card" style={{ padding: '18px 20px' }}>
-            <div className="eyebrow" style={{ color: accHex, marginBottom: 8 }}>recovered field note · {world.name.toLowerCase()}</div>
-            <h2 style={{ margin: '0 0 10px', fontSize: 19, fontWeight: 600 }}>{L.title}</h2>
-            <div className="lessonbody" style={{ fontSize: 13.5, color: '#B9C6D6' }}><Paragraphs text={L.body} /></div>
-            {L.code && <pre className="codeblock" style={{ marginTop: 12 }}>{L.code}</pre>}
-            {LESSON_DEPTH[L.id] && (
-              <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #1B2433' }}>
-                <div className="eyebrow" style={{ marginBottom: 7, color: '#6FB7C9' }}>going deeper</div>
-                <div style={{ fontSize: 13, color: '#A7B6C8' }}><Paragraphs text={LESSON_DEPTH[L.id]} /></div>
-              </div>
-            )}
-            <button className="btn primary sm" style={{ marginTop: 14 }}
-              onClick={() => { AudioFX.good(); if (!read) cb.onLessonRead(overlay.id); }}>
-              {read ? 'logged ✓' : 'log it to the manual'}
-            </button>
-          </div>
+        <div style={{ marginTop: 16, maxWidth: 720 }}>
+          <NoteTerminal lesson={L} depth={LESSON_DEPTH[L.id]} worldLabel={world.name}
+            accent={accHex} collected={read} recallRecord={save.noteRecall?.[L.id]}
+            onRecall={correct => cb.onLessonRecall(L.id, correct)} />
         </div>
       ) : <div style={{ marginTop: 20, color: '#76849A' }}>The pages have rotted away.</div>;
     }

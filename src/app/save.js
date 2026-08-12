@@ -12,6 +12,7 @@ const DEFAULT_SAVE = {
   training: {}, trainTotal: 0, dailyDone: {}, dailyCount: 0,
   stats: { topics: {}, playMs: 0, runs: 0 },
   skill: {},
+  noteRecall: {},
   campusVisited: false,
   tutorial: { completed: false, skipped: false, step: 0, replays: 0 },
 };
@@ -24,6 +25,7 @@ function cloneSaveForMutation(previous) {
     lessons: { ...previous.lessons },
     ach: [...previous.ach],
     skill: { ...previous.skill },
+    noteRecall: { ...previous.noteRecall },
     bugsSolved: [...previous.bugsSolved],
     bugClean: [...previous.bugClean],
     streak: { ...previous.streak },
@@ -74,6 +76,7 @@ function normalizeSaveBase(p) {
       runs: countOf(stats.runs),
     },
     skill: { ...objectOf(q.skill) },
+    noteRecall: { ...objectOf(q.noteRecall) },
     sound: typeof q.sound === 'boolean' ? q.sound : DEFAULT_SAVE.sound,
     tapeoutDone: !!q.tapeoutDone,
     ngplus: !!q.ngplus,

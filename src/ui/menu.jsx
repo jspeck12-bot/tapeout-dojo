@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Check, ChevronLeft, ChevronRight, Coins, Cpu, Gamepad2, Medal, Play,
+  BookOpen, Check, ChevronLeft, ChevronRight, Coins, Cpu, Gamepad2, Medal, Play,
   RotateCcw, Settings, Sparkles, Star, Terminal,
 } from "lucide-react";
 import {
@@ -37,7 +37,8 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
   return (
     <div className="mm-root">
       <style>{`
-        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -10%,#0c1430 0%,#070912 55%,#04060c 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -10%,#0c1430 0%,#070912 55%,#04060c 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:42px 24px}
+        @media(min-height:920px){.mm-root{justify-content:center}}
         .mm-grid{position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;background-image:linear-gradient(rgba(34,211,238,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.15) 1px,transparent 1px);background-size:46px 46px;transform:perspective(420px) rotateX(62deg);transform-origin:50% 100%;animation:mm-pan 7s linear infinite;-webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);mask-image:linear-gradient(to top,#000 8%,transparent 78%)}
         @keyframes mm-pan{from{background-position:0 0}to{background-position:0 46px}}
         .mm-bit{position:absolute;top:-8%;color:rgba(125,239,255,.28);font-family:ui-monospace,monospace;animation:mm-fall linear infinite;pointer-events:none}
@@ -98,6 +99,11 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
         <button className="mm-btn" onClick={() => { AudioFX.click(); onReplayTutorial(); }}>
           <span className="mm-ico" style={{ background: 'rgba(125,239,255,.10)' }}><RotateCcw size={16} color="#7DEFFF" /></span>
           <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>REPLAY PROLOGUE</div><div style={{ fontSize: 11, color: '#76849A' }}>controls, first compile &amp; Debug Bay</div></span>
+          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
+        </button>
+        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}>
+          <span className="mm-ico" style={{ background: 'rgba(163,230,53,.10)' }}><BookOpen size={16} color="#A3E635" /></span>
+          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>CODEX &amp; MASTERY DIE</div><div style={{ fontSize: 11, color: '#76849A' }}>search recovered notes · inspect weak topics</div></span>
           <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
         </button>
         <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}>

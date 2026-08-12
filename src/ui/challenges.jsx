@@ -21,6 +21,7 @@ import {
   highlightVerilog, CodeEditor, Waveform, CombResults, ConsoleOut, rankIndex,
 } from './foundations.jsx';
 import { useCombat, CombatHUD, FlatlineOverlay } from './combat.jsx';
+import { NoteTerminal } from './codex/NoteTerminal.jsx';
 import { FR } from '../telemetry/flight-recorder.js';
 import { ALL_CHALLENGES, challengesOf, activeDone } from '../world/challenges.js';
 import { stationSequence } from '../world/progression.js';
@@ -71,7 +72,7 @@ function errHelpFor(msg, world) {
 // ============================================================
 const WORLD_ICONS = { 1: Pickaxe, 2: Binary, 3: Flame, 4: Mountain, 5: Clock, 6: Castle, 7: Cpu };
 
-function WorldScreen({ w, save, go, onLessonRead }) {
+function WorldScreen({ w, save, go, onLessonRecall }) {
   const world = WORLDS.find(x => x.id === w);
   const lessons = LESSONS[w] || [];
   const chs = challengesOf(w);
@@ -115,7 +116,7 @@ function WorldScreen({ w, save, go, onLessonRead }) {
 
       {lessons.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>field notes · +5 xp each · numbered = read order</div>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>field notes · recall gates XP · numbered = read order</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
             {lessons.map(L => {
               const read = !!save.lessons[L.id];
@@ -127,7 +128,6 @@ function WorldScreen({ w, save, go, onLessonRead }) {
                     onClick={() => {
                       AudioFX.click();
                       setOpenLesson(open ? null : L.id);
-                      if (!read) onLessonRead(L.id);
                     }}>
                     <BookOpen size={14} color={read ? world.color : '#5A6A80'} />
                     <span style={{ fontSize: 11, color: '#5A6A80', width: 20 }}>{String(stOrd[L.id] || 0).padStart(2, '0')}</span>
@@ -138,19 +138,11 @@ function WorldScreen({ w, save, go, onLessonRead }) {
                     </span>
                   </button>
                   {open && (
-                    <div className="lessonbody" style={{ padding: '2px 16px 14px', fontSize: 13.5, color: '#B9C6D6', borderTop: '1px solid #161D29' }}>
-                      <div style={{ height: 10 }} />
-                      <Paragraphs text={L.body} />
-                      {L.code && (
-                        <pre className="code-common" style={{ background: '#0A0E14', border: '1px solid #1D2632', borderRadius: 7, padding: '10px 13px', overflowX: 'auto', fontSize: 12.5 }}
-                          dangerouslySetInnerHTML={{ __html: highlightVerilog(L.code).replace(/<span class="lngut">\d+<\/span>/g, '') }} />
-                      )}
-                      {LESSON_DEPTH[L.id] && (
-                        <div style={{ marginTop: 13, paddingTop: 11, borderTop: '1px solid #161D29' }}>
-                          <div className="eyebrow" style={{ marginBottom: 7, color: '#6FB7C9' }}>going deeper</div>
-                          <div style={{ fontSize: 13, color: '#A7B6C8' }}><Paragraphs text={LESSON_DEPTH[L.id]} /></div>
-                        </div>
-                      )}
+                    <div style={{ padding: 10, borderTop: '1px solid #161D29' }}>
+                      <NoteTerminal lesson={L} depth={LESSON_DEPTH[L.id]} worldLabel={world.name}
+                        accent={world.color} collected={read}
+                        recallRecord={save.noteRecall?.[L.id]}
+                        onRecall={correct => onLessonRecall(L.id, correct)} />
                     </div>
                   )}
                 </div>

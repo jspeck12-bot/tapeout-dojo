@@ -62,6 +62,14 @@ const REEXPORTS = [
     names: ['TapeoutBay'],
   },
   {
+    from: './ui/codex/CodexScreen.jsx',
+    names: ['CodexScreen'],
+  },
+  {
+    from: './ui/codex/NoteTerminal.jsx',
+    names: ['NoteTerminal'],
+  },
+  {
     from: './ui/worlds/CampusScreen.jsx',
     names: ['CampusScreen'],
   },

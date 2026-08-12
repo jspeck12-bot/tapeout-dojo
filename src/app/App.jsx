@@ -10,6 +10,7 @@ import {
   LESSONS,
   ACHIEVEMENTS, RANKS, MODES, modeOf, TOPIC_OF,
 } from '../game/content.js';
+import { noteMeta } from '../game/codex.js';
 import {
   levelFromXp, ITEM_BY_ID,
 } from '../game/rpg.js';
@@ -26,6 +27,7 @@ import {
 } from '../ui/foundations.jsx';
 import { MainMenu, TapeoutBay, DrillScreen } from '../ui/menu.jsx';
 import { PrologueScreen } from '../ui/PrologueScreen.jsx';
+import { CodexScreen } from '../ui/codex/CodexScreen.jsx';
 import {
   GfxPanel,
 } from '../ui/world-shared.jsx';
@@ -241,14 +243,23 @@ export function App() {
     });
   }, [mutate]);
 
-  const onLessonRead = useCallback((lid) => {
-    try { FR.ev('read', { id: lid }); } catch (e) { }
+  const onLessonRecall = useCallback((lid, correct) => {
+    try { FR.ev(correct ? 'recall-pass' : 'recall-fail', { id: lid }); } catch (e) { }
     mutate((s, ctx) => {
-      if (s.lessons[lid]) return;
+      const prior = s.noteRecall[lid] || { attempts: 0, correct: 0, streak: 0 };
+      s.noteRecall[lid] = {
+        attempts: prior.attempts + 1,
+        correct: prior.correct + (correct ? 1 : 0),
+        streak: correct ? prior.streak + 1 : 0,
+        lastDay: todayNum(),
+      };
+      const topic = noteMeta(lid).topic;
+      s.skill[topic] = reviewUpdate(s.skill[topic], correct ? 1 : 0, todayNum());
+      if (!correct || s.lessons[lid]) return;
       s.lessons[lid] = true;
-      ctx.addXp(5, 'field notes read');
+      ctx.addXp(5, 'field-note recall passed');
       const allLessons = Object.values(LESSONS).flat();
-      if (allLessons.every(L => s.lessons[L.id])) ctx.award('scholar');
+      if (allLessons.every(lesson => s.lessons[lesson.id])) ctx.award('scholar');
     });
   }, [mutate]);
 
@@ -403,19 +414,19 @@ export function App() {
 
   const onTutorialComplete = useCallback(({ skipped, replay }) => {
     if (!skipped) {
-      onLessonRead('L1a');
+      onLessonRecall('L1a', true);
       completeChallenge('b1', 1, 30);
     }
     mutate((s) => {
       s.tutorial = {
         completed: true,
-        skipped: !!skipped,
+        skipped: replay ? !!s.tutorial.skipped : !!skipped,
         step: 7,
         replays: (s.tutorial.replays || 0) + (replay ? 1 : 0),
       };
     });
     go({ name: skipped ? 'campus' : 'mine' });
-  }, [completeChallenge, go, mutate, onLessonRead]);
+  }, [completeChallenge, go, mutate, onLessonRecall]);
 
   // confetti auto-clear
   useEffect(() => {
@@ -425,7 +436,7 @@ export function App() {
   }, [confetti]);
 
   const worldCallbacks = useMemo(() => ({
-    onLessonRead,
+    onLessonRecall,
     completeChallenge,
     onBossWin,
     onStat,
@@ -444,7 +455,7 @@ export function App() {
     onImport,
     readSlot,
   }), [
-    onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear,
+    onLessonRecall, completeChallenge, onBossWin, onStat, onTrainingClear,
     onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip,
     activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot,
   ]);
@@ -466,9 +477,10 @@ export function App() {
       <div className="wrap">
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
+        {screen.name === 'codex' && <CodexScreen save={save} go={go} onRecall={onLessonRecall} />}
         {screen.name === 'drill' && <DrillScreen save={save} go={go} onReview={(id, kind) => { drillReturnRef.current = true; go({ name: kind, id }); }} />}
         {screen.name === 'tapeout' && <TapeoutBay save={save} go={go} />}
-        {screen.name === 'world' && <WorldScreen w={screen.w} save={save} go={go} onLessonRead={onLessonRead} />}
+        {screen.name === 'world' && <WorldScreen w={screen.w} save={save} go={go} onLessonRecall={onLessonRecall} />}
         {screen.name === 'gauntlet' && <GauntletScreen key={screen.id} id={screen.id} save={save} go={go} onComplete={completeChallenge} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'truth' && <TruthScreen key={screen.id} id={screen.id} save={save} go={go} onComplete={completeChallenge} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'code' && <CodeScreen key={screen.id + '|' + (save.ngplus ? 'ng' : save.mode)} id={screen.id} save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}

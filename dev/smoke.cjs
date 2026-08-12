@@ -12,6 +12,9 @@
 const shared = require('./_shared.cjs');
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
+function expectArray(actual, expected, message) {
+  assert(JSON.stringify(actual) === JSON.stringify(expected), message);
+}
 
 function textOf(node) {
   if (node == null) return '';
@@ -69,7 +72,7 @@ async function run() {
   for (let i = 0; i < 6; i++) { await act(async () => { await Promise.resolve(); }); } // eslint-disable-line no-await-in-loop
 
   const menuText = textOf(root.toJSON());
-  for (const marker of ['TAPEOUT', 'NEW GAME', 'CONTINUE', 'SETTINGS']) {
+  for (const marker of ['TAPEOUT', 'NEW GAME', 'CONTINUE', 'CODEX & MASTERY DIE', 'SETTINGS']) {
     assert(menuText.includes(marker), `menu missing "${marker}"`);
     checks++;
   }
@@ -236,6 +239,44 @@ async function run() {
     'Tapeout Bay empty state failed to render');
   act(() => { bayRoot.unmount(); });
   checks += 2;
+
+  const codexSave = m.normalizeSave({
+    lessons: { L1a: true },
+    noteRecall: { L1a: { attempts: 2, correct: 1, streak: 1 } },
+  });
+  const codexRoot = await mountAndFlush(TR, React, m.CodexScreen, {
+    save: codexSave,
+    go: noop,
+    onRecall: noop,
+  });
+  const codexText = textOf(codexRoot.toJSON());
+  for (const marker of ['CODEX', 'mastery die', 'Why binary?', '1/2 recall']) {
+    assert(codexText.includes(marker), `Codex missing "${marker}"`);
+    checks++;
+  }
+  act(() => { codexRoot.unmount(); });
+
+  const recallResults = [];
+  const noteRoot = await mountAndFlush(TR, React, m.NoteTerminal, {
+    lesson: m.LESSONS[1][1],
+    depth: m.LESSON_DEPTH.L1b,
+    worldLabel: 'The Bit Mines',
+    collected: false,
+    recallRecord: null,
+    onRecall: (correct) => recallResults.push(correct),
+  });
+  const decrypt = findClickable(noteRoot.toJSON(), 'decrypt note');
+  assert(typeof decrypt === 'function', 'field-note terminal cannot be decrypted');
+  act(() => { decrypt(); });
+  const wrongRecall = findClickable(noteRoot.toJSON(), '2');
+  const correctRecall = findClickable(noteRoot.toJSON(), '4');
+  assert(typeof wrongRecall === 'function' && typeof correctRecall === 'function',
+    'field-note recall answers are not interactive');
+  act(() => { wrongRecall(); });
+  act(() => { correctRecall(); });
+  expectArray(recallResults, [false, true], 'field-note recall callback sequence');
+  checks += 3;
+  act(() => { noteRoot.unmount(); });
 
   // Direct campus console route into an unlocked dungeon. This guards the
   // fallback path used on GPU-less machines and distinguishes a locked district
