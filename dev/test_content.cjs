@@ -144,7 +144,13 @@ function run() {
     if (ch.testHard) {
       const rh = m.runChallengeTest(c.mod, ch.testHard);
       assert(rh.pass && !rh.runtimeError, `${ch.id}: solution failed hardened test (${rh.passCount}/${rh.total})`);
-      checks++;
+      for (const fill of [0, 1]) {
+        const hardenedImpostor = m.vCompile(impostorSrc(ch.iface, fill), ch.iface);
+        const hardenedResult = m.runChallengeTest(hardenedImpostor.mod, ch.testHard);
+        assert(!(hardenedResult.pass && !hardenedResult.runtimeError),
+          `${ch.id}: stuck-at-${fill} impostor wrongly PASSED the hardened test`);
+      }
+      checks += 3;
     }
 
     // 4. stuck-at-0 impostor must NOT pass
@@ -207,6 +213,18 @@ function run() {
     const r = m.runChallengeTest(c.mod, rv.test);
     assert(r.pass && !r.runtimeError, `REMIX ${id}: solution failed test (${r.passCount}/${r.total})`);
     checks += assertNetlist(m, c.mod, GOLDEN.netlists.remix[id], `REMIX ${id}`);
+    if (rv.testHard) {
+      const hardened = m.runChallengeTest(c.mod, rv.testHard);
+      assert(hardened.pass && !hardened.runtimeError,
+        `REMIX ${id}: solution failed hardened test (${hardened.passCount}/${hardened.total})`);
+      for (const fill of [0, 1]) {
+        const hardenedImpostor = m.vCompile(impostorSrc(rv.iface, fill), rv.iface);
+        const hardenedResult = m.runChallengeTest(hardenedImpostor.mod, rv.testHard);
+        assert(!(hardenedResult.pass && !hardenedResult.runtimeError),
+          `REMIX ${id}: stuck-at-${fill} impostor wrongly PASSED hardened test`);
+      }
+      checks += 3;
+    }
     const imp = m.vCompile(impostorSrc(rv.iface), rv.iface);
     const ir = m.runChallengeTest(imp.mod, rv.test);
     assert(!(ir.pass && !ir.runtimeError), `REMIX ${id}: stuck-at-0 impostor wrongly PASSED`);
