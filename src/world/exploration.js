@@ -45,17 +45,16 @@ function featureCandidates(model) {
   for (const rect of usable) {
     const width = rect.x2 - rect.x1;
     const depth = rect.z2 - rect.z1;
-    const dx = Math.min(5, Math.max(1.5, width * 0.22));
-    const dz = Math.min(5, Math.max(1.5, depth * 0.22));
-    const cx = (rect.x1 + rect.x2) / 2;
-    const cz = (rect.z1 + rect.z2) / 2;
-    points.push(
-      { x: cx, z: cz },
-      { x: cx - dx, z: cz - dz },
-      { x: cx + dx, z: cz + dz },
-      { x: cx - dx, z: cz + dz },
-      { x: cx + dx, z: cz - dz },
-    );
+    const marginX = Math.min(2, width * 0.2);
+    const marginZ = Math.min(2, depth * 0.2);
+    for (const fx of [0.12, 0.3, 0.5, 0.7, 0.88]) {
+      for (const fz of [0.12, 0.3, 0.5, 0.7, 0.88]) {
+        points.push({
+          x: rect.x1 + marginX + (width - marginX * 2) * fx,
+          z: rect.z1 + marginZ + (depth - marginZ * 2) * fz,
+        });
+      }
+    }
   }
   const occupied = model.interactables.slice();
   return points.filter((point, index) => {
@@ -73,14 +72,24 @@ function withExploration(model, world) {
   candidates.sort((a, b) =>
     Math.hypot(a.x - model.spawn.x, a.z - model.spawn.z) -
     Math.hypot(b.x - model.spawn.x, b.z - model.spawn.z));
-  const chosen = [
-    candidates[0],
-    candidates[Math.floor(candidates.length * 0.28)],
-    candidates[Math.floor(candidates.length * 0.48)],
-    candidates[Math.floor(candidates.length * 0.65)],
-    candidates[Math.floor(candidates.length * 0.8)],
-    candidates[candidates.length - 1],
-  ];
+  const chosen = [];
+  const desired = [0, 0.28, 0.48, 0.65, 0.8, 1];
+  const addCandidate = (candidate) => {
+    if (!candidate || chosen.includes(candidate)) return false;
+    if (chosen.some((other) => Math.hypot(other.x - candidate.x, other.z - candidate.z) < 5)) return false;
+    chosen.push(candidate);
+    return true;
+  };
+  desired.forEach((fraction) => {
+    const start = Math.min(candidates.length - 1, Math.floor(fraction * (candidates.length - 1)));
+    for (let offset = 0; offset < candidates.length; offset++) {
+      if (addCandidate(candidates[(start + offset) % candidates.length])) break;
+    }
+  });
+  candidates.forEach((candidate) => { if (chosen.length < 6) addCandidate(candidate); });
+  if (chosen.length < 6) {
+    throw new Error(`World ${world} cannot place six exploration features 5u apart`);
+  }
   const lore = WORLD_LORE[world];
   const features = [
     {
