@@ -26,7 +26,20 @@ function assertSceneEnvelope(name, scene, THREE) {
     total++;
     if (object.isMesh || object.isSprite || object.isPoints) rendered++;
     if (object.isLight) lights++;
+    for (const vector of [object.position, object.rotation, object.scale]) {
+      if (!vector) continue;
+      assert(['x', 'y', 'z'].every((axis) => Number.isFinite(vector[axis])),
+        `scene "${name}" has a non-finite object transform`);
+    }
+    const positions = object.geometry && object.geometry.attributes &&
+      object.geometry.attributes.position;
+    if (positions && positions.array) {
+      assert(positions.array.every((value) => Number.isFinite(value)),
+        `scene "${name}" has non-finite geometry vertices`);
+    }
     const materials = Array.isArray(object.material) ? object.material : [object.material];
+    assert(materials.every((material) => !material || Number.isFinite(material.opacity)),
+      `scene "${name}" has a material with non-finite opacity`);
     assert(!(object.castShadow && materials.some((material) =>
       material && (material.transparent || material.blending === THREE.AdditiveBlending))),
     `scene "${name}" has a transparent/additive shadow caster`);
