@@ -231,10 +231,13 @@ function makeEl(tag) {
 }
 function memStorage() {
   const m = new Map();
+  const calls = [];
   return {
-    async get(k) { return m.has(k) ? { value: m.get(k) } : null; },
-    async set(k, v) { m.set(k, v); },
-    async delete(k) { m.delete(k); },
+    _map: m,
+    _calls: calls,
+    async get(k) { calls.push(['get', k]); return m.has(k) ? { value: m.get(k) } : null; },
+    async set(k, v) { calls.push(['set', k, v]); m.set(k, v); },
+    async delete(k) { calls.push(['delete', k]); m.delete(k); },
   };
 }
 function deepStub() {

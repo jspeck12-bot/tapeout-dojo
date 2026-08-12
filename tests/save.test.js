@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   DEFAULT_SAVE,
+  SLOT_KEY,
   cloneSaveForMutation,
   normalizeSave,
   normalizeSlot,
@@ -86,6 +87,7 @@ describe('save compatibility', () => {
     expect(normalizeSlot(0)).toBe(1);
     expect(normalizeSlot(999)).toBe(1);
     expect(normalizeSlot('broken')).toBe(1);
+    expect(new Set([SLOT_KEY(1), SLOT_KEY(2), SLOT_KEY(3)]).size).toBe(3);
   });
 
   test('clones every nested branch mutated by App callbacks', () => {

@@ -411,7 +411,7 @@ export function App() {
       <div className="scanlines" />
       {!['menu', 'campus', 'mine', 'arcade', 'dungeon', 'home'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
-        {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { setSave(normalizeSave(null)); go({ name: 'campus' }); }} />}
+        {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'campus' }); }} />}
         {screen.name === 'drill' && <DrillScreen save={save} go={go} onReview={(id, kind) => { drillReturnRef.current = true; go({ name: kind, id }); }} />}
         {screen.name === 'tapeout' && <TapeoutBay save={save} go={go} />}
         {screen.name === 'world' && <WorldScreen w={screen.w} save={save} go={go} onLessonRead={onLessonRead} />}

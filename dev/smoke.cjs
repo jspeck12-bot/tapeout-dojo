@@ -49,6 +49,11 @@ async function mountAndFlush(TR, React, Component, props, options) {
 
 async function run() {
   shared.installDom();
+  const storage = window.storage;
+  storage._map.clear();
+  storage._calls.length = 0;
+  storage._map.set('tapeout_meta_v1', JSON.stringify({ active: 2 }));
+  storage._map.set('tapeout_slot_2', JSON.stringify({ xp: 321, done: {}, lessons: {} }));
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   const React = require('react');
   const TR = require('react-test-renderer');
@@ -68,6 +73,20 @@ async function run() {
     assert(menuText.includes(marker), `menu missing "${marker}"`);
     checks++;
   }
+  assert(menuText.includes('321 XP'), 'active slot progress was not loaded into the shipped App');
+  assert(storage._calls.some(([op, key]) => op === 'get' && key === 'tapeout_meta_v1'),
+    'App never read active-slot metadata');
+  assert(storage._calls.some(([op, key]) => op === 'get' && key === 'tapeout_slot_2'),
+    'App never read the selected profile');
+  assert(!storage._calls.some(([op, key]) => op === 'get' && key === 'tapeout_slot_1'),
+    'App loaded the wrong profile key');
+  checks += 4;
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 650));
+  });
+  assert(storage._calls.some(([op, key]) => op === 'set' && key === 'tapeout_slot_2'),
+    'debounced persistence never wrote the active profile');
+  checks++;
 
   // route into the fab campus (a 3D screen) — must fall back cleanly, not throw
   const onContinue = findClickable(root.toJSON(), 'CONTINUE');
@@ -81,6 +100,22 @@ async function run() {
 
   act(() => { root.unmount(); });
   checks++;
+
+  // NEW GAME must use the same activation path as profile creation: write the
+  // active slot immediately instead of leaking drafts/state until debounce.
+  const newGameRoot = await mountAndFlush(TR, React, m.default, {});
+  const onNewGame = findClickable(newGameRoot.toJSON(), 'NEW GAME');
+  assert(typeof onNewGame === 'function', 'could not find NEW GAME button');
+  act(() => { onNewGame(); });
+  for (let index = 0; index < 4; index++) {
+    await act(async () => { await Promise.resolve(); });
+  }
+  const freshStored = JSON.parse(storage._map.get('tapeout_slot_2'));
+  assert(freshStored.xp === 0, 'NEW GAME did not immediately replace the active slot');
+  assert(JSON.parse(storage._map.get('tapeout_meta_v1')).active === 2,
+    'NEW GAME changed or failed to persist the active slot');
+  checks += 3;
+  act(() => { newGameRoot.unmount(); });
 
   const save = m.normalizeSave(null);
   const noop = () => {};
