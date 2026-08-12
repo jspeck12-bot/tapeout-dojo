@@ -109,7 +109,7 @@ npm run test:rtl # independent Icarus compile/simulation (requires iverilog)
 npm run build    # production bundle
 ```
 
-Requires Node 18+.
+Development tooling requires Node 20.19+, Node 22.13+, or Node 24+.
 
 ---
 

@@ -4,6 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "description": "TAPEOUT - a browser RPG that teaches Verilog and chip design.",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
