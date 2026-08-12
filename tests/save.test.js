@@ -118,6 +118,11 @@ describe('save compatibility', () => {
     expect(previous.combat.kills).toBe(3);
     expect(previous.gear.weapon).toBe('w_iron');
     expect(previous.owned).not.toContain('w_copper');
+
+    const hotReloadLegacy = cloneSaveForMutation({ xp: 1, done: {}, lessons: {} });
+    expect(hotReloadLegacy.exploration).toEqual({
+      graces: {}, lore: {}, caches: {}, discovered: {},
+    });
   });
 
   test('starts fresh saves in the prologue without surprising legacy players', () => {
