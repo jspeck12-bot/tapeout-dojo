@@ -321,6 +321,7 @@ describe('flight recorder contract', () => {
     expect(report).toContain('mine 63avg/25min·fx');
     expect(report).toContain('m1★3');
     expect(report).toContain('m2×2');
+    expect(report).toContain('save lvl 3 · xp 320 · scrap 12');
     expect(report).not.toMatch(/undefined|NaN|\[object Object\]/);
   });
 

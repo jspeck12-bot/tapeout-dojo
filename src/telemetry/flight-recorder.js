@@ -1,3 +1,5 @@
+import { levelFromXp } from '../game/rpg.js';
+
 // ============================================================
 // FLIGHT RECORDER — session telemetry + pasteable report
 // ============================================================
@@ -54,7 +56,7 @@ const FR = {
     ['cfail', 'bfail', 'rfail', 'sfail', 'gfail', 'tfail'].forEach(t => (by[t] || []).forEach(e => { fails[e.id] = (fails[e.id] || 0) + 1; }));
     if (Object.keys(fails).length) L.push('FAILS  ' + Object.entries(fails).map(([k, v]) => k + '×' + v).join(' '));
     if (by.flatline) L.push('FLATLINES  ' + by.flatline.length);
-    if (save) L.push('save lvl ' + (save.level || 1) + ' · xp ' + (save.xp || 0) + ' · scrap ' + (save.scrap || 0));
+    if (save) L.push('save lvl ' + levelFromXp(save.xp || 0) + ' · xp ' + (save.xp || 0) + ' · scrap ' + (save.scrap || 0));
     if (this.notes.length) {
       L.push('PLAYER NOTES');
       this.notes.forEach(n => L.push('  - [' + n.where + ' @' + this.dur(n.t) + '] ' + n.text));
