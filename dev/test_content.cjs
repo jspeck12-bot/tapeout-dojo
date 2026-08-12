@@ -64,10 +64,10 @@ function assertNetlist(m, mod, fixture, label) {
   return 6;
 }
 
-function impostorSrc(iface) {
+function impostorSrc(iface, fill = 0) {
   const decl = iface.ports.map((p) => `${p.d === 'in' ? 'input' : 'output'} ${p.w > 1 ? `[${p.w - 1}:0] ` : ''}${p.n}`).join(', ');
   const body = iface.ports.filter((p) => p.d === 'out')
-    .map((p) => `  assign ${p.n} = ${p.w > 1 ? `${p.w}'b0` : `1'b0`};`).join('\n');
+    .map((p) => `  assign ${p.n} = ${p.w}'b${String(fill).repeat(p.w)};`).join('\n');
   return `module ${iface.name}(${decl});\n${body}\nendmodule\n`;
 }
 
@@ -154,6 +154,12 @@ function run() {
     assert(!(ir.pass && !ir.runtimeError), `${ch.id}: stuck-at-0 impostor wrongly PASSED the test`);
     checks++;
 
+    const impOne = m.vCompile(impostorSrc(ch.iface, 1), ch.iface);
+    assert(impOne.ok, `${ch.id}: stuck-at-1 impostor unexpectedly failed to compile`);
+    const irOne = m.runChallengeTest(impOne.mod, ch.test);
+    assert(!(irOne.pass && !irOne.runtimeError), `${ch.id}: stuck-at-1 impostor wrongly PASSED the test`);
+    checks++;
+
     // 5. RTL export re-compiles
     const ex = m.exportRTL(ch);
     assert(ex && ex.module && ex.testbench && ex.wrapper, `${ch.id}: exportRTL produced incomplete output`);
@@ -204,7 +210,10 @@ function run() {
     const imp = m.vCompile(impostorSrc(rv.iface), rv.iface);
     const ir = m.runChallengeTest(imp.mod, rv.test);
     assert(!(ir.pass && !ir.runtimeError), `REMIX ${id}: stuck-at-0 impostor wrongly PASSED`);
-    checks += 3;
+    const impOne = m.vCompile(impostorSrc(rv.iface, 1), rv.iface);
+    const irOne = m.runChallengeTest(impOne.mod, rv.test);
+    assert(!(irOne.pass && !irOne.runtimeError), `REMIX ${id}: stuck-at-1 impostor wrongly PASSED`);
+    checks += 4;
   }
 
   // 7. gauntlet generators are self-consistent
