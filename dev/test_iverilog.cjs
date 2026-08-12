@@ -202,7 +202,8 @@ function run() {
       checks += 2;
     }
   } finally {
-    fs.rmSync(directory, { recursive: true, force: true });
+    if (process.env.TAPEOUT_KEEP_RTL_TMP) console.error(`iverilog artifacts kept at ${directory}`);
+    else fs.rmSync(directory, { recursive: true, force: true });
   }
   return checks;
 }
