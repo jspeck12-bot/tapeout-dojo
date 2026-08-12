@@ -27,13 +27,13 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 const EXPORTS = [
   'App',
   'FR', 'BUILD_TAG',
-  'netlistOf', 'levelizeNetlist', 'exportRTL',
+  'exportRTL',
   'combVecs',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
-  'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX',
+  'GAUNTLETS', 'CODE_CHALLENGES',
   'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
   'worldDone', 'worldUnlocked',
-  'stationSequence', 'nextStationOf',
+  'nextStationOf',
   'mkBox', 'circleVsAABB', 'resolveCollisions',
   'MINE_CELL', 'mineWalls', 'MINE_FIGHTS', 'mineGateOpen',
   'mineModel', 'buildMineWorld', 'applyMineProgress',
@@ -42,6 +42,20 @@ const EXPORTS = [
   'campusModel', 'campusProgress', 'buildCampusWorld',
   'buildFabUltra', 'applyCampusProgress',
   'arcadeModel', 'buildArcadeWorld',
+];
+const REEXPORTS = [
+  {
+    from: './engine/debug/netlist.js',
+    names: ['netlistOf', 'levelizeNetlist'],
+  },
+  {
+    from: './game/content.js',
+    names: ['TRUTH_CHALLENGES', 'REMIX'],
+  },
+  {
+    from: './world/progression.js',
+    names: ['stationSequence'],
+  },
 ];
 
 let _mod = null;
@@ -66,7 +80,11 @@ function loadMod() {
   fs.rmSync(GATE_SRC_DIR, { recursive: true, force: true });
   copySourceTree(path.join(ROOT, 'src'), GATE_SRC_DIR);
   const src = fs.readFileSync(SRC, 'utf8');
-  const exportLine = `\n\nexport { ${EXPORTS.join(', ')} };\n`;
+  const directExports = `\n\nexport { ${EXPORTS.join(', ')} };\n`;
+  const moduleExports = REEXPORTS.map(({ from, names }) =>
+    `export { ${names.join(', ')} } from '${from}';`,
+  ).join('\n');
+  const exportLine = directExports + moduleExports + '\n';
   fs.writeFileSync(GEN, src + exportLine);
   esbuild.buildSync({
     entryPoints: [ENGINE_SRC],
@@ -220,6 +238,7 @@ function installDom() {
 }
 
 module.exports = {
-  ROOT, SRC, ENGINE_SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE, ENGINE_BUNDLE, EXPORTS,
+  ROOT, SRC, ENGINE_SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE, ENGINE_BUNDLE,
+  EXPORTS, REEXPORTS,
   loadMod, buildOnly, installDom, makeCanvas,
 };
