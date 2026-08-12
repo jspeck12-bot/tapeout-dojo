@@ -15,6 +15,16 @@ function runCommand(command, args, label) {
   return result.stdout;
 }
 
+function constantModule(iface, fill) {
+  const declarations = iface.ports.map((port) =>
+    `${port.d === 'in' ? 'input' : 'output'} ${port.w > 1 ? `[${port.w - 1}:0] ` : ''}${port.n}`);
+  const assignments = iface.ports
+    .filter((port) => port.d === 'out')
+    .map((port) => `  assign ${port.n} = ${port.w}'b${String(fill).repeat(port.w)};`)
+    .join('\n');
+  return `module ${iface.name}(${declarations.join(', ')});\n${assignments}\nendmodule\n`;
+}
+
 function run() {
   const version = childProcess.spawnSync('iverilog', ['-V'], { encoding: 'utf8' });
   if (version.error && version.error.code === 'ENOENT') {
@@ -60,6 +70,24 @@ function run() {
         wrapperFile,
       ], `${challenge.id} wrapper compile`);
       checks++;
+
+      // Run the exported self-checking bench against an intentionally broken
+      // DUT. A disabled failure condition would otherwise let canonical-only
+      // simulation pass forever.
+      fs.writeFileSync(moduleFile, constantModule(challenge.iface, 0));
+      const mutantSimulation = path.join(directory, `${safeId}.mutant.out`);
+      runCommand('iverilog', [
+        '-g2012',
+        '-s', `tb_${artifact.name}`,
+        '-o', mutantSimulation,
+        moduleFile,
+        testbenchFile,
+      ], `${challenge.id} mutant testbench compile`);
+      const mutantOutput = runCommand('vvp', [mutantSimulation], `${challenge.id} mutant simulation`);
+      if (mutantOutput.includes('PASS:') || !mutantOutput.includes('FAILURE')) {
+        throw new Error(`${challenge.id} exported testbench accepted a stuck-at-zero DUT`);
+      }
+      checks += 2;
     }
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

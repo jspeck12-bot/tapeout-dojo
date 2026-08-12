@@ -50,8 +50,8 @@ describe('post-processing pipeline', () => {
     expect(() => post.setStrength(0.75)).not.toThrow();
     expect(() => post.resize(640, 360)).not.toThrow();
     expect(() => post.render(scene, camera)).not.toThrow();
-    expect(renderCalls).toBeGreaterThanOrEqual(9);
-    expect(targetCalls).toBeGreaterThanOrEqual(9);
+    expect(renderCalls).toBe(10);
+    expect(targetCalls).toBe(11);
     expect(() => post.dispose()).not.toThrow();
   });
 

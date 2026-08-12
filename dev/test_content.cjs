@@ -36,6 +36,25 @@ function answerCandidates(answer) {
   }
   return [...candidates];
 }
+function ttPinSlice(bus, high, low) {
+  return high === low ? `${bus}[${low}]` : `${bus}[${high}:${low}]`;
+}
+function expectedTTInput(offset, width) {
+  const high = offset + width - 1;
+  if (high < 8) return ttPinSlice('ui_in', high, offset);
+  if (offset >= 8) return ttPinSlice('uio_in', high - 8, offset - 8);
+  return `{${ttPinSlice('uio_in', high - 8, 0)}, ${ttPinSlice('ui_in', 7, offset)}}`;
+}
+function numericValues(answer) {
+  const text = String(answer == null ? '' : answer).trim().toLowerCase().replace(/_/g, '');
+  const values = new Set();
+  if (/^-?\d+$/.test(text)) values.add(Number(text));
+  if (/^0x[0-9a-f]+$/.test(text)) values.add(parseInt(text.slice(2), 16));
+  if (/^0b[01]+$/.test(text)) values.add(parseInt(text.slice(2), 2));
+  if (/^[01]+$/.test(text)) values.add(parseInt(text, 2));
+  if (/^[0-9a-f]+$/.test(text)) values.add(parseInt(text, 16));
+  return values;
+}
 function assertNetlist(m, mod, fixture, label) {
   const started = Date.now();
   const netlist = m.netlistOf(mod);
@@ -192,6 +211,13 @@ function run() {
 
     // 3. reference solution passes the hardened test (if present)
     if (ch.testHard) {
+      if (ch.test.type === 'seq') {
+        assert(ch.testHard !== ch.test,
+          `${ch.id}: hardened sequential test aliases the base test`);
+        assert(ch.testHard.frames.length >= ch.test.frames.length + 14,
+          `${ch.id}: hardened sequential test did not add 14 frames`);
+        checks += 2;
+      }
       const rh = m.runChallengeTest(c.mod, ch.testHard);
       assert(rh.pass && !rh.runtimeError, `${ch.id}: solution failed hardened test (${rh.passCount}/${rh.total})`);
       for (const fill of [0, 1]) {
@@ -237,6 +263,37 @@ function run() {
       ['ui_in', 'uo_out', 'uio_in', 'uio_out', 'uio_oe', 'ena', 'clk', 'rst_n']
         .every((portName) => ex.wrapper.includes(portName)),
     `${ch.id}: Tiny Tapeout wrapper is incomplete`);
+    const wrapperInputs = ch.iface.ports
+      .filter((port) => port.d === 'in' && port.n !== 'clk' && port.n !== 'rst');
+    let wrapperInputBit = 0;
+    for (const port of wrapperInputs) {
+      const expression = expectedTTInput(wrapperInputBit, port.w);
+      assert(ex.wrapper.includes(`.${port.n}(${expression})`),
+        `${ch.id}: wrapper maps ${port.n} incorrectly (expected ${expression})`);
+      wrapperInputBit += port.w;
+      checks++;
+    }
+    if (ch.iface.ports.some((port) => port.n === 'clk')) {
+      assert(ex.wrapper.includes('.clk(clk)'), `${ch.id}: wrapper does not map clk`);
+      checks++;
+    }
+    if (ch.iface.ports.some((port) => port.n === 'rst')) {
+      assert(ex.wrapper.includes('.rst(~rst_n)'), `${ch.id}: wrapper does not map rst`);
+      checks++;
+    }
+    const wrapperOutputs = ch.iface.ports.filter((port) => port.d === 'out');
+    wrapperOutputs.forEach((port) => {
+      assert(ex.wrapper.includes(`.${port.n}(${port.n}_w)`),
+        `${ch.id}: wrapper does not connect output ${port.n}`);
+      checks++;
+    });
+    const packedOutputs = wrapperOutputs.slice().reverse().map((port) => `${port.n}_w`);
+    const packedExpression = packedOutputs.length > 1
+      ? `{${packedOutputs.join(', ')}}`
+      : packedOutputs[0];
+    assert(ex.wrapper.includes(`_tpo_out = ${packedExpression};`),
+      `${ch.id}: wrapper output packing order changed`);
+    checks++;
     const pinIndices = [...ex.wrapper.matchAll(/\b(?:ui_in|uo_out|uio_in|uio_out|uio_oe)\[(\d+)/g)]
       .map((match) => Number(match[1]));
     assert(pinIndices.every((index) => index >= 0 && index <= 7),
@@ -244,6 +301,12 @@ function run() {
     const outputBits = ch.iface.ports
       .filter((port) => port.d === 'out')
       .reduce((sum, port) => sum + port.w, 0);
+    const expectedUo = outputBits >= 8
+      ? '_tpo_out[7:0]'
+      : `{${8 - outputBits}'b0, _tpo_out}`;
+    assert(ex.wrapper.includes(`assign uo_out  = ${expectedUo};`),
+      `${ch.id}: wrapper corrupts the primary output bank`);
+    checks++;
     if (outputBits > 8) {
       assert(!ex.wrapper.includes('assign uio_oe  = 8\'b0'),
         `${ch.id}: wrapper truncates outputs instead of driving uio`);
@@ -284,6 +347,13 @@ function run() {
     checks++;
     checks += assertNetlist(m, c.mod, GOLDEN.netlists.remix[id], `REMIX ${id}`);
     if (rv.testHard) {
+      if (rv.test.type === 'seq') {
+        assert(rv.testHard !== rv.test,
+          `REMIX ${id}: hardened sequential test aliases the base test`);
+        assert(rv.testHard.frames.length >= rv.test.frames.length + 14,
+          `REMIX ${id}: hardened sequential test did not add 14 frames`);
+        checks += 2;
+      }
       const hardened = m.runChallengeTest(c.mod, rv.testHard);
       assert(hardened.pass && !hardened.runtimeError,
         `REMIX ${id}: solution failed hardened test (${hardened.passCount}/${hardened.total})`);
@@ -322,8 +392,24 @@ function run() {
         assert(q.check('') === false, `gauntlet ${g.id}[${i}]: check() accepts an empty answer`);
         assert(q.check('__definitely_wrong__') === false,
           `gauntlet ${g.id}[${i}]: check() accepts an invalid answer`);
-        assert(answerCandidates(q.answer).some((candidate) => q.check(candidate)),
+        const canonicalCandidates = answerCandidates(q.answer);
+        assert(canonicalCandidates.some((candidate) => q.check(candidate)),
           `gauntlet ${g.id}[${i}]: no canonical form of its displayed answer passes check()`);
+        const canonicalValues = new Set();
+        canonicalCandidates.forEach((candidate) =>
+          numericValues(candidate).forEach((value) => canonicalValues.add(value)));
+        const wrongProbes = [
+          '-17', '-2', '-1', '2', '3', '5', '7', '12', '23', '37', '65',
+          '129', '257', '0x2a', '0x5c', '0xa5', '0b0011', '0b0110', '0b1101',
+        ];
+        for (const probe of wrongProbes) {
+          const values = numericValues(probe);
+          const equivalent = [...values].some((value) => canonicalValues.has(value));
+          if (!equivalent) {
+            assert(q.check(probe) === false,
+              `gauntlet ${g.id}[${i}]: check() accepts wrong answer "${probe}"`);
+          }
+        }
       } else {
         throw new Error(`gauntlet ${g.id}[${i}]: neither check() nor multiple-choice`);
       }

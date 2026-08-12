@@ -180,6 +180,7 @@ function run() {
     }
     const { scene, model, api } = result;
     assert(scene && scene.isScene, `scene "${name}" did not return a THREE.Scene`);
+    assert(scene.visible !== false, `scene "${name}" is globally hidden`);
     assertSceneEnvelope(name, scene, THREE);
     checks += 4;
 
