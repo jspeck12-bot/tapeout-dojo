@@ -17,7 +17,8 @@ const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src', 'tapeout.jsx');
 const ENGINE_SRC = path.join(ROOT, 'src', 'engine', 'verilog.js');
 const GATE_DIR = path.join(ROOT, '.gate');
-const GEN = path.join(GATE_DIR, 'tapeout.gen.jsx');
+const GATE_SRC_DIR = path.join(GATE_DIR, 'src');
+const GEN = path.join(GATE_SRC_DIR, 'tapeout.gen.jsx');
 const BUNDLE = path.join(GATE_DIR, 'bundle.cjs');
 const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 
@@ -45,6 +46,16 @@ const EXPORTS = [
 
 let _mod = null;
 
+function copySourceTree(sourceDir, destinationDir) {
+  fs.mkdirSync(destinationDir, { recursive: true });
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const source = path.join(sourceDir, entry.name);
+    const destination = path.join(destinationDir, entry.name);
+    if (entry.isDirectory()) copySourceTree(source, destination);
+    else if (entry.isFile()) fs.copyFileSync(source, destination);
+  }
+}
+
 // Build a CJS bundle of the source (plus an appended export line) and require
 // it. react / three / lucide-react are left external so there is exactly one
 // React instance (needed for the smoke test's react-test-renderer).
@@ -52,13 +63,11 @@ function loadMod() {
   if (_mod) return _mod;
   const esbuild = require('esbuild');
   if (!fs.existsSync(GATE_DIR)) fs.mkdirSync(GATE_DIR, { recursive: true });
+  fs.rmSync(GATE_SRC_DIR, { recursive: true, force: true });
+  copySourceTree(path.join(ROOT, 'src'), GATE_SRC_DIR);
   const src = fs.readFileSync(SRC, 'utf8');
   const exportLine = `\n\nexport { ${EXPORTS.join(', ')} };\n`;
-  const engineImport = "'./engine/verilog.js'";
-  const importCount = src.split(engineImport).length - 1;
-  if (importCount !== 1) throw new Error(`expected one Verilog engine import, found ${importCount}`);
-  const engineSpec = path.relative(GATE_DIR, ENGINE_SRC).split(path.sep).join('/');
-  fs.writeFileSync(GEN, src.replace(engineImport, `'${engineSpec}'`) + exportLine);
+  fs.writeFileSync(GEN, src + exportLine);
   esbuild.buildSync({
     entryPoints: [ENGINE_SRC],
     bundle: true,
@@ -211,6 +220,6 @@ function installDom() {
 }
 
 module.exports = {
-  ROOT, SRC, ENGINE_SRC, GATE_DIR, GEN, BUNDLE, ENGINE_BUNDLE, EXPORTS,
+  ROOT, SRC, ENGINE_SRC, GATE_DIR, GATE_SRC_DIR, GEN, BUNDLE, ENGINE_BUNDLE, EXPORTS,
   loadMod, buildOnly, installDom, makeCanvas,
 };
