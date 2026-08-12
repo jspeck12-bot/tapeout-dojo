@@ -339,6 +339,34 @@ async function run() {
         `${positiveCase.name}: pointer lock was not released on unmount`);
       checks += 7;
     }
+
+    class FailingRenderer extends StubRenderer {
+      render() {
+        super.render();
+        throw new Error('forced post-init renderer failure');
+      }
+    }
+    THREE.WebGLRenderer = FailingRenderer;
+    const failedDisposalsBefore = rendererDisposals;
+    const failedLossesBefore = contextLosses;
+    const failedPointerBefore = document._exitPointerLockCalls;
+    const failedRoot = await mountAndFlush(
+      TR,
+      React,
+      m.MineScreen,
+      common,
+      { createNodeMock },
+    );
+    assert(textOf(failedRoot.toJSON()).includes('NO WEBGL'),
+      'post-init renderer failure did not enter fallback');
+    assert(rendererDisposals === failedDisposalsBefore + 1,
+      'post-init failure did not dispose its renderer immediately');
+    assert(contextLosses === failedLossesBefore + 1,
+      'post-init failure did not release its context immediately');
+    assert(document._exitPointerLockCalls === failedPointerBefore + 1,
+      'post-init failure did not release pointer lock immediately');
+    checks += 4;
+    act(() => { failedRoot.unmount(); });
   } finally {
     THREE.WebGLRenderer = OriginalRenderer;
     delete window.ontouchstart;

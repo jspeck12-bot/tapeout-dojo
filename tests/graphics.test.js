@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   POST_BLUR_FS,
   POST_BRIGHT_FS,
@@ -8,6 +8,7 @@ import {
   disposeScene,
   makePostFX,
 } from '../src/graphics/cinematic.js';
+import { spawnShatter } from '../src/graphics/rock.js';
 
 function delimiterBalance(source, open, close) {
   let depth = 0;
@@ -81,5 +82,28 @@ describe('post-processing pipeline', () => {
     expect(materialDisposals).toBe(1);
     expect(textureDisposals).toBe(1);
     expect(sharedTextureDisposals).toBe(0);
+  });
+
+  test('cancels transient shatter animation when a scene is disposed', () => {
+    const originalRequest = globalThis.requestAnimationFrame;
+    const originalCancel = globalThis.cancelAnimationFrame;
+    const cancel = vi.fn();
+    globalThis.requestAnimationFrame = vi.fn(() => 42);
+    globalThis.cancelAnimationFrame = cancel;
+    try {
+      const scene = new THREE.Scene();
+      spawnShatter(scene, 0, 1, 0, 0xff0000);
+      expect(scene.userData.disposers).toHaveLength(1);
+      expect(scene.children.length).toBe(1);
+
+      disposeScene(scene);
+
+      expect(cancel).toHaveBeenCalledWith(42);
+      expect(scene.children.length).toBe(0);
+      expect(scene.userData.disposers).toEqual([]);
+    } finally {
+      globalThis.requestAnimationFrame = originalRequest;
+      globalThis.cancelAnimationFrame = originalCancel;
+    }
   });
 });

@@ -64,6 +64,24 @@ function CampusScreen({ save, go, cb }) {
     const mount = mountRef.current;
     let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
+    let tornDown = false;
+    const teardown = () => {
+      if (tornDown) return;
+      tornDown = true;
+      alive = false;
+      cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
+      try {
+        renderer && renderer.dispose();
+        post && post.dispose();
+        renderer && renderer.forceContextLoss && renderer.forceContextLoss();
+        if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+          renderer.domElement.parentNode.removeChild(renderer.domElement);
+        }
+      } catch (e) { }
+      engineRef.current = null;
+    };
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -252,18 +270,9 @@ function CampusScreen({ save, go, cb }) {
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
       if (alive) setFailed(true);
+      teardown();
     }
-    return () => {
-      alive = false;
-      cleanup.forEach(f => { try { f(); } catch (e) { } });
-      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
-      disposeScene(scene);
-      try {
-        renderer.dispose(); try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
-        if (renderer.domElement && renderer.domElement.parentNode) renderer.domElement.parentNode.removeChild(renderer.domElement);
-      } catch (e) { }
-      engineRef.current = null;
-    };
+    return teardown;
   }, []); // eslint-disable-line
 
   // progress sync on save changes
@@ -287,7 +296,15 @@ function CampusScreen({ save, go, cb }) {
     else if (overlay.name === 'ach') { label = 'SERVICE RECORD'; body = <AchScreen save={s} go={oGo} />; }
     else if (overlay.name === 'shop') { label = 'SCRAP EXCHANGE'; body = <ShopScreen save={s} go={oGo} onBuy={cb.onBuy} onEquip={cb.onEquip} />; }
     else if (overlay.name === 'manual') { label = 'FIELD MANUAL'; body = <ManualScreen go={oGo} />; }
-    else if (overlay.name === 'profiles') { label = 'PROFILES'; body = <ProfilesScreen save={s} activeSlot={cb.activeSlot} go={oGo} onLoadSlot={cb.onLoadSlot} onNewSlot={cb.onNewSlot} onDeleteSlot={cb.onDeleteSlot} onImport={cb.onImport} readSlot={cb.readSlot} />; }
+    else if (overlay.name === 'profiles') {
+      label = 'PROFILES';
+      body = <ProfilesScreen save={s} activeSlot={cb.activeSlot} go={oGo}
+        onLoadSlot={async (slot) => { await cb.onLoadSlot(slot); setOverlay(null); }}
+        onNewSlot={(slot) => { cb.onNewSlot(slot); setOverlay(null); }}
+        onDeleteSlot={async (slot) => { await cb.onDeleteSlot(slot); setOverlay(null); }}
+        onImport={(raw) => { cb.onImport(raw); setOverlay(null); }}
+        readSlot={cb.readSlot} />;
+    }
     else if (overlay.name === 'fasttravel') {
       label = 'FAST TRAVEL';
       const spots = [{ w: 0, name: 'Central Plaza' }].concat(WORLDS.filter(w => worldUnlockedEx(w.id, s)).map(w => ({ w: w.id, name: w.name })));

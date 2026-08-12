@@ -116,7 +116,11 @@ function makePostFX(renderer, cssW, cssH) {
       blur.uniforms.res.value.set(d.W >> 1, d.H >> 1);
     },
     dispose() {
-      try { rtScene.dispose(); rtA.dispose(); rtB.dispose(); } catch (e) { }
+      try {
+        rtScene.dispose(); rtA.dispose(); rtB.dispose();
+        bright.dispose(); blur.dispose(); comp.dispose();
+        quad.geometry.dispose();
+      } catch (e) { }
     },
   };
 }
@@ -232,6 +236,10 @@ function applyGfx(ctx, g) {
 
 function disposeScene(scene) {
   if (!scene) return;
+  for (const dispose of [...(scene.userData.disposers || [])]) {
+    try { dispose(); } catch (error) { }
+  }
+  scene.userData.disposers = [];
   const disposedGeometries = new Set();
   const disposedMaterials = new Set();
   const disposedTextures = new Set();

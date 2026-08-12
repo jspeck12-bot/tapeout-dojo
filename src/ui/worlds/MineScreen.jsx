@@ -57,6 +57,25 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     const mount = mountRef.current;
     let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
+    let tornDown = false;
+    const teardown = () => {
+      if (tornDown) return;
+      tornDown = true;
+      alive = false;
+      cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
+      if (renderer) {
+        try { renderer.dispose(); } catch (e) { }
+        try { post && post.dispose(); } catch (e) { }
+        try { renderer.forceContextLoss && renderer.forceContextLoss(); } catch (e) { }
+        try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
+      }
+      ctxRef.current = null;
+      ambRef.current = null;
+      engineRef.current = null;
+      combatFxRef.current = null;
+    };
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -285,21 +304,9 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
       if (alive) setFailed(true);
+      teardown();
     }
-    return () => {
-      alive = false;
-      cleanup.forEach(f => { try { f(); } catch (e) { } });
-      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
-      disposeScene(scene);
-      if (renderer) {
-        try { renderer.dispose(); } catch (e) { } try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
-        try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
-      }
-      ctxRef.current = null;
-      ambRef.current = null;
-      engineRef.current = null;
-      combatFxRef.current = null;
-    };
+    return teardown;
   }, []); // eslint-disable-line
 
   // ---------- overlay router ----------

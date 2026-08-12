@@ -56,6 +56,24 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     const mount = mountRef.current;
     let renderer, post = null, scene = null, raf = 0, alive = true;
     const cleanup = [];
+    let tornDown = false;
+    const teardown = () => {
+      if (tornDown) return;
+      tornDown = true;
+      alive = false;
+      cleanup.forEach(f => { try { f(); } catch (e) { } });
+      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+      disposeScene(scene);
+      if (renderer) {
+        try { renderer.dispose(); } catch (e) { }
+        try { post && post.dispose(); } catch (e) { }
+        try { renderer.forceContextLoss && renderer.forceContextLoss(); } catch (e) { }
+        try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
+      }
+      ctxRef.current = null;
+      ambRef.current = null;
+      engineRef.current = null;
+    };
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -204,20 +222,9 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       cleanup.push(() => cancelAnimationFrame(raf));
     } catch (e) {
       if (alive) setFailed(true);
+      teardown();
     }
-    return () => {
-      alive = false;
-      cleanup.forEach(f => { try { f(); } catch (e) { } });
-      try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
-      disposeScene(scene);
-      if (renderer) {
-        try { renderer.dispose(); } catch (e) { } try { post && post.dispose(); } catch (ePd) { } try { renderer && renderer.forceContextLoss && renderer.forceContextLoss(); } catch (ePf) { }
-        try { renderer.domElement && renderer.domElement.remove(); } catch (e) { }
-      }
-      ctxRef.current = null;
-      ambRef.current = null;
-      engineRef.current = null;
-    };
+    return teardown;
   }, []); // eslint-disable-line
 
   useEffect(() => { applyGfx(ctxRef.current, gfx); }, [gfx]); // eslint-disable-line
@@ -232,7 +239,15 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     else if (overlay.name === 'ach') { label = 'SERVICE RECORD'; body = <AchScreen save={save} go={oGo} />; }
     else if (overlay.name === 'shop') { label = 'SCRAP EXCHANGE'; body = <ShopScreen save={save} go={oGo} onBuy={cb.onBuy} onEquip={cb.onEquip} />; }
     else if (overlay.name === 'manual') { label = 'FIELD MANUAL'; body = <ManualScreen go={oGo} />; }
-    else if (overlay.name === 'profiles') { label = 'SAVE TERMINAL'; body = <ProfilesScreen save={save} activeSlot={cb.activeSlot} go={oGo} onLoadSlot={cb.onLoadSlot} onNewSlot={cb.onNewSlot} onDeleteSlot={cb.onDeleteSlot} onImport={cb.onImport} readSlot={cb.readSlot} />; }
+    else if (overlay.name === 'profiles') {
+      label = 'SAVE TERMINAL';
+      body = <ProfilesScreen save={save} activeSlot={cb.activeSlot} go={oGo}
+        onLoadSlot={async (slot) => { await cb.onLoadSlot(slot); setOverlay(null); }}
+        onNewSlot={(slot) => { cb.onNewSlot(slot); setOverlay(null); }}
+        onDeleteSlot={async (slot) => { await cb.onDeleteSlot(slot); setOverlay(null); }}
+        onImport={(raw) => { cb.onImport(raw); setOverlay(null); }}
+        readSlot={cb.readSlot} />;
+    }
     return (
       <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(4,5,12,0.94)', overflowY: 'auto' }}>
         <div style={{ maxWidth: 1060, margin: '0 auto', padding: '14px 18px 60px' }}>

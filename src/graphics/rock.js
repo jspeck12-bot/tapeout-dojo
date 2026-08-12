@@ -219,8 +219,20 @@ function spawnShatter(scene, x, y, z, colorHex) {
     grp.add(m); parts.push(m);
   }
   const light = new THREE.PointLight(colorHex, 3.2, 16, 2); grp.add(light);
-  let life = 0; const dur = 1.25;
+  let life = 0, raf = 0, active = true; const dur = 1.25;
+  const dispose = () => {
+    if (!active) return;
+    active = false;
+    if (raf) cancelAnimationFrame(raf);
+    scene.remove(grp);
+    grp.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) o.material.dispose();
+    });
+  };
+  (scene.userData.disposers = scene.userData.disposers || []).push(dispose);
   const step = () => {
+    if (!active) return;
     const d = 0.016; life += d; const k = Math.min(1, life / dur);
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i], v = p.userData.v;
@@ -230,10 +242,11 @@ function spawnShatter(scene, x, y, z, colorHex) {
       if (p.material) p.material.opacity = 1 - k;
     }
     light.intensity = 3.2 * (1 - k);
-    if (life < dur) requestAnimationFrame(step);
-    else { scene.remove(grp); grp.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
+    if (life < dur) raf = requestAnimationFrame(step);
+    else dispose();
   };
-  requestAnimationFrame(step);
+  raf = requestAnimationFrame(step);
+  return dispose;
 }
 
 export {
