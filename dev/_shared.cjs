@@ -26,9 +26,8 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 // loaded directly from src/engine/verilog.js and merged into loadMod() below.
 const EXPORTS = [
   'App',
-  'FR', 'BUILD_TAG',
+  'FR',
   'exportRTL',
-  'combVecs',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
   'GAUNTLETS', 'CODE_CHALLENGES',
   'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
@@ -50,7 +49,11 @@ const REEXPORTS = [
   },
   {
     from: './game/content.js',
-    names: ['TRUTH_CHALLENGES', 'REMIX'],
+    names: ['combVecs', 'TRUTH_CHALLENGES', 'REMIX'],
+  },
+  {
+    from: './telemetry/flight-recorder.js',
+    names: ['BUILD_TAG'],
   },
   {
     from: './world/progression.js',
