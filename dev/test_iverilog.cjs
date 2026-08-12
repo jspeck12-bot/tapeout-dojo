@@ -99,9 +99,9 @@ function wrapperTestbench(game, challenge, artifact) {
     ? ((Math.pow(2, extraOutputWidth) - 1) << extraInputWidth)
     : 0;
   let source = `module tb_wrapper_${artifact.name};\n`;
-  source += "  reg [7:0] ui_in = 0; reg [7:0] uio_in = 0;\n";
+  source += "  reg [7:0] ui_in; reg [7:0] uio_in;\n";
   source += "  wire [7:0] uo_out; wire [7:0] uio_out; wire [7:0] uio_oe;\n";
-  source += "  reg ena = 1; reg clk = 0; reg rst_n = 1; integer errors = 0;\n";
+  source += "  reg ena = 1; reg clk = 0; reg rst_n; integer errors = 0;\n";
   source += `  tt_um_${artifact.name} top(.ui_in(ui_in), .uo_out(uo_out), .uio_in(uio_in), .uio_out(uio_out), .uio_oe(uio_oe), .ena(ena), .clk(clk), .rst_n(rst_n));\n`;
   source += "  initial begin\n";
   vectors.forEach((vector, index) => {
