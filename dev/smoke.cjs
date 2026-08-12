@@ -104,9 +104,12 @@ async function run() {
   // NEW GAME must use the same activation path as profile creation: write the
   // active slot immediately instead of leaking drafts/state until debounce.
   const newGameRoot = await mountAndFlush(TR, React, m.default, {});
-  const onNewGame = findClickable(newGameRoot.toJSON(), 'NEW GAME');
-  assert(typeof onNewGame === 'function', 'could not find NEW GAME button');
-  act(() => { onNewGame(); });
+  const armNewGame = findClickable(newGameRoot.toJSON(), 'NEW GAME');
+  assert(typeof armNewGame === 'function', 'could not find NEW GAME button');
+  act(() => { armNewGame(); });
+  const confirmNewGame = findClickable(newGameRoot.toJSON(), 'TAP AGAIN');
+  assert(typeof confirmNewGame === 'function', 'NEW GAME did not request confirmation');
+  act(() => { confirmNewGame(); });
   for (let index = 0; index < 4; index++) {
     await act(async () => { await Promise.resolve(); });
   }
