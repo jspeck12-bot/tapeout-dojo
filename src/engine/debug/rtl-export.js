@@ -18,11 +18,19 @@ function genTTWrapper(name, ports) {
   const connections = [];
   const totalInputWidth = dataInputs.reduce((sum, port) => sum + port.w, 0);
   const totalOutputWidth = outputs.reduce((sum, port) => sum + port.w, 0);
+  const extraInputWidth = Math.max(0, totalInputWidth - 8);
+  const extraOutputWidth = Math.max(0, totalOutputWidth - 8);
   if (totalInputWidth > 16) {
     throw new Error(`Tiny Tapeout wrapper supports at most 16 data input bits (got ${totalInputWidth}).`);
   }
   if (totalOutputWidth > 16) {
     throw new Error(`Tiny Tapeout wrapper supports at most 16 output bits (got ${totalOutputWidth}).`);
+  }
+  if (extraInputWidth + extraOutputWidth > 8) {
+    throw new Error(
+      `Tiny Tapeout wrapper needs ${extraInputWidth + extraOutputWidth} bidirectional pins ` +
+      `(${extraInputWidth} input, ${extraOutputWidth} output), but only 8 are available.`,
+    );
   }
   const pinSlice = (bus, high, low) =>
     high === low ? `${bus}[${low}]` : `${bus}[${high}:${low}]`;
@@ -59,8 +67,23 @@ function genTTWrapper(name, ports) {
   if (totalOutputWidth > 8) {
     const upperWidth = totalOutputWidth - 8;
     const upper = `_tpo_out[${totalOutputWidth - 1}:8]`;
-    source += "  assign uio_out = " + (upperWidth === 8 ? upper : `{${8 - upperWidth}'b0, ${upper}}`) + ";\n";
-    source += "  assign uio_oe  = " + (upperWidth === 8 ? "8'hFF" : `{${8 - upperWidth}'b0, ${upperWidth}'b${'1'.repeat(upperWidth)}}`) + ";\n";
+    const highPadding = 8 - extraInputWidth - upperWidth;
+    const outputSegments = [];
+    const enableSegments = [];
+    if (highPadding > 0) {
+      outputSegments.push(`${highPadding}'b0`);
+      enableSegments.push(`${highPadding}'b0`);
+    }
+    outputSegments.push(upper);
+    enableSegments.push(`${upperWidth}'b${'1'.repeat(upperWidth)}`);
+    if (extraInputWidth > 0) {
+      outputSegments.push(`${extraInputWidth}'b0`);
+      enableSegments.push(`${extraInputWidth}'b0`);
+    }
+    source += "  assign uio_out = " +
+      (outputSegments.length > 1 ? `{${outputSegments.join(', ')}}` : outputSegments[0]) + ";\n";
+    source += "  assign uio_oe  = " +
+      (enableSegments.length > 1 ? `{${enableSegments.join(', ')}}` : enableSegments[0]) + ";\n";
   } else {
     source += "  assign uio_out = 8'b0;\n  assign uio_oe  = 8'b0;\n";
   }

@@ -269,10 +269,20 @@ describe('hardware view and RTL export', () => {
     expect(wrapper).toContain('assign uo_out  = _tpo_out[7:0]');
     expect(wrapper).toContain("assign uio_out = {4'b0, _tpo_out[11:8]}");
     expect(wrapper).toContain("assign uio_oe  = {4'b0, 4'b1111}");
+    const mixed = genTTWrapper('mixed', [
+      { n: 'a', d: 'in', w: 10 },
+      { n: 'y', d: 'out', w: 12 },
+    ]);
+    expect(mixed).toContain("assign uio_out = {2'b0, _tpo_out[11:8], 2'b0}");
+    expect(mixed).toContain("assign uio_oe  = {2'b0, 4'b1111, 2'b0}");
     expect(() => genTTWrapper('too_wide', [
       { n: 'a', d: 'in', w: 17 },
       { n: 'y', d: 'out', w: 1 },
     ])).toThrow(/at most 16 data input bits/);
+    expect(() => genTTWrapper('pin_conflict', [
+      { n: 'a', d: 'in', w: 16 },
+      { n: 'y', d: 'out', w: 16 },
+    ])).toThrow(/bidirectional pins/);
   });
 });
 
