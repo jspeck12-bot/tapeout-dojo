@@ -23,11 +23,12 @@ import {
   ForgeScreen, TrainingScreen, ProfilesScreen,
 } from '../meta.jsx';
 import { ShopScreen } from '../combat.jsx';
-import { TouchControls } from '../world-shared.jsx';
+import { TouchControls, DevPerfHUD } from '../world-shared.jsx';
 
 function CampusScreen({ save, go, cb }) {
   const mountRef = useRef(null);
   const minimapRef = useRef(null);
+  const ctxRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [prompt, setPrompt] = useState(null);
@@ -81,6 +82,7 @@ function CampusScreen({ save, go, cb }) {
         }
       } catch (e) { }
       engineRef.current = null;
+      ctxRef.current = null;
     };
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
@@ -93,6 +95,7 @@ function CampusScreen({ save, go, cb }) {
 
       scene = new THREE.Scene();
       try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
+      ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(72, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 600);
       camera.rotation.order = 'YXZ';
 
@@ -380,6 +383,7 @@ function CampusScreen({ save, go, cb }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#060A12' }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+      <DevPerfHUD ctxRef={ctxRef} />
 
       {/* exit */}
       <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}

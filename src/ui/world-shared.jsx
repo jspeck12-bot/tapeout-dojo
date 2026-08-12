@@ -88,4 +88,43 @@ function EnterFade() {
   );
 }
 
-export { TouchControls, CinematicFX, GfxPanel, EnterFade };
+function DevPerfHUD({ ctxRef }) {
+  const [stats, setStats] = useState(null);
+  const enabled = typeof window !== 'undefined' &&
+    (window.location?.hostname === 'localhost' || window.location?.search?.includes('perf=1'));
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let alive = true, raf = 0, frames = 0, last = performance.now();
+    const frame = () => {
+      if (!alive) return;
+      frames++;
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    const interval = setInterval(() => {
+      const now = performance.now();
+      const renderer = ctxRef.current?.renderer;
+      const elapsed = Math.max(1, now - last);
+      setStats({
+        fps: Math.round(frames * 1000 / elapsed),
+        calls: renderer?.info?.render?.calls || 0,
+        triangles: renderer?.info?.render?.triangles || 0,
+      });
+      frames = 0;
+      last = now;
+    }, 1000);
+    return () => {
+      alive = false;
+      cancelAnimationFrame(raf);
+      clearInterval(interval);
+    };
+  }, [ctxRef, enabled]);
+  if (!enabled || !stats) return null;
+  return (
+    <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 27, padding: '5px 9px', borderRadius: 6, background: 'rgba(3,6,10,.82)', border: '1px solid #273245', color: '#7defff', fontSize: 10.5, pointerEvents: 'none' }}>
+      {stats.fps} FPS · {stats.calls} calls · {stats.triangles.toLocaleString()} tris
+    </div>
+  );
+}
+
+export { TouchControls, CinematicFX, GfxPanel, EnterFade, DevPerfHUD };

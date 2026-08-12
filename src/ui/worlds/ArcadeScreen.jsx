@@ -20,7 +20,7 @@ import {
   ForgeScreen, TrainingScreen, ProfilesScreen,
 } from '../meta.jsx';
 import { ShopScreen } from '../combat.jsx';
-import { TouchControls, CinematicFX, EnterFade } from '../world-shared.jsx';
+import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
 
 function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('tapeline'); musicSetState('explore'); } catch (e) { } }, []);
@@ -296,6 +296,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
 
       <CinematicFX accent="#FF7DF0" />
+      <DevPerfHUD ctxRef={ctxRef} />
       <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
       <EnterFade />
 

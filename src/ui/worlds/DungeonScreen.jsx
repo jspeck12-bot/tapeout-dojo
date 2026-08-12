@@ -28,7 +28,7 @@ import {
 } from '../challenges.jsx';
 import { NoteTerminal } from '../codex/NoteTerminal.jsx';
 import { Paragraphs } from '../foundations.jsx';
-import { TouchControls, CinematicFX, EnterFade } from '../world-shared.jsx';
+import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
 import { WorldMap } from './WorldMap.jsx';
 
 function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
@@ -483,6 +483,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
 
       <CinematicFX accent={accHex} />
+      <DevPerfHUD ctxRef={ctxRef} />
       <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
       <EnterFade />
 
