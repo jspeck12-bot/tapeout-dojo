@@ -227,12 +227,13 @@ function netlistOf(mod) {
         });
       } else {
         const expr = muxifyStmt(block.stmt, target, NL_HOLD, true);
+        const alwaysAssigned = stmtAlwaysAssigns(block.stmt, target, mod);
         drivers.set(target, {
           comb: {
             expr,
             latch: expr.kind === 'procfail'
-              ? !stmtAlwaysAssigns(block.stmt, target, mod)
-              : nlContainsHold(expr),
+              ? !alwaysAssigned
+              : nlContainsHold(expr) && !alwaysAssigned,
             stmt: block.stmt,
           },
         });
