@@ -20,6 +20,22 @@ function stableHash(value) {
   const text = JSON.stringify(value, (_key, item) => typeof item === 'function' ? '[function]' : item);
   return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
 }
+function seededRng(seed) {
+  return () => {
+    let value = seed += 0x6D2B79F5;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+}
+function answerCandidates(answer) {
+  const text = String(answer == null ? '' : answer);
+  const candidates = new Set([text, text.split(/\s*\(/)[0].trim()]);
+  for (const match of text.match(/0x[0-9a-f]+|0b[01_]+|[01][01_]{3,}|-?\d+/gi) || []) {
+    candidates.add(match);
+  }
+  return [...candidates];
+}
 function assertNetlist(m, mod, fixture, label) {
   const started = Date.now();
   const netlist = m.netlistOf(mod);
@@ -143,7 +159,23 @@ function run() {
     assert(ex && ex.module && ex.testbench && ex.wrapper, `${ch.id}: exportRTL produced incomplete output`);
     const rc = m.vCompile(ex.module, ch.iface);
     assert(rc.ok, `${ch.id}: exported RTL module failed to recompile`);
-    checks++;
+    assert(ex.testbench.includes(`module tb_${ch.iface.name}`) &&
+      ex.testbench.includes('$display') && ex.testbench.includes('$finish'),
+    `${ch.id}: exported testbench is not self-checking`);
+    const expectedRows = ch.test.type === 'seq'
+      ? ch.test.frames.length
+      : Math.min(ch.test.vectors.length, 16);
+    const emittedRows = ch.test.type === 'seq'
+      ? (ex.testbench.match(/@\(posedge clk\);/g) || []).length
+      : (ex.testbench.match(/#1;/g) || []).length;
+    assert(emittedRows === expectedRows,
+      `${ch.id}: exported testbench has ${emittedRows} checks, expected ${expectedRows}`);
+    assert(ex.wrapper.includes(`module tt_um_${ch.iface.name}`) &&
+      ex.wrapper.includes(`${ch.iface.name} dut`) &&
+      ['ui_in', 'uo_out', 'uio_in', 'uio_out', 'uio_oe', 'ena', 'clk', 'rst_n']
+        .every((portName) => ex.wrapper.includes(portName)),
+    `${ch.id}: Tiny Tapeout wrapper is incomplete`);
+    checks += 4;
   }
 
   // 6. NG+ REMIX variants compile + pass, impostor fails
@@ -165,25 +197,33 @@ function run() {
   }
 
   // 7. gauntlet generators are self-consistent
-  const rng = () => Math.random();
-  for (const g of m.GAUNTLETS) {
+  for (const [generatorIndex, g] of m.GAUNTLETS.entries()) {
     assert(typeof g.gen === 'function', `gauntlet ${g.id}: missing gen()`);
-    for (let i = 0; i < 8; i++) {
+    const rng = seededRng(0x54415045 + generatorIndex);
+    const generated = [];
+    for (let i = 0; i < 32; i++) {
       const q = g.gen(rng, i);
+      generated.push(q);
       assert(q && typeof q.text === 'string' && q.text.length > 0, `gauntlet ${g.id}[${i}]: no question text`);
       if (q.kind === 'mc' || Array.isArray(q.options)) {
         assert(Array.isArray(q.options) && q.options.length >= 2, `gauntlet ${g.id}[${i}]: malformed multiple-choice`);
         assert(Number.isInteger(q.correct) && q.correct >= 0 && q.correct < q.options.length, `gauntlet ${g.id}[${i}]: correct index out of range`);
         assert(q.options[q.correct] !== undefined, `gauntlet ${g.id}[${i}]: correct index has no option`);
       } else if (typeof q.check === 'function') {
-        // `answer` is a human-readable display string, so only its presence is asserted.
         assert('answer' in q, `gauntlet ${g.id}[${i}]: has check() but no reference answer`);
         assert(q.check('') === false, `gauntlet ${g.id}[${i}]: check() accepts an empty answer`);
+        assert(q.check('__definitely_wrong__') === false,
+          `gauntlet ${g.id}[${i}]: check() accepts an invalid answer`);
+        assert(answerCandidates(q.answer).some((candidate) => q.check(candidate)),
+          `gauntlet ${g.id}[${i}]: no canonical form of its displayed answer passes check()`);
       } else {
         throw new Error(`gauntlet ${g.id}[${i}]: neither check() nor multiple-choice`);
       }
       checks++;
     }
+    assert(stableHash(generated) === GOLDEN.gauntletHashes[g.id],
+      `gauntlet ${g.id}: deterministic rounds or answer keys changed`);
+    checks++;
   }
 
   // 8. truth-table challenge functions evaluate
@@ -191,9 +231,18 @@ function run() {
     assert(Array.isArray(t.pool) && t.pool.length > 0, `truth ${t.id}: empty pool`);
     for (const row of t.pool) {
       assert(typeof row.fn === 'function' && Array.isArray(row.vars), `truth ${t.id}: malformed row`);
-      const out = row.fn(...row.vars.map(() => 1));
-      assert(out === 0 || out === 1, `truth ${t.id}: fn did not return a bit for all-ones input`);
-      checks++;
+      const fixture = GOLDEN.truthTables[row.label];
+      assert(fixture && fixture.length === Math.pow(2, row.vars.length),
+        `truth ${t.id}: missing canonical table for "${row.label}"`);
+      for (let value = 0; value < Math.pow(2, row.vars.length); value++) {
+        const args = row.vars.map((_name, index) =>
+          (value >> (row.vars.length - 1 - index)) & 1);
+        const out = row.fn(...args);
+        assert(out === 0 || out === 1, `truth ${t.id}: fn did not return a bit for row ${value}`);
+        assert(out === fixture[value],
+          `truth ${t.id}: "${row.label}" row ${args.join('')} expected ${fixture[value]}, got ${out}`);
+        checks++;
+      }
     }
   }
 
