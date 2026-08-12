@@ -154,7 +154,16 @@ function netlistOf(mod) {
     switch (expr.kind) {
       case 'hold': return holdId;
       case 'num': return add({ type: 'CONST', label: formatValue(expr.v, expr.w || 1), w: expr.w || 1 });
-      case 'sig': return resolve(expr.name);
+      case 'sig': {
+        if (mod.params.has(expr.name)) {
+          const parameter = mod.params.get(expr.name);
+          const value = parameter && typeof parameter === 'object'
+            ? parameter
+            : { v: parameter, w: 32 };
+          return add({ type: 'CONST', label: formatValue(value.v, value.w), w: value.w });
+        }
+        return resolve(expr.name);
+      }
       case 'bit':
         return add({
           type: 'SLICE',

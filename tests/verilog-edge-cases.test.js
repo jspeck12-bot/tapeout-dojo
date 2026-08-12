@@ -40,7 +40,7 @@ describe('tokenizer and literal edge cases', () => {
       v: { width: 4, base: 'b', digits: '10_10', signed: true },
     });
     expect(tokens.find((token) => token.t === 'op').v).toBe('~^');
-    expect(litValue(tokens[0])).toEqual({ v: 10, w: 4 });
+    expect(() => litValue(tokens[0])).toThrow(/Signed literals aren't supported/);
   });
 
   test('rejects unclosed comments and unexpected characters', () => {
@@ -493,5 +493,111 @@ describe('RTL export details', () => {
     expect(wrapper).toContain('.clk(clk)');
     expect(wrapper).toContain('.rst(~rst_n)');
     expect(wrapper).toContain('.d(ui_in[0])');
+  });
+});
+
+describe('audited compiler regressions', () => {
+  test('preserves parameter widths and truncates declared parameter ranges', () => {
+    const narrow = expectOk(`
+      module dut(output [1:0] y);
+        localparam P = 1'b1;
+        assign y = {P, P};
+      endmodule
+    `, iface('dut', [port('y', 'out', 2)]));
+    expect(runCombTest(narrow, [{ in: {}, out: { y: 3 } }]).pass).toBe(true);
+
+    const ranged = expectOk(`
+      module dut(output y);
+        parameter [3:0] P = 5'd31;
+        assign y = (P == 5'd31);
+      endmodule
+    `, iface('dut', [port('y', 'out')]));
+    expect(runCombTest(ranged, [{ in: {}, out: { y: 0 } }]).pass).toBe(true);
+  });
+
+  test('keeps low 32 bits exact for large literals, multiplication, and shifts', () => {
+    const mod = expectOk(`
+      module dut(output [31:0] product, output [31:0] literal, output [31:0] shifted);
+        assign product = 32'hffffffff * 32'hffffffff;
+        assign literal = 32'h20000000000001;
+        assign shifted = 32'hffffffff << 31;
+      endmodule
+    `, iface('dut', [
+      port('product', 'out', 32), port('literal', 'out', 32), port('shifted', 'out', 32),
+    ]));
+    expect(runCombTest(mod, [{
+      in: {},
+      out: { product: 1, literal: 1, shifted: 0x80000000 },
+    }]).pass).toBe(true);
+  });
+
+  test('rejects signed literals in the deliberately unsigned subset', () => {
+    const result = vCompile(`
+      module dut(output [3:0] y);
+        assign y = 4'shf;
+      endmodule
+    `, iface('dut', [port('y', 'out', 4)]));
+    expect(result.ok).toBe(false);
+    expect(result.errors[0].msg).toMatch(/Signed literals aren't supported/);
+  });
+
+  test('requires constant replication counts and fixed part-select bounds', () => {
+    expectFail(`
+      module dut(input [1:0] n, input a, output [3:0] y);
+        assign y = {n{a}};
+      endmodule
+    `, iface('dut', [port('n', 'in', 2), port('a', 'in'), port('y', 'out', 4)]),
+    "'n' isn't a constant");
+    expectFail(`
+      module dut(input [7:0] a, input [2:0] hi, output [3:0] y);
+        assign y = a[hi:0];
+      endmodule
+    `, iface('dut', [port('a', 'in', 8), port('hi', 'in', 3), port('y', 'out', 4)]),
+    "'hi' isn't a constant");
+  });
+
+  test('captures indexed nonblocking targets before committing other NBAs', () => {
+    const mod = expectOk(`
+      module dut(input clk, input d, output reg idx, output reg [1:0] q);
+        always @(posedge clk) begin
+          idx <= idx + 1;
+          q[idx] <= d;
+        end
+      endmodule
+    `, iface('dut', [
+      port('clk', 'in'), port('d', 'in'), port('idx', 'out'), port('q', 'out', 2),
+    ]));
+    const sim = new VSim(mod);
+    sim.setInput('d', 1);
+    sim.clock();
+    expect(sim.get('idx')).toBe(1);
+    expect(sim.get('q')).toBe(1);
+  });
+
+  test('rejects asynchronous sensitivity events the simulator cannot execute', () => {
+    expectFail(`
+      module dut(input clk, input rst, input d, output reg q);
+        always @(posedge clk or posedge rst) begin
+          if (rst) q <= 0; else q <= d;
+        end
+      endmodule
+    `, iface('dut', [
+      port('clk', 'in'), port('rst', 'in'), port('d', 'in'), port('q', 'out'),
+    ]), "Asynchronous sensitivity events aren't supported");
+  });
+
+  test('does not let latchy logic pass a stateless truth-table specification', () => {
+    const mod = expectOk(`
+      module dut(input en, input d, output reg y);
+        always @(*) if (en) y = d;
+      endmodule
+    `, iface('dut', [port('en', 'in'), port('d', 'in'), port('y', 'out')]));
+    const result = runCombTest(mod, [
+      { in: { en: 0, d: 1 }, out: { y: 0 } },
+      { in: { en: 1, d: 1 }, out: { y: 1 } },
+      { in: { en: 0, d: 0 }, out: { y: 0 } },
+    ]);
+    expect(result.pass).toBe(false);
+    expect(result.rows.at(-1).got.y).toBe(1);
   });
 });

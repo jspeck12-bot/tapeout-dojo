@@ -2,7 +2,7 @@
 // VERILOG ENGINE — subset parser + 2-state event simulator
 // Supports: module/endmodule, ANSI + classic ports, wire/reg,
 // parameter/localparam, assign (incl. bit/part-select & concat
-// lvalues), always @(*) and always @(posedge clk [or posedge rst]),
+// lvalues), always @(*) and always @(posedge clk),
 // if/else, case, blocking/non-blocking with style enforcement,
 // full expression set with pragmatic Verilog width semantics.
 // ============================================================
@@ -23,6 +23,12 @@ function vErr(line, msg, hint) {
 
 function pow2(w) { return Math.pow(2, w); }
 function maskW(v, w) { const m = pow2(w); return ((v % m) + m) % m; }
+function parameterResult(mod, name) {
+  const parameter = mod.params.get(name);
+  return parameter && typeof parameter === 'object'
+    ? parameter
+    : { v: parameter, w: 32 };
+}
 
 // ---------------- Tokenizer ----------------
 function vTokenize(src) {
@@ -80,6 +86,9 @@ function vTokenize(src) {
 
 function litValue(tok) {
   const { width, base, digits } = tok.v;
+  if (tok.v.signed) {
+    throw vErr(tok.line, "Signed literals aren't supported — the Dojo is unsigned. Use the raw bit pattern instead.");
+  }
   if (/[xXzZ?]/.test(digits)) {
     throw vErr(tok.line, "x / z values aren't supported — the Dojo runs 2-state simulation (every bit is 0 or 1).",
       "Registers start at 0 here. Use explicit resets like in real designs.");
@@ -91,12 +100,11 @@ function litValue(tok) {
   for (const ch of clean.toLowerCase()) {
     if (parseInt(ch, 16) >= radix) throw vErr(tok.line, `Digit '${ch}' isn't valid in base '${base}'.`);
   }
-  let v = parseInt(clean, radix);
-  let w = tok.v.bare ? 32 : width;
-  if (!tok.v.bare) {
-    if (!(w >= 1 && w <= 32)) throw vErr(tok.line, `Literal width must be 1–32 bits (got ${width}).`);
-    v = maskW(v, w);
-  }
+  const w = tok.v.bare ? 32 : width;
+  if (!(w >= 1 && w <= 32)) throw vErr(tok.line, `Literal width must be 1–32 bits (got ${width}).`);
+  const prefix = { b: '0b', d: '', h: '0x', o: '0o' }[base];
+  const raw = BigInt(prefix + clean);
+  const v = Number(raw & ((1n << BigInt(w)) - 1n));
   return { v, w };
 }
 
@@ -258,14 +266,16 @@ class VParser {
       }
       if (this.atKw('parameter') || this.atKw('localparam')) {
         this.next();
-        if (this.atOp('[')) this.parseRange(mod);
+        const range = this.atOp('[') ? this.parseRange(mod) : null;
         while (true) {
           const nm = this.eatId('a parameter name');
           this.eatOp('=', `after parameter ${nm.v}`);
           const expr = this.parseExpr(mod);
-          const val = this.constEval(expr, mod, nm.line);
+          const evaluated = this.constEvalResult(expr, mod);
+          const width = range ? range.width : evaluated.w;
+          const value = maskW(evaluated.v, width);
           if (mod.params.has(nm.v) || mod.signals.has(nm.v)) throw vErr(nm.line, `'${nm.v}' is declared more than once.`);
-          mod.params.set(nm.v, val);
+          mod.params.set(nm.v, { v: value, w: width });
           if (this.atOp(',')) { this.next(); continue; }
           break;
         }
@@ -303,6 +313,11 @@ class VParser {
         if (kind === 'comb_list') {
           mod.warnings.push({ line: aTok.line, msg: "Manual sensitivity lists go stale. Prefer always @(*) — it tracks every input automatically." });
           kind = 'comb';
+        }
+        if (kind === 'clocked' && edges.length > 1) {
+          throw vErr(aTok.line,
+            "Asynchronous sensitivity events aren't supported — use a single posedge clock and a synchronous reset.",
+            "Write: always @(posedge clk) begin if (rst) ... end");
         }
         const stmt = this.parseStmt(mod);
         mod.blocks.push({ kind, edges, stmt, line: aTok.line });
@@ -374,6 +389,8 @@ class VParser {
         this.next();
         const b = this.parseExpr(mod);
         this.eatOp(']');
+        this.constEval(a, mod, nm.line);
+        this.constEval(b, mod, nm.line);
         node = { kind: 'part', name: nm.v, msbE: a, lsbE: b, line: nm.line };
       } else {
         this.eatOp(']');
@@ -498,6 +515,8 @@ class VParser {
         this.next();
         const b = this.parseExpr(mod);
         this.eatOp(']');
+        this.constEval(a, mod, node.line);
+        this.constEval(b, mod, node.line);
         node = { kind: 'part', name: node.name, msbE: a, lsbE: b, line: node.line };
       } else {
         this.eatOp(']');
@@ -522,6 +541,7 @@ class VParser {
       if (this.atOp('{')) {
         // replication {N{expr}}
         this.next();
+        this.constEval(first, mod, tk.line);
         const rep = this.parseExpr(mod);
         this.eatOp('}', 'to close the replication');
         this.eatOp('}', 'to close the outer concatenation');
@@ -537,13 +557,15 @@ class VParser {
   }
 
   constEval(node, mod, line) {
-    const val = evalExpr(node, {
+    return this.constEvalResult(node, mod).v;
+  }
+  constEvalResult(node, mod) {
+    return evalExpr(node, {
       get: (name, ln) => {
-        if (mod.params.has(name)) return { v: mod.params.get(name), w: 32 };
+        if (mod.params.has(name)) return parameterResult(mod, name);
         throw vErr(ln, `'${name}' isn't a constant — only numbers and parameters work here.`);
       }
     }, mod);
-    return val.v;
   }
 }
 
@@ -553,11 +575,11 @@ function evalExpr(node, env, mod) {
   switch (node.kind) {
     case 'num': return { v: node.v, w: node.w };
     case 'sig': {
-      if (mod && mod.params.has(node.name)) return { v: mod.params.get(node.name), w: 32 };
+      if (mod && mod.params.has(node.name)) return parameterResult(mod, node.name);
       return env.get(node.name, node.line);
     }
     case 'bit': {
-      const sig = (mod && mod.params.has(node.name)) ? { v: mod.params.get(node.name), w: 32 } : env.get(node.name, node.line);
+      const sig = (mod && mod.params.has(node.name)) ? parameterResult(mod, node.name) : env.get(node.name, node.line);
       const idx = evalExpr(node.idxE, env, mod).v;
       if (idx >= sig.w) return { v: 0, w: 1 };
       return { v: Math.floor(sig.v / pow2(idx)) % 2, w: 1 };
@@ -612,7 +634,11 @@ function evalExpr(node, env, mod) {
       switch (node.op) {
         case '+': { const w = Math.min(32, wmax + 1); return { v: maskW(a.v + b.v, w), w }; }
         case '-': { const w = Math.min(32, wmax + 1); return { v: maskW(a.v - b.v, w), w }; }
-        case '*': { const w = Math.min(32, a.w + b.w); return { v: maskW(a.v * b.v, w), w }; }
+        case '*': {
+          const w = Math.min(32, a.w + b.w);
+          const product = BigInt(a.v) * BigInt(b.v);
+          return { v: Number(product & ((1n << BigInt(w)) - 1n)), w };
+        }
         case '/': { if (b.v === 0) throw vErr(node.line, "Division by zero during simulation."); return { v: Math.floor(a.v / b.v), w: wmax }; }
         case '%': { if (b.v === 0) throw vErr(node.line, "Modulo by zero during simulation."); return { v: a.v % b.v, w: wmax }; }
         case '&': return { v: bitop(a, b, wmax, (x, y) => x & y), w: wmax };
@@ -627,7 +653,12 @@ function evalExpr(node, env, mod) {
         case '>=': return { v: a.v >= b.v ? 1 : 0, w: 1 };
         case '&&': return { v: (a.v !== 0 && b.v !== 0) ? 1 : 0, w: 1 };
         case '||': return { v: (a.v !== 0 || b.v !== 0) ? 1 : 0, w: 1 };
-        case '<<': { const s = Math.min(b.v, 32); const w = Math.min(32, a.w + s); return { v: maskW(a.v * pow2(s), w), w }; }
+        case '<<': {
+          const s = Math.min(b.v, 32);
+          const w = Math.min(32, a.w + s);
+          const shifted = BigInt(a.v) << BigInt(s);
+          return { v: Number(shifted & ((1n << BigInt(w)) - 1n)), w };
+        }
         case '>>': { return { v: Math.floor(a.v / pow2(Math.min(b.v, 40))), w: a.w }; }
         case '**': throw vErr(node.line, "'**' (power) isn't supported in the Dojo.");
       }
@@ -658,7 +689,7 @@ function exprWidth(node, env, mod) {
   switch (node.kind) {
     case 'num': return node.w;
     case 'sig':
-      if (mod && mod.params.has(node.name)) return 32;
+      if (mod && mod.params.has(node.name)) return parameterResult(mod, node.name).w;
       return env.get(node.name, node.line).w;
     case 'bit': return 1;
     case 'part': {
@@ -848,6 +879,44 @@ function checkSemantics(mod, iface) {
     }
   }
 
+  // Continuous-assignment dependency cycles are combinational loops even when
+  // their zero-initialized value happens to look stable (for example y = y).
+  const continuousDeps = new Map();
+  const continuousLines = new Map();
+  for (const assign of mod.assigns) {
+    const dependencies = new Set();
+    walkExprNames(assign.expr, (name) => {
+      if (!mod.params.has(name)) dependencies.add(name);
+    });
+    for (const target of lvalueNames(assign.lhs)) {
+      const set = continuousDeps.get(target.name) || new Set();
+      dependencies.forEach((name) => set.add(name));
+      continuousDeps.set(target.name, set);
+      if (!continuousLines.has(target.name)) continuousLines.set(target.name, assign.line);
+    }
+  }
+  const visited = new Set();
+  const visiting = new Set();
+  const reports = new Set();
+  const visitContinuous = (name) => {
+    if (visiting.has(name)) {
+      if (!reports.has(name)) {
+        reports.add(name);
+        E(continuousLines.get(name) || mod.line,
+          `Combinational loop detected around '${name}' — a continuous assignment feeds back without a register.`);
+      }
+      return;
+    }
+    if (visited.has(name)) return;
+    visiting.add(name);
+    for (const dependency of continuousDeps.get(name) || []) {
+      if (continuousDeps.has(dependency)) visitContinuous(dependency);
+    }
+    visiting.delete(name);
+    visited.add(name);
+  };
+  continuousDeps.forEach((_dependencies, name) => visitContinuous(name));
+
   // every output driven?
   for (const p of mod.ports) {
     const sig = mod.signals.get(p.name);
@@ -878,7 +947,7 @@ class VSim {
   envReader() {
     return {
       get: (name, line) => {
-        if (this.mod.params.has(name)) return { v: this.mod.params.get(name), w: 32 };
+        if (this.mod.params.has(name)) return parameterResult(this.mod, name);
         if (!this.vals.has(name)) throw vErr(line, `'${name}' isn't declared.`);
         return { v: this.vals.get(name), w: this.width(name) };
       }
@@ -933,6 +1002,25 @@ class VSim {
     const lsb = evalExpr(lhs.lsbE, env, this.mod).v;
     return msb - lsb + 1;
   }
+  captureTarget(lhs, env) {
+    if (lhs.kind === 'concat') {
+      return { ...lhs, parts: lhs.parts.map((part) => this.captureTarget(part, env)) };
+    }
+    if (lhs.kind === 'bit') {
+      const index = evalExpr(lhs.idxE, env, this.mod).v;
+      return { ...lhs, idxE: { kind: 'num', v: index, w: 32, line: lhs.line } };
+    }
+    if (lhs.kind === 'part') {
+      const msb = evalExpr(lhs.msbE, env, this.mod).v;
+      const lsb = evalExpr(lhs.lsbE, env, this.mod).v;
+      return {
+        ...lhs,
+        msbE: { kind: 'num', v: msb, w: 32, line: lhs.line },
+        lsbE: { kind: 'num', v: lsb, w: 32, line: lhs.line },
+      };
+    }
+    return lhs;
+  }
   execStmt(stmt, env, nbList) {
     switch (stmt.kind) {
       case 'empty': return;
@@ -956,7 +1044,9 @@ class VSim {
       }
       case 'assign': {
         const val = evalExpr(stmt.expr, env, this.mod);
-        if (stmt.op === '<=' && nbList) nbList.push({ lhs: stmt.lhs, value: val.v });
+        if (stmt.op === '<=' && nbList) {
+          nbList.push({ lhs: this.captureTarget(stmt.lhs, env), value: val.v });
+        }
         else this.writeTarget(stmt.lhs, val.v, env);
         return;
       }
@@ -1010,9 +1100,9 @@ function vCompile(src, iface) {
 // Combinational: vectors = [{in:{a:0,b:1}, out:{y:1}}]
 function runCombTest(mod, vectors) {
   const rows = [];
+  const sim = new VSim(mod);
   let passCount = 0;
   for (const vec of vectors) {
-    const sim = new VSim(mod);
     try {
       for (const [k, v] of Object.entries(vec.in)) sim.setInput(k, v);
       sim.settle();

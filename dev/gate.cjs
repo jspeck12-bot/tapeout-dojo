@@ -111,7 +111,7 @@ function stageArtifactCompat() {
 }
 
 function stageUnit() {
-  const expectedMinimumTests = 65;
+  const expectedMinimumTests = 72;
   const vitestBin = path.join(path.dirname(require.resolve('vitest/package.json')), 'vitest.mjs');
   const result = spawnSync(process.execPath, [
     vitestBin,

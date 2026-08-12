@@ -227,6 +227,36 @@ async function run() {
   act(() => { bayRoot.unmount(); });
   checks += 2;
 
+  // Direct campus console route into an unlocked dungeon. This guards the
+  // fallback path used on GPU-less machines and distinguishes a locked district
+  // from a broken navigation handoff.
+  const unlockedSave = m.normalizeSave(null);
+  for (const worldId of [1, 2]) {
+    m.challengesOf(worldId).forEach((challenge) => {
+      unlockedSave.done[challenge.id] = { stars: 3 };
+    });
+  }
+  const routed = [];
+  const campusRouteRoot = await mountAndFlush(TR, React, m.CampusScreen, {
+    ...common,
+    save: unlockedSave,
+    go: (screen) => routed.push(screen),
+  });
+  const openFoundry = findClickable(campusRouteRoot.toJSON(), 'Module Foundry');
+  assert(typeof openFoundry === 'function', 'unlocked Module Foundry console is not clickable');
+  act(() => { openFoundry(); });
+  for (let index = 0; index < 4; index++) {
+    await act(async () => { await Promise.resolve(); });
+  }
+  const descendLabel = m.DUNGEON_CFG[3].descend.label;
+  const descendFoundry = findClickable(campusRouteRoot.toJSON(), descendLabel);
+  assert(typeof descendFoundry === 'function', `foundry console missing "${descendLabel}"`);
+  act(() => { descendFoundry(); });
+  assert(routed.some((screen) => screen.name === 'dungeon' && screen.w === 3),
+    'campus console did not hand off to the selected dungeon');
+  checks += 3;
+  act(() => { campusRouteRoot.unmount(); });
+
   // Positive path: provide a working renderer and host refs. This makes a
   // permanent throw in renderer setup fail instead of satisfying fallback-only
   // assertions.

@@ -198,13 +198,13 @@ describe('procedural and event semantics', () => {
     expect(combinational.errors.some((e) => /Non-blocking '<=' inside/.test(e.msg))).toBe(true);
   });
 
-  test('reports a runtime error for combinational feedback', () => {
+  test('rejects oscillating and stable continuous feedback', () => {
     const spec = iface('loop', [port('y', 'out')]);
-    const mod = compile('module loop(output y); assign y = ~y; endmodule', spec);
-    const result = runCombTest(mod, [{ in: {}, out: { y: 0 } }]);
-
-    expect(result.pass).toBe(false);
-    expect(result.runtimeError?.msg).toMatch(/Combinational loop detected/);
+    for (const expression of ['~y', 'y']) {
+      const result = vCompile(`module loop(output y); assign y = ${expression}; endmodule`, spec);
+      expect(result.ok).toBe(false);
+      expect(result.errors.some((error) => /Combinational loop detected/.test(error.msg))).toBe(true);
+    }
   });
 });
 
