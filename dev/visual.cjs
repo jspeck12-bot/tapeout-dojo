@@ -19,13 +19,17 @@ function finishStation(save, station) {
   if (station.kind === 'book') save.lessons[station.lid] = true;
   else save.done[station.id] = { stars: 3 };
 }
-function assertSceneEnvelope(name, scene) {
+function assertSceneEnvelope(name, scene, THREE) {
   const floor = SCENE_FLOORS[name];
   let total = 0, rendered = 0, lights = 0;
   scene.traverse((object) => {
     total++;
     if (object.isMesh || object.isSprite || object.isPoints) rendered++;
     if (object.isLight) lights++;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    assert(!(object.castShadow && materials.some((material) =>
+      material && (material.transparent || material.blending === THREE.AdditiveBlending))),
+    `scene "${name}" has a transparent/additive shadow caster`);
   });
   assert(scene.children.length >= floor.direct,
     `scene "${name}" direct children fell below ${floor.direct} (got ${scene.children.length})`);
@@ -163,7 +167,7 @@ function run() {
     }
     const { scene, model, api } = result;
     assert(scene && scene.isScene, `scene "${name}" did not return a THREE.Scene`);
-    assertSceneEnvelope(name, scene);
+    assertSceneEnvelope(name, scene, THREE);
     checks += 4;
 
     if (result.kind === 'world') {
