@@ -169,6 +169,8 @@ async function run() {
   const OriginalRenderer = THREE.WebGLRenderer;
   let rendererInstances = 0;
   let rendererCalls = 0;
+  let rendererDisposals = 0;
+  let contextLosses = 0;
   class StubRenderer {
     constructor() {
       rendererInstances++;
@@ -182,8 +184,8 @@ async function run() {
       this.domElement.height = height;
     }
     render() { this.renderCalls++; rendererCalls++; }
-    dispose() {}
-    forceContextLoss() {}
+    dispose() { rendererDisposals++; }
+    forceContextLoss() { contextLosses++; }
   }
   const createNodeMock = (element) => {
     if (element.type === 'canvas') return shared.makeCanvas();
@@ -214,6 +216,8 @@ async function run() {
     for (const positiveCase of positiveCases) {
       const instancesBefore = rendererInstances;
       const callsBefore = rendererCalls;
+      const disposalsBefore = rendererDisposals;
+      const lossesBefore = contextLosses;
       const positiveRoot = await mountAndFlush(
         TR,
         React,
@@ -230,8 +234,12 @@ async function run() {
         `${positiveCase.name}: renderer constructor was not called exactly once`);
       assert(rendererCalls > callsBefore,
         `${positiveCase.name}: renderer never rendered a frame`);
-      checks += 4;
       act(() => { positiveRoot.unmount(); });
+      assert(rendererDisposals === disposalsBefore + 1,
+        `${positiveCase.name}: renderer was not disposed on unmount`);
+      assert(contextLosses === lossesBefore + 1,
+        `${positiveCase.name}: WebGL context was not released on unmount`);
+      checks += 6;
     }
   } finally {
     THREE.WebGLRenderer = OriginalRenderer;
