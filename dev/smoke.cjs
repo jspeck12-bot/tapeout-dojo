@@ -114,8 +114,12 @@ async function run() {
       name: 'mines',
       Component: m.MineScreen,
       props: common,
-      markers: m.challengesOf(1).map((challenge) => challenge.title)
-        .concat((m.LESSONS[1] || []).map((lesson) => lesson.title)),
+      markers: m.challengesOf(1).filter((challenge) => challenge.id !== 'b6')
+        .map((challenge) => challenge.title)
+        .concat(
+          ['SEALED — clear the outer galleries'],
+          (m.LESSONS[1] || []).map((lesson) => lesson.title),
+        ),
     },
     {
       name: 'arcade',
@@ -129,8 +133,12 @@ async function run() {
       name: 'dungeon-2',
       Component: m.DungeonScreen,
       props: { ...common, w: 2 },
-      markers: m.challengesOf(2).map((challenge) => challenge.title)
-        .concat((m.LESSONS[2] || []).map((lesson) => lesson.title)),
+      markers: m.challengesOf(2).filter((challenge) => !challenge.boss)
+        .map((challenge) => challenge.title)
+        .concat(
+          ['SEALED — clear the hall first'],
+          (m.LESSONS[2] || []).map((lesson) => lesson.title),
+        ),
     },
   ];
   for (const testCase of fallbackCases) {
