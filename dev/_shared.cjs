@@ -27,9 +27,7 @@ const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 const EXPORTS = [
   'App',
   'FR',
-  'exportRTL',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
-  'CODE_CHALLENGES',
   'ALL_CHALLENGES', 'TOPIC_OF', 'challengesOf', 'activeDone',
   'worldDone', 'worldUnlocked',
   'nextStationOf',
@@ -44,8 +42,12 @@ const REEXPORTS = [
     names: ['netlistOf', 'levelizeNetlist'],
   },
   {
+    from: './engine/debug/rtl-export.js',
+    names: ['exportRTL'],
+  },
+  {
     from: './game/content.js',
-    names: ['combVecs', 'GAUNTLETS', 'TRUTH_CHALLENGES', 'REMIX'],
+    names: ['combVecs', 'GAUNTLETS', 'TRUTH_CHALLENGES', 'CODE_CHALLENGES', 'REMIX'],
   },
   {
     from: './telemetry/flight-recorder.js',
