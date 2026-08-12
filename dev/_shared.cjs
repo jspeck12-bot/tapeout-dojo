@@ -15,16 +15,16 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SRC = path.join(ROOT, 'src', 'tapeout.jsx');
+const ENGINE_SRC = path.join(ROOT, 'src', 'engine', 'verilog.js');
 const GATE_DIR = path.join(ROOT, '.gate');
 const GEN = path.join(GATE_DIR, 'tapeout.gen.jsx');
 const BUNDLE = path.join(GATE_DIR, 'bundle.cjs');
+const ENGINE_BUNDLE = path.join(GATE_DIR, 'verilog-engine.cjs');
 
-// Top-level identifiers we surface for testing. All are real declarations in
-// src/tapeout.jsx (functions / consts at module scope).
+// Top-level game identifiers surfaced for testing. Verilog engine exports are
+// loaded directly from src/engine/verilog.js and merged into loadMod() below.
 const EXPORTS = [
   'App',
-  'vTokenize', 'VParser', 'evalExpr', 'VSim', 'vCompile',
-  'runCombTest', 'runSeqTest', 'runChallengeTest',
   'netlistOf', 'levelizeNetlist', 'exportRTL',
   'combVecs',
   'WORLDS', 'LESSONS', 'WORLD_ORDER', 'DUNGEON_CFG',
@@ -48,7 +48,21 @@ function loadMod() {
   if (!fs.existsSync(GATE_DIR)) fs.mkdirSync(GATE_DIR, { recursive: true });
   const src = fs.readFileSync(SRC, 'utf8');
   const exportLine = `\n\nexport { ${EXPORTS.join(', ')} };\n`;
-  fs.writeFileSync(GEN, src + exportLine);
+  const engineImport = "'./engine/verilog.js'";
+  const importCount = src.split(engineImport).length - 1;
+  if (importCount !== 1) throw new Error(`expected one Verilog engine import, found ${importCount}`);
+  const engineSpec = path.relative(GATE_DIR, ENGINE_SRC).split(path.sep).join('/');
+  fs.writeFileSync(GEN, src.replace(engineImport, `'${engineSpec}'`) + exportLine);
+  esbuild.buildSync({
+    entryPoints: [ENGINE_SRC],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node18',
+    outfile: ENGINE_BUNDLE,
+    logLevel: 'silent',
+    legalComments: 'none',
+  });
   esbuild.buildSync({
     entryPoints: [GEN],
     bundle: true,
@@ -62,7 +76,7 @@ function loadMod() {
     logLevel: 'silent',
     legalComments: 'none',
   });
-  _mod = require(BUNDLE);
+  _mod = { ...require(BUNDLE), ...require(ENGINE_BUNDLE) };
   return _mod;
 }
 
@@ -191,6 +205,6 @@ function installDom() {
 }
 
 module.exports = {
-  ROOT, SRC, GATE_DIR, GEN, BUNDLE, EXPORTS,
+  ROOT, SRC, ENGINE_SRC, GATE_DIR, GEN, BUNDLE, ENGINE_BUNDLE, EXPORTS,
   loadMod, buildOnly, installDom, makeCanvas,
 };

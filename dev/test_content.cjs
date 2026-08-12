@@ -11,9 +11,15 @@
 //   · gauntlet generators are self-consistent (their own answer checks out)
 //   · learning order places each field note before the drills that use it
 // ============================================================
+const crypto = require('crypto');
 const { loadMod } = require('./_shared.cjs');
+const GOLDEN = require('./fixtures/content-golden.cjs');
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
+function stableHash(value) {
+  const text = JSON.stringify(value, (_key, item) => typeof item === 'function' ? '[function]' : item);
+  return crypto.createHash('sha256').update(text).digest('hex').slice(0, 16);
+}
 
 function impostorSrc(iface) {
   const decl = iface.ports.map((p) => `${p.d === 'in' ? 'input' : 'output'} ${p.w > 1 ? `[${p.w - 1}:0] ` : ''}${p.n}`).join(', ');
@@ -25,6 +31,33 @@ function impostorSrc(iface) {
 function run() {
   const m = loadMod();
   let checks = 0;
+
+  // External characterization fixtures make content/order checks independent
+  // from the runtime helpers that consume the same data.
+  for (const world of m.WORLDS) {
+    const w = world.id;
+    const challenges = m.challengesOf(w);
+    const challengeIds = challenges.map((challenge) => challenge.id);
+    const lessons = m.LESSONS[w] || [];
+    const lessonIds = lessons.map((lesson) => lesson.id);
+    const stationOrder = m.stationSequence(
+      challenges.filter((challenge) => !challenge.boss),
+      lessonIds,
+    ).map((station) => station.kind === 'book'
+      ? `book:${station.lid}`
+      : `fight:${station.f.id}`)
+      .concat(challenges.filter((challenge) => challenge.boss).map((challenge) => `fight:${challenge.id}`));
+
+    assert(JSON.stringify(challengeIds) === JSON.stringify(GOLDEN.worldChallengeIds[w]),
+      `world ${w}: canonical challenge order changed`);
+    assert(JSON.stringify(lessonIds) === JSON.stringify(GOLDEN.lessonIds[w]),
+      `world ${w}: canonical lesson order changed`);
+    assert(JSON.stringify(stationOrder) === JSON.stringify(GOLDEN.stationOrder[w]),
+      `world ${w}: canonical station sequence changed`);
+    assert(stableHash(lessons) === GOLDEN.lessonHashes[w],
+      `world ${w}: canonical lesson content changed`);
+    checks += 4;
+  }
 
   const testable = m.CODE_CHALLENGES.filter((c) => c.solution && c.iface && c.test);
   assert(testable.length >= 28, `expected >=28 code challenges, got ${testable.length}`);
@@ -38,6 +71,29 @@ function run() {
     // 2. reference solution passes the base test
     const r = m.runChallengeTest(c.mod, ch.test);
     assert(r.pass && !r.runtimeError, `${ch.id}: solution failed base test (${r.passCount}/${r.total})`);
+    checks++;
+
+    const expected = r.kind === 'comb'
+      ? r.rows.map((row) => row.expect)
+      : r.trace.map((row) => row.expect);
+    const descriptor = {
+      id: ch.id,
+      w: ch.w,
+      title: ch.title,
+      kind: ch.kind,
+      boss: !!ch.boss,
+      iface: ch.iface,
+      solution: ch.solution,
+      test: {
+        type: ch.test.type,
+        vectors: ch.test.vectors,
+        frames: ch.test.frames,
+        watch: ch.test.watch,
+        expected,
+      },
+    };
+    assert(stableHash(descriptor) === GOLDEN.challengeHashes[ch.id],
+      `${ch.id}: canonical specification, solution, vectors, or expected outputs changed`);
     checks++;
 
     // 3. reference solution passes the hardened test (if present)

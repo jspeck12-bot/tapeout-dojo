@@ -1,28 +1,30 @@
 import { createRequire } from 'node:module';
 import { beforeAll, describe, expect, test } from 'vitest';
+import {
+  runCombTest,
+  runSeqTest,
+  vCompile,
+  vTokenize,
+} from '../src/engine/verilog.js';
 
 const require = createRequire(import.meta.url);
 const shared = require('../dev/_shared.cjs');
 
-let engine;
+let gameModule;
 
 const port = (n, d, w = 1) => ({ n, d, w });
 const iface = (name, ports) => ({ name, ports });
 
 function compile(source, spec) {
-  const result = engine.vCompile(source, spec);
+  const result = vCompile(source, spec);
   expect(result.errors, result.errors?.map((e) => e.msg).join('\n')).toEqual([]);
   expect(result.ok).toBe(true);
   return result.mod;
 }
 
-beforeAll(() => {
-  engine = shared.loadMod();
-});
-
 describe('tokenizer and parser diagnostics', () => {
   test('tokenizes comments, keywords, identifiers, and sized literals', () => {
-    const tokens = engine.vTokenize(`
+    const tokens = vTokenize(`
       // line comment
       module demo(input [3:0] a, output y);
         /* block comment */ assign y = &a | 1'b0;
@@ -36,7 +38,7 @@ describe('tokenizer and parser diagnostics', () => {
   });
 
   test('reports a missing statement semicolon with a useful hint', () => {
-    const result = engine.vCompile(
+    const result = vCompile(
       'module m(input a, output y); assign y = a endmodule',
       iface('m', [port('a', 'in'), port('y', 'out')]),
     );
@@ -47,7 +49,7 @@ describe('tokenizer and parser diagnostics', () => {
   });
 
   test('rejects four-state literals explicitly', () => {
-    const result = engine.vCompile(
+    const result = vCompile(
       "module m(output y); assign y = 1'bx; endmodule",
       iface('m', [port('y', 'out')]),
     );
@@ -57,14 +59,14 @@ describe('tokenizer and parser diagnostics', () => {
   });
 
   test('rejects undeclared signals and mismatched interfaces', () => {
-    const undeclared = engine.vCompile(
+    const undeclared = vCompile(
       'module m(input a, output y); assign y = missing; endmodule',
       iface('m', [port('a', 'in'), port('y', 'out')]),
     );
     expect(undeclared.ok).toBe(false);
     expect(undeclared.errors.some((e) => /isn't declared/.test(e.msg))).toBe(true);
 
-    const wrongWidth = engine.vCompile(
+    const wrongWidth = vCompile(
       'module m(input [1:0] a, output y); assign y = &a; endmodule',
       iface('m', [port('a', 'in', 4), port('y', 'out')]),
     );
@@ -87,7 +89,7 @@ describe('expressions and width propagation', () => {
       endmodule
     `, spec);
 
-    const result = engine.runCombTest(mod, [
+    const result = runCombTest(mod, [
       { in: { a: 1, b: 2, c: 3 }, out: { sum: 7, flag: 3 } },
       { in: { a: 0, b: 3, c: 2 }, out: { sum: 6, flag: 2 } },
     ]);
@@ -107,7 +109,7 @@ describe('expressions and width propagation', () => {
       endmodule
     `, spec);
 
-    expect(engine.runCombTest(mod, [
+    expect(runCombTest(mod, [
       { in: { a: 15, b: 1 }, out: { y: 16 } },
       { in: { a: 15, b: 15 }, out: { y: 30 } },
     ]).pass).toBe(true);
@@ -122,7 +124,7 @@ describe('expressions and width propagation', () => {
       endmodule
     `, spec);
 
-    expect(engine.runCombTest(mod, [
+    expect(runCombTest(mod, [
       { in: { a: 10 }, out: { y: 170, hi: 2 } },
     ]).pass).toBe(true);
   });
@@ -140,7 +142,7 @@ describe('procedural and event semantics', () => {
       endmodule
     `, spec);
 
-    expect(engine.runCombTest(mod, [
+    expect(runCombTest(mod, [
       { in: { a: 0 }, out: { tmp: 0, y: 0 } },
       { in: { a: 1 }, out: { tmp: 1, y: 1 } },
     ]).pass).toBe(true);
@@ -159,7 +161,7 @@ describe('procedural and event semantics', () => {
       endmodule
     `, spec);
     const frames = [{ d: 1 }, { d: 0 }, { d: 1 }];
-    const result = engine.runSeqTest(mod, frames, () => {
+    const result = runSeqTest(mod, frames, () => {
       let q = 0;
       return {
         step(frame) {
@@ -180,14 +182,14 @@ describe('procedural and event semantics', () => {
 
   test('enforces assignment style for combinational and clocked blocks', () => {
     const spec = iface('bad', [port('clk', 'in'), port('a', 'in'), port('y', 'out')]);
-    const clocked = engine.vCompile(
+    const clocked = vCompile(
       'module bad(input clk, input a, output reg y); always @(posedge clk) y = a; endmodule',
       spec,
     );
     expect(clocked.ok).toBe(false);
     expect(clocked.errors.some((e) => /Blocking '=' inside a clocked/.test(e.msg))).toBe(true);
 
-    const combinational = engine.vCompile(
+    const combinational = vCompile(
       'module bad(input clk, input a, output reg y); always @(*) y <= a; endmodule',
       spec,
     );
@@ -198,7 +200,7 @@ describe('procedural and event semantics', () => {
   test('reports a runtime error for combinational feedback', () => {
     const spec = iface('loop', [port('y', 'out')]);
     const mod = compile('module loop(output y); assign y = ~y; endmodule', spec);
-    const result = engine.runCombTest(mod, [{ in: {}, out: { y: 0 } }]);
+    const result = runCombTest(mod, [{ in: {}, out: { y: 0 } }]);
 
     expect(result.pass).toBe(false);
     expect(result.runtimeError?.msg).toMatch(/Combinational loop detected/);
@@ -206,6 +208,10 @@ describe('procedural and event semantics', () => {
 });
 
 describe('hardware view and RTL export', () => {
+  beforeAll(() => {
+    gameModule = shared.loadMod();
+  });
+
   test('marks an uncovered combinational path as a latch', () => {
     const spec = iface('latchy', [port('en', 'in'), port('d', 'in'), port('y', 'out')]);
     const mod = compile(`
@@ -213,8 +219,8 @@ describe('hardware view and RTL export', () => {
         always @(*) if (en) y = d;
       endmodule
     `, spec);
-    const netlist = engine.netlistOf(mod);
-    const layout = engine.levelizeNetlist(netlist);
+    const netlist = gameModule.netlistOf(mod);
+    const layout = gameModule.levelizeNetlist(netlist);
 
     expect(netlist.latched).toContain('y');
     expect(netlist.nodes.some((node) => node.type === 'LATCH')).toBe(true);
@@ -232,16 +238,16 @@ describe('hardware view and RTL export', () => {
       endmodule
     `, spec);
 
-    expect(engine.netlistOf(mod).latched).toEqual([]);
+    expect(gameModule.netlistOf(mod).latched).toEqual([]);
   });
 
   test('exports complete RTL artifacts whose module recompiles', () => {
-    const challenge = engine.CODE_CHALLENGES.find((item) => item.solution && item.iface && item.test);
-    const artifact = engine.exportRTL(challenge);
+    const challenge = gameModule.CODE_CHALLENGES.find((item) => item.solution && item.iface && item.test);
+    const artifact = gameModule.exportRTL(challenge);
 
     expect(artifact.module).toContain(`module ${challenge.iface.name}`);
     expect(artifact.testbench).toContain(`module tb_${challenge.iface.name}`);
     expect(artifact.wrapper).toContain(`module tt_um_${challenge.iface.name}`);
-    expect(engine.vCompile(artifact.module, challenge.iface).ok).toBe(true);
+    expect(vCompile(artifact.module, challenge.iface).ok).toBe(true);
   });
 });
