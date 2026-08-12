@@ -15,7 +15,6 @@
 const { loadMod } = require('./_shared.cjs');
 
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
-const CELL = 2;
 const PLAYER_R = 0.55;
 
 function bfsReachesBoss(m, model, colliders) {
@@ -73,6 +72,8 @@ function bfsReachesBoss(m, model, colliders) {
 function checkModel(m, w, model) {
   let checks = 0;
   const b = model.bounds;
+  const cell = m.MINE_CELL;
+  assert(Number.isFinite(cell) && cell > 0, 'MINE_CELL must be a positive number');
 
   // containment + no duplicate placement
   const seenPos = new Set();
@@ -88,8 +89,8 @@ function checkModel(m, w, model) {
   }
 
   // raster-safe dimensions
-  assert((b.maxX - b.minX) % CELL === 0, `world ${w}: X span ${b.maxX - b.minX} is not a multiple of ${CELL}`);
-  assert((b.maxZ - b.minZ) % CELL === 0, `world ${w}: Z span ${b.maxZ - b.minZ} is not a multiple of ${CELL}`);
+  assert((b.maxX - b.minX) % cell === 0, `world ${w}: X span ${b.maxX - b.minX} is not a multiple of ${cell}`);
+  assert((b.maxZ - b.minZ) % cell === 0, `world ${w}: Z span ${b.maxZ - b.minZ} is not a multiple of ${cell}`);
   checks += 2;
 
   // station numbering: contiguous 1..K, boss last, note count matches lessons

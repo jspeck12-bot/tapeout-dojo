@@ -50,6 +50,20 @@ function assertWorldApi(name, model, api) {
 function assertStationProgress(m, name, model, api, applyProgress, world) {
   const save = blankSave();
   const stations = model.interactables.filter((item) => item.ord).sort((a, b) => a.ord - b.ord);
+  const fights = model.interactables.filter((item) => item.kind === 'fight');
+  const books = model.interactables.filter((item) => item.kind === 'book');
+
+  applyProgress(api, model, save);
+  for (const item of fights) {
+    const expected = item.boss ? 0xfacc15 : (world === 1 ? 0xff6b62 : model.theme.accent);
+    assert(api.totems[item.id].beaconMat.color.getHex() === expected,
+      `scene "${name}" uncleared fight ${item.id} has the wrong color`);
+  }
+  for (const item of books) {
+    const expected = world === 1 ? 0x7defff : model.theme.accent;
+    assert(api.books[item.lid].bookMat.color.getHex() === expected,
+      `scene "${name}" unread note ${item.lid} has the wrong color`);
+  }
 
   stations.forEach((station, index) => {
     const next = m.nextStationOf(model, save);
@@ -87,6 +101,13 @@ function assertStationProgress(m, name, model, api, applyProgress, world) {
   regularIds.forEach((id) => { gateSave.done[id] = { stars: 3 }; });
   applyProgress(api, model, gateSave);
   assert(api.gateGrp.visible === false, `scene "${name}" gate stayed closed after regular clears`);
+  for (const id of regularIds) {
+    assert(api.totems[id].beaconMat.color.getHex() === 0x2ea56a,
+      `scene "${name}" regular fight ${id} did not turn green`);
+  }
+  const boss = fights.find((item) => item.boss);
+  assert(api.totems[boss.id].beaconMat.color.getHex() === 0xfacc15,
+    `scene "${name}" uncleared boss did not remain gold`);
 }
 
 function run() {
@@ -151,18 +172,24 @@ function run() {
       checks += 9;
     } else if (result.kind === 'campus') {
       const save = blankSave();
-      let progress = m.campusProgress(save);
-      m.applyCampusProgress(api, model, progress);
-      assert(progress.perWorld[1].unlocked && api.gates[1].collider.off,
-        'campus world 1 gate should start unlocked');
-      assert(!progress.perWorld[2].unlocked && !api.gates[2].collider.off,
-        'campus world 2 gate should start locked');
-      m.challengesOf(1).forEach((challenge) => { save.done[challenge.id] = { stars: 3 }; });
-      progress = m.campusProgress(save);
-      m.applyCampusProgress(api, model, progress);
-      assert(progress.perWorld[2].unlocked && api.gates[2].collider.off,
-        'campus world 2 collider did not open after world 1 clear');
-      checks += 3;
+      for (let world = 1; world <= 7; world++) {
+        const progress = m.campusProgress(save);
+        m.applyCampusProgress(api, model, progress);
+        assert(progress.perWorld[world].unlocked,
+          `campus world ${world} should be unlocked after prior clears`);
+        assert(api.gates[world].collider.off,
+          `campus world ${world} collider stayed closed after unlock`);
+        if (world < 7) {
+          assert(!progress.perWorld[world + 1].unlocked,
+            `campus world ${world + 1} unlocked before world ${world} clear`);
+          assert(!api.gates[world + 1].collider.off,
+            `campus world ${world + 1} collider opened before unlock`);
+        }
+        m.challengesOf(world).forEach((challenge) => {
+          save.done[challenge.id] = { stars: 3 };
+        });
+      }
+      checks += 26;
     } else {
       assert(api && api.cabinets && api.spin, 'arcade returned an incomplete animation api');
       checks++;

@@ -48,6 +48,30 @@ const REEXPORTS = [
     names: ['BUILD_TAG', 'FR'],
   },
   {
+    from: './app/save.js',
+    names: ['normalizeSave'],
+  },
+  {
+    from: './ui/menu.jsx',
+    names: ['TapeoutBay'],
+  },
+  {
+    from: './ui/worlds/CampusScreen.jsx',
+    names: ['CampusScreen'],
+  },
+  {
+    from: './ui/worlds/MineScreen.jsx',
+    names: ['MineScreen'],
+  },
+  {
+    from: './ui/worlds/ArcadeScreen.jsx',
+    names: ['ArcadeScreen'],
+  },
+  {
+    from: './ui/worlds/DungeonScreen.jsx',
+    names: ['DungeonScreen'],
+  },
+  {
     from: './world/progression.js',
     names: ['stationSequence', 'nextStationOf'],
   },
