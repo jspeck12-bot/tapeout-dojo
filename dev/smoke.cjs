@@ -167,8 +167,11 @@ async function run() {
   // assertions.
   const THREE = require('three');
   const OriginalRenderer = THREE.WebGLRenderer;
+  let rendererInstances = 0;
+  let rendererCalls = 0;
   class StubRenderer {
     constructor() {
+      rendererInstances++;
       this.domElement = shared.makeCanvas();
       this.shadowMap = {};
       this.renderCalls = 0;
@@ -178,7 +181,7 @@ async function run() {
       this.domElement.width = width;
       this.domElement.height = height;
     }
-    render() { this.renderCalls++; }
+    render() { this.renderCalls++; rendererCalls++; }
     dispose() {}
     forceContextLoss() {}
   }
@@ -209,7 +212,11 @@ async function run() {
       'working renderer still entered the no-WebGL fallback');
     assert(positiveText.includes('menu'),
       'working renderer path did not render the campus HUD');
-    checks += 2;
+    assert(rendererInstances === 1,
+      `working renderer path constructed ${rendererInstances} renderers instead of one`);
+    assert(rendererCalls > 0,
+      'working renderer path never rendered a frame');
+    checks += 4;
     act(() => { positiveRoot.unmount(); });
   } finally {
     THREE.WebGLRenderer = OriginalRenderer;
