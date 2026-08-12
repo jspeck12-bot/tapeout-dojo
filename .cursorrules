@@ -51,8 +51,9 @@ under `src/`, with `src/tapeout.jsx` retained as the stable default-export entry
 
 - CodeScreen and Forge have similar execution pipelines with intentional
   differences. Test both when changing compile/run behavior.
-- World layouts rasterize at 2-unit cell centers. Keep dimensions and offsets
-  even; odd edges create phantom walls.
+- World layouts rasterize at 2-unit cell centers. Overall spans must align with
+  the raster, but some canonical gallery spurs intentionally use odd edges.
+  Treat full station/boss BFS—not a blanket parity rule—as authoritative.
 - Gate colliders must span the full corridor opening.
 - Station `ord` values must agree between 3D and 2D views and derive from the
   canonical `challengesOf()` ordering.
