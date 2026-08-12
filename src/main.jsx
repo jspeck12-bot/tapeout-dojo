@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "../tapeout-rpg_4.jsx";
+import App from "./tapeout.jsx";
 
 // ============================================================
 // LOCAL ENTRY POINT — not part of the game.
