@@ -230,6 +230,7 @@ function applyGfx(ctx, g) {
 }
 
 export {
+  POST_VS, POST_BRIGHT_FS, POST_BLUR_FS, POST_COMP_FS,
   tuneRenderer, fxCone, makePostFX, glowTexture,
   glowSprite, dustField, keyLight, lightScene,
   applyGfx,
