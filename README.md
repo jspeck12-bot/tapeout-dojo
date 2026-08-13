@@ -192,11 +192,11 @@ notes — a play session compressed into a work list.
 
 **Shipped:** guided first-run prologue · interactive Codex and mastery die ·
 retrieval-gated field notes · shared exploration maps/checkpoints/secrets/history ·
-worlds and progression · station-ordered learning · graphics pass ·
+worlds and progression · station-ordered learning · all-world cinematic art direction ·
 Debug Bay (waveforms, divergence diagnosis, latch detection, schematic view) ·
 RTL export · flight recorder · spaced review scheduling and Recall Lab.
 
-**Next:** cinematic graphics and boss overhauls →
+**Next:** seven-boss encounter overhaul →
 module instantiation → hierarchical content → single-cycle datapath capstone
 (PC → register file → ALU → control → integrated datapath).
 
