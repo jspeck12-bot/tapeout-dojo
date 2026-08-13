@@ -49,17 +49,17 @@ function buildExplorationProps(scene, model, accent) {
       group.add(ring);
       const pillar = new THREE.Mesh(
         new THREE.CylinderGeometry(0.12, 0.22, 2.8, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }),
+        new THREE.MeshBasicMaterial({ color: 0x9beeff, transparent: true, opacity: 0.42 }),
       );
       pillar.position.y = 1.4;
       group.add(pillar);
-      group.add(fxCone(0x7defff, 1.4, 4.2, 0.05, 0, 0));
+      group.add(fxCone(0x7defff, 1.15, 3.6, 0.018, 0, 0));
       const label = mineLabelSprite('TRACE GRACE', '#7DEFFF', 0.55);
       label.position.y = 3.3;
       group.add(label);
       (scene.userData.anims = scene.userData.anims || []).push((time) => {
         ring.rotation.z = time * 0.8;
-        pillar.material.opacity = 0.55 + Math.sin(time * 2) * 0.18;
+        pillar.material.opacity = 0.3 + Math.sin(time * 2) * 0.1;
       });
       built[feature.id] = { group, material: ring.material, feature };
     } else if (feature.kind === 'lore') {

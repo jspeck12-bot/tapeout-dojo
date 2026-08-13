@@ -112,9 +112,12 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       const grace = model.exploration?.features.find(feature =>
         feature.kind === 'grace' && saveRefM.current.exploration?.graces?.[feature.id]);
+      const graceDistance = grace
+        ? Math.hypot(model.spawn.x - grace.x, model.spawn.z - grace.z) || 1
+        : 1;
       const player = {
-        x: grace ? grace.x : model.spawn.x,
-        z: grace ? grace.z : model.spawn.z,
+        x: grace ? grace.x + (model.spawn.x - grace.x) / graceDistance * 3.2 : model.spawn.x,
+        z: grace ? grace.z + (model.spawn.z - grace.z) / graceDistance * 3.2 : model.spawn.z,
         yaw: model.spawn.yaw,
         pitch: -0.03,
       };

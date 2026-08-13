@@ -175,7 +175,7 @@ function addLightShaft(scene, x, z, color, span) {
   const material = new THREE.MeshBasicMaterial({
     color,
     transparent: true,
-    opacity: 0.045,
+    opacity: 0.014,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
@@ -226,7 +226,7 @@ function buildWorldArt(scene, model, world) {
       if (object.userData.spin) object.rotation.z += object.userData.spin * delta;
     });
     atmosphere.rotation.y = time * 0.004;
-    shaft.material.opacity = 0.035 + Math.sin(time * 0.7) * 0.012;
+    shaft.material.opacity = 0.012 + Math.sin(time * 0.7) * 0.004;
   });
 
   const art = {
