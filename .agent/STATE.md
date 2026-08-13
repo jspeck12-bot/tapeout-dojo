@@ -10,8 +10,8 @@ ART w7 TAPEOUT: done
 ART Arcade: done
 UI tokens + Button/Panel: done
 UI CodeMirror workbench: done
-UI menu: NEXT
-UI world select: todo
+UI menu: done
+UI world select: NEXT
 UI Debug Bay: todo
 UI notes: todo
 UI HUD: todo
@@ -23,11 +23,13 @@ ENGINE: todo (after COMBAT)
 AUDIO: todo (after ENGINE)
 
 ## Last run
-hourly-1315 — shipped CodeMirror 6 workbench at `?screen=workbench` (`data-workbench-status`): theme, gutters, Verilog autocomplete, unified merge diff vs `and_gate` solution. Gate allowlist + CM deps. GATE GREEN. 2 commits (build + vertical-fill polish).
-Stills: brand + dual panels; syntax + gutters readable; diff shows solution vs stub (~505–520 KB @2560×1440).
-Still wrong: autocomplete not visible in stills; merge chunks default red/green; some ultrawide lower empty; CodeScreen still legacy textarea.
+hourly-1408 — migrated MainMenu to Silicon Gothic tokens: MenuRow + custom fab marks (no stock lucide on menu), Bay control Panel, data-menu-status, `?screen=menu` allowlisted. 2 commits (build + bay-frame/fill polish). GATE GREEN.
+Still: brand TAPEOUT hero + CONTINUE brass primary; map trace behind; PNG ~927 KB @2560×1440.
+Still wrong: ultrawide side fields empty (narrow bay column); world-map node labels partly veiled by the panel; CONTINUE glow still quieter than solid accent fills.
 
 ## Known problems
+- Menu ultrawide: empty left/right field around centered bay column.
+- Menu: world-map labels (Foundry/Clock/Fortress) partially occluded by Bay control veil/panel.
 - Workbench: autocomplete popup not demonstrated in stills; merge chunk colors not fully tokenized.
 - Workbench/UiKit ultrawide: residual empty lower field under content.
 - Primary/brass buttons read quieter than solid accent fills next to bright swatches (UiKit).
