@@ -17,6 +17,7 @@ import {
 } from './rock.js';
 import { creatureSpec, makeCreature } from './creatures.js';
 import { buildWorldArt } from './art-direction.js';
+import { finalizeWorldMaterials } from './materials.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -378,6 +379,9 @@ function buildFabUltra(scene, model, api) {
         o.receiveShadow = true;
       }
     });
+  }
+  if (scene.userData.worldArt) {
+    scene.userData.worldArt.materialCoverage = finalizeWorldMaterials(scene, 0);
   }
 }
 
@@ -780,11 +784,10 @@ function buildPathTrail(scene, path, acc, openSky) {
 function buildValley(scene, model, theme) {
   const acc = theme.accent;
   const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  scene.background = new THREE.Color(0x16240e);
-  scene.fog = new THREE.FogExp2(0x1c2e12, 0.0085 / (model.worldScale || 1));
-  skyDome(scene, 0x0c1606, 0x33491c, cx, cz, 360);
-  scene.add(new THREE.HemisphereLight(0x3a5a1e, 0x0a1206, 0.82));
-  scene.add(new THREE.AmbientLight(0x24300f, theme.ambient * 0.7));
+  scene.background = new THREE.Color(0x14202a);
+  scene.fog = new THREE.FogExp2(0x8aa0a4, 0.0065 / (model.worldScale || 1));
+  scene.add(new THREE.HemisphereLight(0xffc87a, 0x132018, 0.72));
+  scene.add(new THREE.AmbientLight(0x354033, theme.ambient * 0.42));
 
   // grassy basin floor (extends well past the cliffs to the horizon)
   const fw = (b.maxX - b.minX) + 300, fd = (b.maxZ - b.minZ) + 300;
@@ -819,11 +822,11 @@ function buildValley(scene, model, theme) {
 function buildCanyon(scene, model, theme) {
   const acc = theme.accent;
   const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  scene.background = new THREE.Color(0x24130a);
-  scene.fog = new THREE.FogExp2(0x2c1808, 0.016 / (model.worldScale || 1));
-  skyDome(scene, 0x140a04, 0x5a3416, cx, cz, 190);
-  scene.add(new THREE.HemisphereLight(0x6a4420, 0x140a04, 0.6));
-  scene.add(new THREE.AmbientLight(0x2e1c0c, theme.ambient * 0.7));
+  scene.background = new THREE.Color(0x7892a3);
+  scene.fog = new THREE.FogExp2(0x8ba7b3, 0.009 / (model.worldScale || 1));
+  skyDome(scene, 0x101927, 0x91a9b4, cx, cz, 260);
+  scene.add(new THREE.HemisphereLight(0xc7dce4, 0x24150c, 0.72));
+  scene.add(new THREE.AmbientLight(0x3b2b20, theme.ambient * 0.44));
 
   const fw = (b.maxX - b.minX) + 120, fd = (b.maxZ - b.minZ) + 120;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), matStd(theme.floorCol, { roughness: 1.0, metalness: 0.03 }));
@@ -1087,7 +1090,7 @@ function buildArcadeWorld(scene, model) {
   ring.position.set(0, 3.6, 0); scene.add(ring);
   api.spin = ring;
   lightScene(scene, model.bounds, { ceil: true, dust: 0x9a6abf, glowSize: 4.0, glowOpacity: 0.9, shadowLights: 3 });
-  api.worldArt = buildWorldArt(scene, model, 0);
+  api.worldArt = buildWorldArt(scene, model, 8);
   return api;
 }
 
@@ -1245,6 +1248,8 @@ function buildDungeonWorld(scene, model, theme) {
   const b = model.bounds, pad = 8;
   const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
   const fw = b.maxX - b.minX + pad * 2, fd = b.maxZ - b.minZ + pad * 2;
+  const ceilingHeight = ({ 3: 22, 5: 18, 6: 15, 7: 24 })[model.world] || 8;
+  const wallHeight = ({ 3: 16, 5: 13, 6: 14, 7: 19 })[model.world] || 7;
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), matStd(theme.floorCol, { roughness: 0.95, metalness: 0.08 }));
   floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0, cz); scene.add(floor);
   const grid = new THREE.GridHelper(Math.max(fw, fd), Math.round(Math.max(fw, fd) / 4), theme.gridCol, theme.gridCol);
@@ -1253,14 +1258,14 @@ function buildDungeonWorld(scene, model, theme) {
   buildPathTrail(scene, model.path, acc);
   if (theme.ceil) {
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), matStd(theme.bg, { roughness: 1 }));
-    ceil.rotation.x = Math.PI / 2; ceil.position.set(cx, 5.4, cz); scene.add(ceil);
+    ceil.rotation.x = Math.PI / 2; ceil.position.set(cx, ceilingHeight, cz); scene.add(ceil);
   }
 
   const wallMat = matStd(theme.wallCol, { roughness: 0.85, metalness: 0.12 });
   model.colliders.forEach(wl => {
     const sx = wl.maxX - wl.minX, sz = wl.maxZ - wl.minZ;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, 5.6, sz), wallMat);
-    m.position.set((wl.minX + wl.maxX) / 2, 2.8, (wl.minZ + wl.maxZ) / 2);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, wallHeight, sz), wallMat);
+    m.position.set((wl.minX + wl.maxX) / 2, wallHeight / 2, (wl.minZ + wl.maxZ) / 2);
     scene.add(m);
   });
 

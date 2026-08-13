@@ -7,6 +7,7 @@ module.exports = {
   campus: { direct: 272, total: 303, rendered: 283, lights: 4 },
   mines: { direct: 259, total: 346, rendered: 306, lights: 22 },
   arcade: { direct: 48, total: 49, rendered: 40, lights: 7 },
+  'style-guide': { direct: 24, total: 70, rendered: 55, lights: 6 },
   'dungeon-2': { direct: 144, total: 234, rendered: 204, lights: 15 },
   'dungeon-3': { direct: 210, total: 266, rendered: 229, lights: 16 },
   'dungeon-4': { direct: 118, total: 229, rendered: 189, lights: 19 },

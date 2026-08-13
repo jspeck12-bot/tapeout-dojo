@@ -189,6 +189,12 @@ function run() {
     return { scene, model, api, kind: 'arcade' };
   }]);
 
+  scenes.push(['style-guide', () => {
+    const scene = new THREE.Scene();
+    const result = m.buildStyleGuideScene(scene);
+    return { scene, model: result.model, api: { ...result, worldArt: result.worldArt }, kind: 'style-guide' };
+  }]);
+
   // dungeon worlds 2..7 (valley, foundry, canyon, clockworks, fortress, tapeout)
   for (const w of [2, 3, 4, 5, 6, 7]) {
     scenes.push(['dungeon-' + w, () => {
@@ -212,10 +218,16 @@ function run() {
     assert(scene.visible !== false, `scene "${name}" is globally hidden`);
     assert(api && api.worldArt && api.worldArt === scene.userData.worldArt,
       `scene "${name}" is missing the shared cinematic art layer`);
-    assert(api.worldArt.landmark && api.worldArt.detail && api.worldArt.atmosphere && api.worldArt.shaft,
+    assert(api.worldArt.landmark && api.worldArt.frame && api.worldArt.pathLighting &&
+      api.worldArt.detail && api.worldArt.atmosphere && api.worldArt.shaft,
       `scene "${name}" cinematic layer is incomplete`);
+    assert(api.worldArt.materialCoverage && api.worldArt.materialCoverage.complete,
+      `scene "${name}" has an untextured PBR surface`);
+    assert(api.worldArt.key?.userData?.lightRole === 'key' &&
+      api.worldArt.rim?.userData?.lightRole === 'rim',
+    `scene "${name}" is missing the shared key/rim lighting rig`);
     assertSceneEnvelope(name, scene, THREE);
-    checks += 6;
+    checks += 8;
 
     if (result.kind === 'world') {
       assertWorldApi(name, model, api);
@@ -241,9 +253,15 @@ function run() {
         });
       }
       checks += 26;
-    } else {
+    } else if (result.kind === 'arcade') {
       assert(api && api.cabinets && api.spin, 'arcade returned an incomplete animation api');
       checks++;
+    } else {
+      assert(api.worldArt.materialCoverage.complete,
+        'style guide contains an untextured PBR surface');
+      assert(api.samples.length === 5,
+        'style guide does not expose all five material samples');
+      checks += 2;
     }
   }
 

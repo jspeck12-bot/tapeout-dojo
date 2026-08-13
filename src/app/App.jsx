@@ -37,6 +37,7 @@ import { CampusScreen } from '../ui/worlds/CampusScreen.jsx';
 import { MineScreen } from '../ui/worlds/MineScreen.jsx';
 import { ArcadeScreen } from '../ui/worlds/ArcadeScreen.jsx';
 import { DungeonScreen } from '../ui/worlds/DungeonScreen.jsx';
+import { StyleGuideScreen } from '../ui/worlds/StyleGuideScreen.jsx';
 import {
   ShopScreen, LevelUpModal,
 } from '../ui/combat.jsx';
@@ -56,7 +57,7 @@ function devScreenFromUrl() {
   if (typeof window === 'undefined' || window.location?.hostname !== 'localhost') return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -77,7 +78,16 @@ export function App() {
   const [levelModal, setLevelModal] = useState(null);
   const [confetti, setConfetti] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [gfx, setGfx] = useState({ exposure: 1.08, lights: 1.1, ambient: 0.92, fog: 0.032, normal: 0.95, glow: 0.7, bloom: 0.58 });
+  const [gfx, setGfx] = useState({
+    preset: 'high',
+    exposure: 1.02,
+    lights: 1,
+    ambient: 1,
+    fog: 1,
+    normal: 0.9,
+    glow: 0.7,
+    bloom: 0.58,
+  });
   const [frNote, setFrNote] = useState(false);
   const [frText, setFrText] = useState('');
   const [frReport, setFrReport] = useState(false);
@@ -519,7 +529,7 @@ export function App() {
     <div className="tk-root" onPointerDown={() => AudioFX.ensure()}>
       <style>{CSS}</style>
       <div className="scanlines" />
-      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
+      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'home'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
@@ -533,10 +543,11 @@ export function App() {
         {screen.name === 'code' && <CodeScreen key={screen.id + '|' + (save.ngplus ? 'ng' : save.mode)} id={screen.id} save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'blitz' && <BlitzScreen save={save} go={go} onBlitzEnd={onBlitzEnd} />}
         {screen.name === 'bugs' && <BugScreen save={save} go={go} onBugSolve={onBugSolve} />}
-        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} cb={worldCallbacks} />}
+        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} gfx={gfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'mine' && <MineScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'arcade' && <ArcadeScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'dungeon' && <DungeonScreen key={screen.w} w={screen.w} save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
+        {screen.name === 'styleguide' && <StyleGuideScreen gfx={gfx} setGfx={setGfx} go={go} onSettings={() => setSettingsOpen(true)} />}
         {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}

@@ -1,13 +1,20 @@
 import * as THREE from 'three';
 import { describe, expect, test, vi } from 'vitest';
 import {
-  POST_BLUR_FS,
-  POST_BRIGHT_FS,
+  GRAIN_VIGNETTE_SHADER,
+  POST_PROCESS_ORDER,
   POST_COMP_FS,
   POST_VS,
+  QUALITY_PRESETS,
+  createGradeLUT,
   disposeScene,
-  makePostFX,
+  qualityPreset,
 } from '../src/graphics/cinematic.js';
+import {
+  finalizeWorldMaterials,
+  pbrMaterial,
+  roundedBoxGeometry,
+} from '../src/graphics/materials.js';
 import { spawnShatter } from '../src/graphics/rock.js';
 
 function delimiterBalance(source, open, close) {
@@ -21,8 +28,18 @@ function delimiterBalance(source, open, close) {
 }
 
 describe('post-processing pipeline', () => {
-  test('keeps shader contracts structurally complete', () => {
-    const shaders = [POST_VS, POST_BRIGHT_FS, POST_BLUR_FS, POST_COMP_FS];
+  test('keeps the composer order and final shader structurally complete', () => {
+    expect(POST_PROCESS_ORDER).toEqual([
+      'RenderPass',
+      'GTAOPass',
+      'UnrealBloomPass',
+      'BokehPass',
+      'LUTPass',
+      'GrainVignettePass',
+      'SMAAPass',
+      'OutputPass',
+    ]);
+    const shaders = [POST_VS, POST_COMP_FS];
     for (const shader of shaders) {
       expect(shader).toContain('void main()');
       expect(delimiterBalance(shader, '{', '}')).toBe(true);
@@ -30,33 +47,53 @@ describe('post-processing pipeline', () => {
       expect(shader).not.toMatch(/undefined|NaN/);
     }
     expect(POST_VS).toContain('varying vec2 vUv');
-    expect(POST_BRIGHT_FS).toMatch(/uniform sampler2D tex.*uniform float thresh/);
-    expect(POST_BLUR_FS).toMatch(/uniform sampler2D tex.*uniform vec2 dir.*uniform vec2 res/);
-    expect(POST_COMP_FS).toMatch(/uniform sampler2D tex.*uniform sampler2D bloomTex.*uniform float strength.*uniform float t/);
-    expect(POST_COMP_FS).toMatch(/uniform float saturation.*uniform float contrast.*uniform vec3 tint/);
+    expect(POST_COMP_FS).toMatch(/uniform sampler2D tDiffuse.*uniform float time.*uniform float grain/);
+    expect(POST_COMP_FS).toMatch(/uniform float vignette.*uniform float movement/);
+    expect(GRAIN_VIGNETTE_SHADER.uniforms.tDiffuse.value).toBeNull();
   });
 
-  test('constructs, renders, resizes, and disposes the complete pass graph', () => {
-    let renderCalls = 0;
-    let targetCalls = 0;
-    const renderer = {
-      info: { programs: [] },
-      getPixelRatio: () => 1,
-      setRenderTarget: () => { targetCalls++; },
-      render: () => { renderCalls++; },
-    };
-    const post = makePostFX(renderer, 1280, 720);
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera();
+  test('defines four bounded quality presets with AO and SMAA retained', () => {
+    expect(Object.keys(QUALITY_PRESETS)).toEqual(['low', 'medium', 'high', 'ultra']);
+    for (const [name, preset] of Object.entries(QUALITY_PRESETS)) {
+      expect(qualityPreset(name)).toBe(preset);
+      expect(preset.renderScale).toBeGreaterThanOrEqual(0.6);
+      expect(preset.renderScale).toBeLessThanOrEqual(1);
+      expect(preset.aoScale).toBeGreaterThan(0);
+      expect(preset.aoSamples).toBeGreaterThanOrEqual(6);
+    }
+    expect(QUALITY_PRESETS.low.dof).toBe(false);
+    expect(QUALITY_PRESETS.high.dof).toBe(true);
+  });
 
-    expect(() => post.setStrength(0.75)).not.toThrow();
-    expect(() => post.setGrade({ saturation: 1.1, contrast: 1.08, tint: 0xffe0c0 })).not.toThrow();
-    expect(() => post.resize(640, 360)).not.toThrow();
-    expect(() => post.render(scene, camera)).not.toThrow();
-    expect(renderCalls).toBe(10);
-    expect(targetCalls).toBe(11);
-    expect(post.getStats()).toEqual({ calls: 0, triangles: 0 });
-    expect(() => post.dispose()).not.toThrow();
+  test('generates a finite 3D color-grade LUT', () => {
+    const lut = createGradeLUT({
+      saturation: 0.92,
+      contrast: 1.12,
+      tint: 0xffdfc0,
+      lift: -0.02,
+      gamma: 0.96,
+      gain: 1.02,
+    }, 8);
+    expect(lut.isData3DTexture).toBe(true);
+    expect(lut.image.width).toBe(8);
+    expect(lut.image.data).toHaveLength(8 * 8 * 8 * 4);
+    expect([...lut.image.data].every(Number.isFinite)).toBe(true);
+    lut.dispose();
+  });
+
+  test('textures PBR surfaces and bevels hard box edges', () => {
+    const scene = new THREE.Scene();
+    const material = pbrMaterial('wornSteel', 0x59636e, { metalness: 0.78 });
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 3), material);
+    mesh.position.y = 1;
+    scene.add(mesh);
+    const coverage = finalizeWorldMaterials(scene, 3);
+    expect(coverage).toMatchObject({ standard: 1, textured: 1, beveled: 1, complete: true });
+    expect(mesh.geometry.type).toBe('RoundedBoxGeometry');
+    expect(mesh.material.map).toBeTruthy();
+    expect(mesh.material.roughnessMap).toBeTruthy();
+    expect(mesh.material.normalMap).toBeTruthy();
+    expect(roundedBoxGeometry(4, 2, 3)).toBe(roundedBoxGeometry(4, 2, 3));
   });
 
   test('disposes unique scene geometries and materials exactly once', () => {
@@ -70,6 +107,7 @@ describe('post-processing pipeline', () => {
     const texture = new THREE.Texture();
     const sharedTexture = new THREE.Texture();
     sharedTexture.userData = { shared: true };
+    geometry.userData = { shared: true };
     texture.dispose = () => { textureDisposals++; };
     sharedTexture.dispose = () => { sharedTextureDisposals++; };
     material.map = texture;
@@ -81,7 +119,7 @@ describe('post-processing pipeline', () => {
 
     disposeScene(scene);
 
-    expect(geometryDisposals).toBe(1);
+    expect(geometryDisposals).toBe(0);
     expect(materialDisposals).toBe(1);
     expect(textureDisposals).toBe(1);
     expect(sharedTextureDisposals).toBe(0);
