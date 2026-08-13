@@ -71,11 +71,33 @@ function WorkbenchScreen({ go }) {
     >
       <style>{TOKEN_CSS}</style>
       <style>{`
+        .sg-wb-shell{
+          min-height:calc(100vh - 48px);
+          display:grid;
+          grid-template-rows:auto 1fr auto;
+          gap:clamp(12px, 1.8vh, 20px);
+        }
         .sg-wb-grid{
           display:grid;
           grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
           gap:var(--sg-space-4);
           align-items:stretch;
+          min-height:0;
+        }
+        .sg-wb-grid .sg-panel{
+          display:flex;
+          flex-direction:column;
+          min-height:0;
+        }
+        .sg-wb-grid .sg-panel__body{
+          flex:1;
+          display:flex;
+          flex-direction:column;
+          min-height:0;
+        }
+        .sg-cm-host, .sg-cm-diff{
+          flex:1;
+          min-height:min(52vh, 560px);
         }
         .sg-wb-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:var(--sg-space-3)}
         .sg-wb-note{
@@ -102,8 +124,8 @@ function WorkbenchScreen({ go }) {
         }
       `}</style>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1320, margin: '0 auto' }}>
-        <header style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'clamp(14px, 2vh, 22px)' }}>
+      <div className="sg-wb-shell" style={{ position: 'relative', zIndex: 1, maxWidth: 1320, margin: '0 auto' }}>
+        <header style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div className="sg-eyebrow" style={{ color: 'var(--sg-cyan)' }}>
               silicon gothic · code workbench
@@ -131,7 +153,7 @@ function WorkbenchScreen({ go }) {
               value={code}
               onChange={setCode}
               onRun={onRun}
-              minHeight={320}
+              minHeight={360}
               onReady={setEditorReady}
             />
             <div className="sg-wb-toolbar">
@@ -161,12 +183,13 @@ function WorkbenchScreen({ go }) {
           {showDiff ? (
             <Panel title="Diff · draft vs solution" wide>
               <p style={{ margin: '0 0 12px', fontSize: 12.5, color: 'var(--sg-ink-dim)' }}>
-                Unified merge gutter — green path is the reference solution for <code style={{ color: 'var(--sg-brass)' }}>and_gate</code>.
+                Unified merge — baseline is the reference solution for <code style={{ color: 'var(--sg-brass)' }}>and_gate</code>;
+                highlighted chunks are where the live draft diverges.
               </p>
               <DiffPane
                 value={code}
                 original={SOLUTION}
-                minHeight={320}
+                minHeight={360}
                 onReady={setDiffReady}
               />
             </Panel>
@@ -180,7 +203,7 @@ function WorkbenchScreen({ go }) {
           )}
         </div>
 
-        <footer className="sg-eyebrow" style={{ textAlign: 'center', marginTop: 22 }}>
+        <footer className="sg-eyebrow" style={{ textAlign: 'center' }}>
           WORKBENCH · data-workbench-status={stage} · codemirror 6 + @codemirror/merge
         </footer>
       </div>
