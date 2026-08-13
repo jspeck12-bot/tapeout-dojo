@@ -15,21 +15,26 @@ UI world select: done
 UI Debug Bay: done
 UI notes: done
 UI HUD: done
-UI victory: NEXT
-UI forge/shop: todo
+UI victory: done
+UI forge/shop: NEXT
 UI settings: todo
 COMBAT: todo (after UI)
 ENGINE: todo (after COMBAT)
 AUDIO: todo (after ENGINE)
 
 ## Last run
-hourly-1803 — Silicon Gothic Operator HUD: shared `ExploreHud` (vitals plate, zone plaque, fab reticle, engage prompt, help Panel, campus radar bezel) on tokens; `HudScreen` at `?screen=hud` with `?scene=` / `?still=1`; menu **OPERATOR HUD**; bound into campus/mine/dungeon/arcade. 3 commits (build + still modes + rail contrast). GATE GREEN (139 unit).
-Still explore: THE FOUNDRY FLOOR + [E] ENGAGE STATION · #3 NAND ARRAY + reticle over STACK stage; PNG ~1161 KB @2560×1440.
-Still sealed: GATE THRESHOLD + SEALED danger plate; PNG ~1159 KB.
-Still campus: ARRIVAL WALK + cyan prompt + radar bezel (sparse fake pip); PNG ~1188 KB.
-Still wrong: CSS stage reads graybox if mistaken for Foundry 3D; rail buttons improved but still quiet vs zone/prompt plates; fake radar nearly empty; ultrawide empty field.
+ui-pass-1906 — Silicon Gothic yield report: shared `VictoryReport` (notched chassis, probe bins, ticking stats, lot ticket, yield meter) on tokens; `VictoryScreen` at `?screen=victory` with `?scene=` / `?still=1`; menu **YIELD REPORT**; bound into gauntlet/truth/code clears, FlatlineOverlay, LevelUpModal. 2 commits (build + three-bay polish). GATE GREEN (146 unit).
+Still signoff: SIGNED OFF + lot ticket #3 NAND ARRAY + yield 67%; PNG ~1.42 MB @2560×1440.
+Still flawless: ZERO DEFECT + 3 lit bins + ×1.5 + yield 100%; PNG ~1.41 MB.
+Still boss: THE HIERARCH + brass + phases 100%; PNG ~1.41 MB.
+Still flatline: FLATLINED + stripped −24 + integrity 0% + ENTER crawl back; PNG ~1.38 MB.
+Still levelup: LEVEL 4 → 5 + HP/ATK/DEF; PNG ~1.44 MB.
+Still wrong: bay still floats in dark gutters on 2560; 0% integrity meter reads as empty box; wafer grid under wash is easy to miss.
 
 ## Known problems
+- Victory: 1400px bay still leaves ultrawide gutters; wafer under overlay is quiet vs chassis.
+- Victory: integrity 0% meter is an empty track — correct, but looks unfinished in stills.
+- Victory: CombatHUD / ShopScreen still on old card chrome (forge/shop + COMBAT are next).
 - HUD: showcase stage is abstract CSS (STACK + path ribbon), not a live 3D world — easy to misread as unfinished Foundry art.
 - HUD: rail menu/map/graphics/settings plates still quieter than zone plaque / engage prompt.
 - HUD: campus fake radar is a single pip — fine for bezel proof, not a dense floorplan.
