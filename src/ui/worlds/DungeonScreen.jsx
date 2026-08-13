@@ -100,6 +100,21 @@ const GOTHIC_DUNGEONS = {
     focus: 14,
     exposure: 0.86,
   },
+  6: {
+    status: 'fortress',
+    label: 'FSM FORTRESS',
+    gfxTitle: 'quality · fsm fortress',
+    qualityAccent: '#fb7185',
+    lamp: 0xffd0d6,
+    lampI: 1.65,
+    lampAngle: 0.48,
+    far: 300,
+    pitch: -0.18,
+    ambience: 'cave',
+    bloom: 0.3,
+    focus: 18,
+    exposure: 0.82,
+  },
 };
 
 function applyGothicGfx(ctx, gfx, quality) {
@@ -686,6 +701,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       data-foundry-status={w === 3 ? stage : undefined}
       data-canyon-status={w === 4 ? stage : undefined}
       data-clock-status={w === 5 ? stage : undefined}
+      data-fortress-status={w === 6 ? stage : undefined}
       style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
     >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
