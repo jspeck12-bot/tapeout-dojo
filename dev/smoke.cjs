@@ -72,7 +72,7 @@ async function run() {
   for (let i = 0; i < 6; i++) { await act(async () => { await Promise.resolve(); }); } // eslint-disable-line no-await-in-loop
 
   const menuText = textOf(root.toJSON());
-  for (const marker of ['TAPEOUT', 'NEW GAME', 'CONTINUE', 'FIELD NOTES ARCHIVE', 'SETTINGS']) {
+  for (const marker of ['TAPEOUT', 'NEW GAME', 'CONTINUE', 'FIELD NOTES ARCHIVE', 'OPERATOR HUD', 'SETTINGS']) {
     assert(menuText.includes(marker), `menu missing "${marker}"`);
     checks++;
   }

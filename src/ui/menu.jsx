@@ -19,7 +19,7 @@ import { TOKEN_CSS } from './tokens.js';
 import { Panel } from './components/Panel.jsx';
 import { MenuRow } from './components/MenuRow.jsx';
 import {
-  ArcadeMark, BookMark, ChipMark, CoinMark, DieMark, GearMark, PlayMark,
+  ArcadeMark, BookMark, ChipMark, CoinMark, DieMark, GearMark, HudMark, PlayMark,
   ReplayMark, ScopeMark, SparkMark, SwordMark,
 } from './components/icons.jsx';
 
@@ -216,6 +216,12 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
               title="DEBUG BAY"
               hint="oscilloscope · waveforms, divergence & netlist"
               onClick={() => { AudioFX.click(); go({ name: 'debugbay' }); }}
+            />
+            <MenuRow
+              icon={<HudMark size={16} />}
+              title="OPERATOR HUD"
+              hint="exploration chrome · vitals, reticle, engage plate"
+              onClick={() => { AudioFX.click(); go({ name: 'hud' }); }}
             />
             <MenuRow
               variant={confirmNew ? 'danger' : 'default'}

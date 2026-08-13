@@ -176,6 +176,44 @@ function ScopeMark({ size }) {
   );
 }
 
+function HudMark({ size }) {
+  return (
+    <FabMark size={size} label="operator hud">
+      <rect x="1.5" y="2.5" width="13" height="11" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M3 4.2h4.2M3 6h2.8" stroke="currentColor" strokeWidth="1.15" />
+      <circle cx="11.2" cy="5.2" r="1.5" fill="none" stroke="currentColor" strokeWidth="1.15" />
+      <path d="M11.2 3.4v.6M11.2 6.4v.6M9.4 5.2h.6M12.4 5.2h.6" stroke="currentColor" strokeWidth="1.05" />
+      <rect x="3" y="9.2" width="10" height="2.6" fill="none" stroke="currentColor" strokeWidth="1.15" />
+      <path d="M4.2 10.5h3.4" stroke="currentColor" strokeWidth="1.2" />
+    </FabMark>
+  );
+}
+
+function MapMark({ size }) {
+  return (
+    <FabMark size={size} label="map">
+      <path
+        d="M2.2 3.2l3.6-1 4.2 1 3.8-1v11.2l-3.8 1-4.2-1-3.6 1z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinejoin="miter"
+      />
+      <path d="M5.8 2.4v11.2M10 3.2v11.2" stroke="currentColor" strokeWidth="1.1" opacity="0.75" />
+      <circle cx="7.8" cy="8" r="1.15" fill="currentColor" />
+    </FabMark>
+  );
+}
+
+function BackMark({ size }) {
+  return (
+    <FabMark size={size} label="back">
+      <path d="M10 3.2L5.2 8 10 12.8" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="miter" />
+      <path d="M5.6 8h7.2" stroke="currentColor" strokeWidth="1.3" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -191,4 +229,7 @@ export {
   LockMark,
   DieMark,
   ScopeMark,
+  HudMark,
+  MapMark,
+  BackMark,
 };

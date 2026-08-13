@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, Settings, SlidersHorizontal, Terminal, X, Zap,
+  ChevronLeft, ChevronRight, Terminal, X, Zap,
 } from "lucide-react";
 import * as THREE from "three";
 import { AudioFX, musicEnsure, musicSetState, musicSetTrack } from '../../audio/index.js';
@@ -31,6 +31,7 @@ import {
 } from '../meta.jsx';
 import { ShopScreen } from '../combat.jsx';
 import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
+import { ExploreHud } from '../hud/ExploreHud.jsx';
 
 function applyCampusGfx(ctx, gfx, quality) {
   if (!ctx) return;
@@ -521,19 +522,9 @@ function CampusScreen({ save, go, cb, gfx = {}, onSettings }) {
           </div>
         </div>
       )}
-      {onSettings && (
-        <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 32 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
-      )}
-      <button
-        className="btn sm"
-        style={{ position: 'absolute', top: 12, right: onSettings ? 108 : 12, zIndex: 32 }}
-        onClick={() => { AudioFX.click(); setGfxOpen(open => !open); }}
-      >
-        <SlidersHorizontal size={12} /> graphics
-      </button>
       {gfxOpen && (
         <div className="card" style={{
-          position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
+          position: 'absolute', top: 48, right: 12, zIndex: 34, width: 248,
           padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
         }}>
           <div className="eyebrow" style={{ color: '#7defff', marginBottom: 10 }}>quality · fab campus</div>
@@ -560,49 +551,31 @@ function CampusScreen({ save, go, cb, gfx = {}, onSettings }) {
       )}
       <EnterFade />
 
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 32 }}
-        onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
-        <ChevronLeft size={12} /> menu
-      </button>
-
-      {!overlay && !isTouch && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', width: 5, height: 5, borderRadius: 99, background: '#7DEFFF', opacity: 0.85, transform: 'translate(-50%,-50%)', zIndex: 22, boxShadow: '0 0 8px #22D3EE' }} />
-      )}
-
-      {banner && !overlay && (
-        <div key={banner} className="popin" style={{ position: 'absolute', top: 56, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #2a3340', background: 'rgba(10,14,20,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#7DEFFF' }}>
-            {banner.toUpperCase()}
-          </div>
-        </div>
-      )}
-
-      {prompt && !overlay && (
-        <div style={{ position: 'absolute', bottom: isTouch ? 120 : 64, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <span style={{ padding: '8px 16px', background: 'rgba(10,14,20,0.86)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#155E6B'), color: prompt.locked ? '#FF8B82' : '#7DEFFF', fontSize: 13, letterSpacing: '.08em' }}>
-            {prompt.text}
-          </span>
-        </div>
-      )}
-
-      {!overlay && (
-        <canvas ref={minimapRef} width={150} height={150}
-          style={{ position: 'absolute', top: 52, right: 12, zIndex: 22, border: '1px solid #2a3340', background: 'rgba(8,12,18,0.85)' }} />
-      )}
-
-      {showHelp && !overlay && (
-        <div style={{ position: 'absolute', bottom: 64, left: 16, zIndex: 23, maxWidth: 290 }} className="card">
-          <div style={{ padding: '12px 14px' }}>
-            <div className="eyebrow" style={{ color: '#7DEFFF', marginBottom: 8 }}>fab floor access granted</div>
-            <div style={{ fontSize: 12.5, color: '#B9C6D6', lineHeight: 1.55 }}>
-              {isTouch
-                ? 'Left stick walks. Drag the right side to look. ⏎ opens consoles.'
-                : 'Click to capture the mouse. WASD walks, Shift sprints, E opens consoles. Follow the glowing traces — Bit Mines is southwest.'}
-            </div>
-            <button className="lnk" style={{ marginTop: 8, paddingLeft: 0 }} onClick={() => { AudioFX.click(); setShowHelp(false); }}>got it</button>
-          </div>
-        </div>
-      )}
+      <ExploreHud
+        injectTokens
+        accent="cyan"
+        save={save}
+        zone={banner && !overlay ? String(banner).toUpperCase() : null}
+        prompt={!overlay ? prompt : null}
+        showHelp={showHelp && !overlay}
+        helpTitle="fab floor access granted"
+        helpBody={isTouch
+          ? 'Left stick walks. Drag the right side to look. ⏎ opens consoles.'
+          : 'Click to capture the mouse. WASD walks, Shift sprints, E opens consoles. Follow the glowing traces — Bit Mines is southwest.'}
+        onDismissHelp={() => { AudioFX.click(); setShowHelp(false); }}
+        showReticle={!overlay}
+        showMap={false}
+        minimapRef={!overlay ? minimapRef : null}
+        isTouch={isTouch}
+        hidden={!!overlay}
+        onMenu={() => {
+          try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+          AudioFX.click();
+          go({ name: 'menu' });
+        }}
+        onSettings={onSettings ? () => { AudioFX.click(); onSettings(); } : null}
+        onGraphics={() => { AudioFX.click(); setGfxOpen(open => !open); }}
+      />
 
       {isTouch && !overlay && <TouchControls inputRef={inputRef} onInteract={() => engineRef.current && engineRef.current.interact()} />}
 

@@ -68,9 +68,9 @@ describe('Silicon Gothic main menu', () => {
     expect(text).toContain('CONTINUE');
     expect(text).toContain('DIE FLOORPLAN');
     expect(text).toContain('DEBUG BAY');
+    expect(text).toContain('OPERATOR HUD');
     expect(text).toContain('NEW GAME');
     expect(text).toContain('FIELD NOTES ARCHIVE');
-    expect(text).toContain('DEBUG BAY');
     expect(text).toContain('SETTINGS');
     expect(text).toContain('sg-menu-row--primary');
   });

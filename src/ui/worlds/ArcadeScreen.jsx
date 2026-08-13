@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, Settings, X,
+  ChevronLeft, X,
 } from "lucide-react";
 import * as THREE from "three";
 import {
@@ -26,6 +26,7 @@ import {
 } from '../meta.jsx';
 import { ShopScreen } from '../combat.jsx';
 import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
+import { ExploreHud } from '../hud/ExploreHud.jsx';
 
 function applyArcadeGfx(ctx, gfx, quality) {
   if (!ctx) return;
@@ -399,55 +400,40 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       <CinematicFX accent="#FF7DF0" />
       <DevPerfHUD ctxRef={ctxRef} />
-      <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
       <EnterFade />
 
       {stage !== 'ready' && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 30, displayEvents: 'none', display: 'grid', placeItems: 'center', background: 'rgba(6,4,12,0.55)' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 30, pointerEvents: 'none', display: 'grid', placeItems: 'center', background: 'rgba(6,4,12,0.55)' }}>
           <div style={{ letterSpacing: '.22em', fontSize: 12, color: '#FF7DF0' }}>
             NEON HALL · {stage.toUpperCase()}
           </div>
         </div>
       )}
 
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
-        onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
-        <ChevronLeft size={12} /> main menu
-      </button>
-
-      {!overlay && !isTouch && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', width: 5, height: 5, borderRadius: 99, background: '#FF7DF0', opacity: 0.85, transform: 'translate(-50%,-50%)', zIndex: 22, boxShadow: '0 0 8px #FF7DF0' }} />
-      )}
-
-      {banner && !overlay && (
-        <div key={banner} className="popin" style={{ position: 'absolute', top: 56, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #2A1430', borderRadius: 8, background: 'rgba(10,4,12,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#FF7DF0' }}>
-            {banner}
-          </div>
-        </div>
-      )}
-
-      {prompt && !overlay && (
-        <div style={{ position: 'absolute', bottom: isTouch ? 120 : 64, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <span style={{ padding: '8px 16px', borderRadius: 7, background: 'rgba(10,4,12,0.88)', border: '1px solid #6A2A63', color: '#FF7DF0', fontSize: 13, letterSpacing: '.08em' }}>
-            {prompt.text}
-          </span>
-        </div>
-      )}
-
-      {showHelp && !overlay && stage === 'ready' && (
-        <div style={{ position: 'absolute', bottom: 64, left: 16, zIndex: 23, maxWidth: 290 }} className="card">
-          <div style={{ padding: '12px 14px' }}>
-            <div className="eyebrow" style={{ color: '#FF7DF0', marginBottom: 8 }}>arcade floor</div>
-            <div style={{ fontSize: 12.5, color: '#B9C6D6', lineHeight: 1.55 }}>
-              {isTouch
-                ? 'Left stick walks. Drag the right side to look. ⏎ plays a cabinet.'
-                : 'Click to capture the mouse. WASD walks, E plays a cabinet. The lift by the entrance takes you back to the main menu.'}
-            </div>
-            <button className="lnk" style={{ marginTop: 8, paddingLeft: 0 }} onClick={() => { AudioFX.click(); setShowHelp(false); }}>got it</button>
-          </div>
-        </div>
-      )}
+      <ExploreHud
+        injectTokens
+        accentColor="#FF7DF0"
+        save={save}
+        zone={banner && !overlay ? banner : null}
+        prompt={!overlay ? prompt : null}
+        showHelp={showHelp && !overlay && stage === 'ready'}
+        helpTitle="arcade floor"
+        helpBody={isTouch
+          ? 'Left stick walks. Drag the right side to look. ⏎ plays a cabinet.'
+          : 'Click to capture the mouse. WASD walks, E plays a cabinet. The lift by the entrance takes you back to the main menu.'}
+        onDismissHelp={() => { AudioFX.click(); setShowHelp(false); }}
+        showReticle={!overlay}
+        showMap={false}
+        isTouch={isTouch}
+        hidden={!!overlay}
+        menuLabel="main menu"
+        onMenu={() => {
+          try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+          AudioFX.click();
+          go({ name: 'menu' });
+        }}
+        onSettings={onSettings ? () => { AudioFX.click(); onSettings(); } : null}
+      />
 
       {isTouch && !overlay && <TouchControls inputRef={inputRef} onInteract={() => engineRef.current && engineRef.current.interact()} />}
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, SlidersHorizontal, X,
+  BookOpen, ChevronLeft, Coins, Map as MapIcon, X,
 } from "lucide-react";
 import * as THREE from "three";
 import {
@@ -36,6 +36,7 @@ import {
 import { NoteTerminal } from '../codex/NoteTerminal.jsx';
 import { Paragraphs } from '../foundations.jsx';
 import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
+import { ExploreHud } from '../hud/ExploreHud.jsx';
 import { WorldMap } from './WorldMap.jsx';
 import { BossIntro } from '../BossIntro.jsx';
 
@@ -739,91 +740,60 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
           </div>
         </div>
       )}
-      {onSettings && (
-        <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: gothic ? 32 : 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
-      )}
-      {gothic && (
-        <>
-          <button
-            className="btn sm"
-            style={{ position: 'absolute', top: 12, right: onSettings ? 108 : 12, zIndex: 32 }}
-            onClick={() => { AudioFX.click(); setGfxOpen(open => !open); }}
-          >
-            <SlidersHorizontal size={12} /> graphics
-          </button>
-          {gfxOpen && (
-            <div className="card" style={{
-              position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
-              padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
-            }}>
-              <div className="eyebrow" style={{ color: gothicSpec.qualityAccent, marginBottom: 10 }}>{gothicSpec.gfxTitle}</div>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-                {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
-                  <button
-                    key={name}
-                    className="btn sm"
-                    onClick={() => { AudioFX.click(); setQuality(name); }}
-                    style={{
-                      flex: 1,
-                      padding: '4px 0',
-                      color: quality === name ? '#061017' : '#cbb79a',
-                      background: quality === name ? gothicSpec.qualityAccent : 'rgba(20,16,12,.7)',
-                      borderColor: quality === name ? gothicSpec.qualityAccent : '#2a3340',
-                    }}
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-              <button className="lnk" style={{ paddingLeft: 0 }} onClick={() => setGfxOpen(false)}>close</button>
-            </div>
-          )}
-        </>
+      {gothic && gfxOpen && (
+        <div className="card" style={{
+          position: 'absolute', top: 48, right: 12, zIndex: 34, width: 248,
+          padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
+        }}>
+          <div className="eyebrow" style={{ color: gothicSpec.qualityAccent, marginBottom: 10 }}>{gothicSpec.gfxTitle}</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
+              <button
+                key={name}
+                className="btn sm"
+                onClick={() => { AudioFX.click(); setQuality(name); }}
+                style={{
+                  flex: 1,
+                  padding: '4px 0',
+                  color: quality === name ? '#061017' : '#cbb79a',
+                  background: quality === name ? gothicSpec.qualityAccent : 'rgba(20,16,12,.7)',
+                  borderColor: quality === name ? gothicSpec.qualityAccent : '#2a3340',
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <button className="lnk" style={{ paddingLeft: 0 }} onClick={() => setGfxOpen(false)}>close</button>
+        </div>
       )}
       <EnterFade />
 
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: gothic ? 32 : 25 }}
-        onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
-        <ChevronLeft size={12} /> menu
-      </button>
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: gothic ? 32 : 25 }}
-        onClick={() => { AudioFX.click(); setMapOpen(true); }}>
-        <MapIcon size={12} /> map
-      </button>
-
-      {!overlay && !isTouch && (
-        <div style={{ position: 'absolute', top: '50%', left: '50%', width: 5, height: 5, borderRadius: 99, background: accHex, opacity: 0.85, transform: 'translate(-50%,-50%)', zIndex: 22, boxShadow: '0 0 8px ' + accHex }} />
-      )}
-
-      {banner && !overlay && (
-        <div key={banner} className="popin" style={{ position: 'absolute', top: 56, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #1D2632', borderRadius: 8, background: 'rgba(6,8,12,0.82)', letterSpacing: '.22em', fontSize: 13, color: accHex }}>
-            {banner}
-          </div>
-        </div>
-      )}
-
-      {prompt && !overlay && (
-        <div style={{ position: 'absolute', bottom: isTouch ? 120 : 64, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <span style={{ padding: '8px 16px', borderRadius: 7, background: 'rgba(6,8,12,0.88)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#2A3344'), color: prompt.locked ? '#FF8B82' : accHex, fontSize: 13, letterSpacing: '.08em' }}>
-            {prompt.text}
-          </span>
-        </div>
-      )}
-
-      {showHelp && !overlay && (
-        <div style={{ position: 'absolute', bottom: 64, left: 16, zIndex: 23, maxWidth: 290 }} className="card">
-          <div style={{ padding: '12px 14px' }}>
-            <div className="eyebrow" style={{ color: accHex, marginBottom: 8 }}>{cfg.zone.toLowerCase()} · access granted</div>
-            <div style={{ fontSize: 12.5, color: '#B9C6D6', lineHeight: 1.55 }}>
-              {isTouch
-                ? 'Left stick walks. Drag the right side to look. ⏎ engages.'
-                : 'Click to capture the mouse. WASD walks, Shift sprints, E engages. Clear the hall to unseal the gate — the boss waits beyond it.'}
-            </div>
-            <button className="lnk" style={{ marginTop: 8, paddingLeft: 0 }} onClick={() => { AudioFX.click(); setShowHelp(false); }}>got it</button>
-          </div>
-        </div>
-      )}
+      <ExploreHud
+        injectTokens
+        accentColor={accHex}
+        save={save}
+        zone={banner && !overlay ? banner : null}
+        prompt={!overlay ? prompt : null}
+        showHelp={showHelp && !overlay}
+        helpTitle={`${cfg.zone.toLowerCase()} · access granted`}
+        helpBody={isTouch
+          ? 'Left stick walks. Drag the right side to look. ⏎ engages.'
+          : 'Click to capture the mouse. WASD walks, Shift sprints, E engages. Clear the hall to unseal the gate — the boss waits beyond it.'}
+        onDismissHelp={() => { AudioFX.click(); setShowHelp(false); }}
+        showReticle={!overlay}
+        showMap
+        isTouch={isTouch}
+        hidden={!!overlay}
+        onMenu={() => {
+          try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+          AudioFX.click();
+          go({ name: 'menu' });
+        }}
+        onMap={() => { AudioFX.click(); setMapOpen(true); }}
+        onSettings={onSettings ? () => { AudioFX.click(); onSettings(); } : null}
+        onGraphics={gothic ? () => { AudioFX.click(); setGfxOpen(open => !open); } : null}
+      />
 
       {isTouch && !overlay && <TouchControls inputRef={inputRef} onInteract={() => engineRef.current && engineRef.current.interact()} />}
 
