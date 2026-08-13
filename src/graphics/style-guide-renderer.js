@@ -18,7 +18,7 @@ const STYLE_GUIDE_QUALITY = {
     aoScale: 0.42,
     aoSamples: 6,
     aoDenoise: 4,
-    bloom: 0.36,
+    bloom: 0.28,
     bloomRadius: 0.18,
     dof: false,
     shadow: 768,
@@ -30,7 +30,7 @@ const STYLE_GUIDE_QUALITY = {
     aoScale: 0.5,
     aoSamples: 8,
     aoDenoise: 6,
-    bloom: 0.44,
+    bloom: 0.34,
     bloomRadius: 0.22,
     dof: false,
     shadow: 1024,
@@ -42,7 +42,7 @@ const STYLE_GUIDE_QUALITY = {
     aoScale: 0.5,
     aoSamples: 12,
     aoDenoise: 8,
-    bloom: 0.5,
+    bloom: 0.38,
     bloomRadius: 0.28,
     dof: true,
     shadow: 1536,
@@ -54,7 +54,7 @@ const STYLE_GUIDE_QUALITY = {
     aoScale: 0.62,
     aoSamples: 16,
     aoDenoise: 10,
-    bloom: 0.54,
+    bloom: 0.43,
     bloomRadius: 0.32,
     dof: true,
     shadow: 2048,
@@ -242,7 +242,7 @@ function makeStyleGuidePostFX(renderer, scene, camera, cssWidth, cssHeight, opti
     preset.bloomRadius,
     0.9,
   );
-  bloom.threshold = 0.92;
+  bloom.threshold = 0.96;
   bloom.strength = options.bloom ?? preset.bloom;
   bloom.radius = preset.bloomRadius;
 

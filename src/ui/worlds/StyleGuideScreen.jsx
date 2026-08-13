@@ -11,11 +11,11 @@ import {
 } from '../../graphics/style-guide-renderer.js';
 
 const DEFAULT_TUNING = {
-  exposure: 1.04,
-  lights: 1,
+  exposure: 0.92,
+  lights: 0.86,
   fog: 1,
-  normal: 0.92,
-  bloom: 0.5,
+  normal: 0.86,
+  bloom: 0.34,
 };
 
 function applyTuning(ctx, tuning, quality) {
@@ -355,7 +355,7 @@ function StyleGuideScreen({ go, onSettings }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, overflow: 'hidden', background: '#02050a' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 100, overflow: 'hidden', background: '#02050a' }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
       <PerfHUD stats={stats} stage={stage} />
       {stage !== 'ready' && (

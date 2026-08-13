@@ -99,7 +99,7 @@ function buildArchitecture(scene) {
   const signal = addMesh(
     frame,
     roundedBoxGeometry(15.5, 0.16, 0.16, 0.05, 2),
-    emissivePbr('silicon', PALETTE.violet, 2.1),
+    emissivePbr('silicon', PALETTE.violet, 1.15),
     0,
     13.15,
     5.22,
@@ -136,15 +136,17 @@ function buildArchitecture(scene) {
     });
   });
   [-21, -42].forEach((z, index) => {
-    const bridge = addMesh(
-      nave,
-      roundedBoxGeometry(27 - index * 2, 0.75, 1.2, 0.18, 3),
-      steel,
-      0,
-      13.2 + index * 3.4,
-      z,
-    );
-    bridge.castShadow = true;
+    [-1, 1].forEach(side => {
+      const bridge = addMesh(
+        nave,
+        roundedBoxGeometry(10.5, 0.75, 1.2, 0.18, 3),
+        steel,
+        side * 10.2,
+        15.8 + index * 3.2,
+        z,
+      );
+      bridge.castShadow = true;
+    });
   });
   scene.add(nave);
   return { frame, nave };
@@ -322,7 +324,7 @@ function buildMaterialGallery(scene) {
     const trim = addMesh(
       gallery,
       roundedBoxGeometry(3.45, 0.12, 3.45, 0.04, 2),
-      emissivePbr('silicon', index % 2 ? PALETTE.cyan : PALETTE.warm, 1.8),
+      emissivePbr('silicon', index % 2 ? PALETTE.cyan : PALETTE.warm, 1.1),
       spec.x,
       0.94,
       spec.z,
@@ -346,9 +348,9 @@ function buildMaterialGallery(scene) {
     const label = mineLabelSprite(
       spec.label,
       index % 2 ? '#78E7FF' : '#FFC475',
-      0.32,
+      0.46,
     );
-    label.position.set(spec.x, 5.25, spec.z);
+    label.position.set(spec.x, 5.55, spec.z);
     gallery.add(label);
     return sample;
   });
@@ -476,7 +478,7 @@ function buildSignalPath(scene) {
       z,
     );
     pool.rotation.x = -Math.PI / 2;
-    const light = new THREE.PointLight(PALETTE.warm, 105, 15, 2);
+    const light = new THREE.PointLight(PALETTE.warm, 44, 15, 2);
     light.position.set(side * 2.6, 2.4, z);
     light.userData.lightRole = 'path-lure';
     group.add(light);
@@ -571,7 +573,7 @@ function buildLighting(scene) {
   fill.userData.lightRole = 'ambient-fill';
   scene.add(fill);
 
-  const key = new THREE.DirectionalLight(0xffc985, 3.15);
+  const key = new THREE.DirectionalLight(0xffc985, 1.95);
   key.position.set(-19, 26, 18);
   key.target.position.set(0, 2.5, -12);
   key.castShadow = true;
@@ -587,19 +589,19 @@ function buildLighting(scene) {
   key.userData.lightRole = 'key';
   scene.add(key, key.target);
 
-  const coolFill = new THREE.DirectionalLight(0x6fb8dc, 0.92);
+  const coolFill = new THREE.DirectionalLight(0x6fb8dc, 0.56);
   coolFill.position.set(20, 12, 8);
   coolFill.target.position.set(0, 5, -24);
   coolFill.userData.lightRole = 'cool-fill';
   scene.add(coolFill, coolFill.target);
 
-  const rim = new THREE.SpotLight(PALETTE.cyan, 1350, 105, 0.58, 0.88, 2);
+  const rim = new THREE.SpotLight(PALETTE.cyan, 720, 105, 0.58, 0.88, 2);
   rim.position.set(0, 21, -44);
   rim.target.position.set(0, 5.5, -8);
   rim.userData.lightRole = 'rim';
   scene.add(rim, rim.target);
 
-  const monumentGlow = new THREE.PointLight(PALETTE.cyan, 180, 31, 2);
+  const monumentGlow = new THREE.PointLight(PALETTE.cyan, 92, 31, 2);
   monumentGlow.position.set(0, 11.5, -50);
   monumentGlow.userData.lightRole = 'monument-lure';
   scene.add(monumentGlow);
