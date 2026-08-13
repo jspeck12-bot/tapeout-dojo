@@ -86,5 +86,5 @@ appends exports to a **copy** of `tapeout.jsx`, then runs:
 7. React smoke
 
 `.github/workflows/gate.yml` runs that on every pull request and on
-`main`. `.github/workflows/pages.yml` builds the Vite bundle and deploys
-GitHub Pages from `main` only.
+`main`. `.github/workflows/pages.yml` builds the Vite bundle and pushes
+it to the `gh-pages` branch.
