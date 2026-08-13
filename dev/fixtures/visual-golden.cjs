@@ -13,5 +13,5 @@ module.exports = {
   'dungeon-4': { direct: 118, total: 229, rendered: 189, lights: 19 },
   'dungeon-5': { direct: 114, total: 278, rendered: 236, lights: 19 },
   'dungeon-6': { direct: 82, total: 188, rendered: 145, lights: 15 },
-  'dungeon-7': { direct: 153, total: 184, rendered: 169, lights: 8 },
+  'dungeon-7': { direct: 66, total: 156, rendered: 130, lights: 12 },
 };

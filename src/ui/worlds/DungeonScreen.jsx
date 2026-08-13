@@ -115,6 +115,21 @@ const GOTHIC_DUNGEONS = {
     focus: 22,
     exposure: 0.84,
   },
+  7: {
+    status: 'tapeout',
+    label: 'TAPEOUT',
+    gfxTitle: 'quality · tapeout',
+    qualityAccent: '#facc15',
+    lamp: 0xffe9a8,
+    lampI: 1.45,
+    lampAngle: 0.46,
+    far: 300,
+    pitch: -0.18,
+    ambience: 'cave',
+    bloom: 0.28,
+    focus: 20,
+    exposure: 0.82,
+  },
 };
 
 function applyGothicGfx(ctx, gfx, quality) {
@@ -702,6 +717,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       data-canyon-status={w === 4 ? stage : undefined}
       data-clock-status={w === 5 ? stage : undefined}
       data-fortress-status={w === 6 ? stage : undefined}
+      data-tapeout-status={w === 7 ? stage : undefined}
       style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
     >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
