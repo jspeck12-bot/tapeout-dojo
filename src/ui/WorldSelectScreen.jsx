@@ -109,33 +109,60 @@ function WorldSelectScreen({ save, go }) {
           flex:1;display:flex;flex-direction:column;min-height:0;gap:12px;
         }
         .ws-scribe{
-          position:relative;flex:1;min-height:min(58vh,640px);
-          border:1px solid color-mix(in srgb, var(--sg-line-strong) 70%, transparent);
+          position:relative;flex:1;min-height:min(64vh,720px);
+          border:1px solid color-mix(in srgb, var(--sg-brass) 28%, var(--sg-line-strong));
           background:
+            repeating-linear-gradient(90deg,
+              color-mix(in srgb, var(--sg-cyan-deep) 7%, transparent) 0 1px,
+              transparent 1px 18px),
+            repeating-linear-gradient(0deg,
+              color-mix(in srgb, var(--sg-brass) 6%, transparent) 0 1px,
+              transparent 1px 18px),
             linear-gradient(180deg,
-              color-mix(in srgb, var(--sg-bg-deep) 92%, var(--sg-cyan-deep)) 0%,
+              color-mix(in srgb, var(--sg-bg-deep) 88%, var(--sg-cyan-deep)) 0%,
               var(--sg-bg-deep) 48%,
-              color-mix(in srgb, var(--sg-bg-deep) 90%, var(--sg-brass-deep)) 100%);
+              color-mix(in srgb, var(--sg-bg-deep) 86%, var(--sg-brass-deep)) 100%);
           box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, var(--sg-brass) 10%, transparent),
-            inset 0 0 80px color-mix(in srgb, var(--sg-bg) 55%, transparent);
-          padding:14px;
+            inset 0 0 0 1px color-mix(in srgb, var(--sg-brass) 16%, transparent),
+            inset 0 0 90px color-mix(in srgb, var(--sg-bg) 50%, transparent);
+          padding:18px;
           overflow:hidden;
         }
         .ws-scribe::before{
-          content:"";position:absolute;inset:8px;pointer-events:none;
-          border:1px dashed color-mix(in srgb, var(--sg-cyan-deep) 22%, transparent);
+          content:"";position:absolute;inset:10px;pointer-events:none;
+          border:1px dashed color-mix(in srgb, var(--sg-cyan) 28%, transparent);
+        }
+        .ws-scribe::after{
+          content:"WAFER · N4";position:absolute;top:14px;right:18px;z-index:2;
+          font-family:var(--sg-font-mono);font-size:10px;letter-spacing:.18em;
+          color:color-mix(in srgb, var(--sg-brass) 70%, transparent);pointer-events:none;
         }
         .ws-bond{
-          position:absolute;pointer-events:none;
-          background:color-mix(in srgb, var(--sg-brass) 55%, transparent);
+          position:absolute;pointer-events:none;z-index:2;
+          background:linear-gradient(90deg,
+            color-mix(in srgb, var(--sg-brass) 25%, transparent),
+            color-mix(in srgb, var(--sg-brass) 78%, transparent),
+            color-mix(in srgb, var(--sg-brass) 25%, transparent));
+          box-shadow:0 0 10px color-mix(in srgb, var(--sg-brass) 22%, transparent);
         }
-        .ws-bond--n{top:0;left:18%;right:18%;height:4px}
-        .ws-bond--s{bottom:0;left:18%;right:18%;height:4px}
-        .ws-bond--w{left:0;top:22%;bottom:22%;width:4px}
-        .ws-bond--e{right:0;top:22%;bottom:22%;width:4px}
+        .ws-bond--n{top:0;left:14%;right:14%;height:5px}
+        .ws-bond--s{bottom:0;left:14%;right:14%;height:5px}
+        .ws-bond--w{
+          left:0;top:18%;bottom:18%;width:5px;
+          background:linear-gradient(180deg,
+            color-mix(in srgb, var(--sg-brass) 25%, transparent),
+            color-mix(in srgb, var(--sg-brass) 78%, transparent),
+            color-mix(in srgb, var(--sg-brass) 25%, transparent));
+        }
+        .ws-bond--e{
+          right:0;top:18%;bottom:18%;width:5px;
+          background:linear-gradient(180deg,
+            color-mix(in srgb, var(--sg-brass) 25%, transparent),
+            color-mix(in srgb, var(--sg-brass) 78%, transparent),
+            color-mix(in srgb, var(--sg-brass) 25%, transparent));
+        }
         .ws-die{
-          position:relative;z-index:1;height:100%;min-height:320px;
+          position:relative;z-index:1;height:100%;min-height:360px;
           display:grid;
           grid-template-columns:1.05fr 1.1fr 0.95fr;
           grid-template-rows:1.05fr 1fr 0.92fr;
@@ -143,7 +170,7 @@ function WorldSelectScreen({ save, go }) {
             "mines valley foundry"
             "canyon clock foundry"
             "canyon tapeout fortress";
-          gap:8px;
+          gap:9px;
         }
         .ws-pad{
           --ws-accent: var(--sg-cyan);
@@ -184,9 +211,11 @@ function WorldSelectScreen({ save, go }) {
             0 0 34px color-mix(in srgb, var(--ws-accent) 22%, transparent);
         }
         .ws-pad:disabled{
-          cursor:not-allowed;opacity:.55;
-          filter:grayscale(.35);
+          cursor:not-allowed;opacity:.72;
+          filter:saturate(.45) brightness(.88);
         }
+        .ws-pad:disabled .ws-pad__short{ color:var(--sg-ink-muted); }
+        .ws-pad:disabled .ws-pad__tag{ color:var(--sg-ink-dim); }
         .ws-pad[data-area="mines"]{ grid-area:mines; }
         .ws-pad[data-area="valley"]{ grid-area:valley; }
         .ws-pad[data-area="foundry"]{ grid-area:foundry; }
@@ -202,8 +231,9 @@ function WorldSelectScreen({ save, go }) {
           color:color-mix(in srgb, var(--ws-accent) 80%, var(--sg-ink));
         }
         .ws-pad__short{
-          font-family:var(--sg-font-display);font-weight:600;font-size:clamp(15px,1.7vw,20px);
-          letter-spacing:.06em;color:var(--sg-ink);line-height:1.1;
+          font-family:var(--sg-font-display);font-weight:700;font-size:clamp(16px,1.85vw,22px);
+          letter-spacing:.07em;color:var(--sg-ink);line-height:1.1;
+          text-shadow:0 0 18px color-mix(in srgb, var(--ws-accent) 22%, transparent);
         }
         .ws-pad__tag{
           font-size:10.5px;color:var(--sg-ink-dim);letter-spacing:.04em;
@@ -280,9 +310,10 @@ function WorldSelectScreen({ save, go }) {
               className="sg-display"
               style={{
                 margin: '8px 0 6px',
-                fontSize: 'clamp(34px, 5.5vw, 56px)',
+                fontSize: 'clamp(38px, 6vw, 64px)',
                 color: 'var(--sg-ink)',
                 lineHeight: 1,
+                textShadow: '0 0 28px color-mix(in srgb, var(--sg-brass) 28%, transparent)',
               }}
             >
               WORLD SELECT<span style={{ color: 'var(--sg-cyan)' }}>_</span>
