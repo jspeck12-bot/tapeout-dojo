@@ -11,8 +11,8 @@ ART Arcade: done
 UI tokens + Button/Panel: done
 UI CodeMirror workbench: done
 UI menu: done
-UI world select: NEXT
-UI Debug Bay: todo
+UI world select: done
+UI Debug Bay: NEXT
 UI notes: todo
 UI HUD: todo
 UI victory: todo
@@ -23,15 +23,16 @@ ENGINE: todo (after COMBAT)
 AUDIO: todo (after ENGINE)
 
 ## Last run
-hourly-1408 — migrated MainMenu to Silicon Gothic tokens: MenuRow + custom fab marks (no stock lucide on menu), Bay control Panel, data-menu-status, `?screen=menu` allowlisted. 2 commits (build + bay-frame/fill polish). GATE GREEN.
-Still: brand TAPEOUT hero + CONTINUE brass primary; map trace behind; PNG ~927 KB @2560×1440.
-Still wrong: ultrawide side fields empty (narrow bay column); world-map node labels partly veiled by the panel; CONTINUE glow still quieter than solid accent fills.
+hourly-1508 — Silicon Gothic die-floorplan world select: `WorldSelectScreen` with seven irregular pads, bond/scribe rails, pad inspector, unlock+progress via `worldUnlockedEx`/`challengesOf`, brass descend CTA + console index, menu DIE FLOORPLAN row, `?screen=worlds` allowlist, `data-worldselect-status`. 2 commits (build + die-metal polish). GATE GREEN (125 unit).
+Still: WORLD SELECT_ hero + DIE FLOORPLAN / PAD INSPECTOR; W01 MINES focused; PNG ~975 KB @2560×1440.
+Still wrong: locked pads stay muddy (labels hard at a glance); bond rails read as a thin brass edge more than a full pad frame; max-width shell still leaves empty ultrawide gutters; DESCEND brass fill quieter than solid accent swatches from the kit.
 
 ## Known problems
-- Menu ultrawide: empty left/right field around centered bay column.
+- World select: locked pads desaturated → short names/tags hard to scan.
+- World select: bond/scribe hardware still subtle vs pad grid; WAFER mark easy to miss.
+- World select/menu ultrawide: empty side gutters outside the centered shell.
 - Menu: world-map labels (Foundry/Clock/Fortress) partially occluded by Bay control veil/panel.
 - Workbench: autocomplete popup not demonstrated in stills; merge chunk colors not fully tokenized.
-- Workbench/UiKit ultrawide: residual empty lower field under content.
 - Primary/brass buttons read quieter than solid accent fills next to bright swatches (UiKit).
 - Arcade marquee: spin-ring / brass column silhouette weak vs bloom+grain; BINARY BLITZ label still near landmark base.
 - TAPEOUT wafer: die grid / silicon read lost under bloom + TRACE GRACE occlusion from spawn.
