@@ -223,46 +223,56 @@ function buildStateKeep(scene, concrete, steel, brass) {
   landmark.userData.landmark = true;
   landmark.position.set(KEEP.x, 0, KEEP.z);
 
-  // Oppressive brutalist mass — reads as a tower from spawn.
+  // Oppressive brutalist mass — tall enough to read over hall fog from spawn.
   const plinth = addMesh(
     landmark,
-    roundedBoxGeometry(14.4, 2.2, 10.8, 0.12, 2),
+    roundedBoxGeometry(16.8, 2.6, 12.4, 0.12, 2),
     concrete,
     0,
-    1.1,
+    1.3,
     0,
   );
   plinth.userData.cast = true;
 
   const shaft = addMesh(
     landmark,
-    roundedBoxGeometry(9.6, 16.8, 7.2, 0.1, 2),
+    roundedBoxGeometry(11.2, 22.4, 8.4, 0.1, 2),
     concrete,
     0,
-    10.4,
+    13.6,
     -0.4,
   );
   shaft.userData.cast = true;
 
   const crown = addMesh(
     landmark,
-    roundedBoxGeometry(12.2, 2.6, 8.8, 0.08, 2),
+    roundedBoxGeometry(14.8, 3.0, 10.2, 0.08, 2),
     steel,
     0,
-    19.6,
+    25.8,
     -0.4,
   );
   crown.userData.cast = true;
+
+  // Lit crown band so the silhouette does not flatten into the void.
+  addMesh(
+    landmark,
+    roundedBoxGeometry(15.2, 0.18, 0.18, 0.04, 2),
+    emissiveSurface('silicon', FORTRESS_PALETTE.rose, 1.7, 1),
+    0,
+    27.2,
+    4.6,
+  );
 
   // Crenel teeth along the crown
   for (let i = -2; i <= 2; i++) {
     const tooth = addMesh(
       landmark,
-      roundedBoxGeometry(1.5, 1.8, 1.4, 0.06, 2),
+      roundedBoxGeometry(1.7, 2.2, 1.6, 0.06, 2),
       concrete,
-      i * 2.2,
-      21.6,
-      -3.6,
+      i * 2.5,
+      28.2,
+      -4.2,
     );
     tooth.userData.cast = true;
   }
@@ -270,20 +280,20 @@ function buildStateKeep(scene, concrete, steel, brass) {
   [-1, 1].forEach(side => {
     const wing = addMesh(
       landmark,
-      roundedBoxGeometry(3.2, 12.4, 3.2, 0.1, 2),
+      roundedBoxGeometry(3.8, 16.4, 3.8, 0.1, 2),
       concrete,
-      side * 7.8,
-      7.0,
-      1.2,
+      side * 9.2,
+      9.0,
+      1.4,
     );
     wing.userData.cast = true;
     const brace = addMesh(
       landmark,
-      roundedBoxGeometry(0.28, 10.2, 0.28, 0.04, 2),
+      roundedBoxGeometry(0.32, 13.2, 0.32, 0.04, 2),
       brass,
-      side * 6.2,
-      6.4,
-      2.4,
+      side * 7.2,
+      8.0,
+      2.8,
     );
     brace.userData.cast = true;
   });
@@ -291,24 +301,36 @@ function buildStateKeep(scene, concrete, steel, brass) {
   // Single hero aperture — the only bright face of the keep.
   const aperture = addMesh(
     landmark,
-    roundedBoxGeometry(3.6, 7.2, 0.35, 0.08, 2),
-    emissiveSurface('silicon', FORTRESS_PALETTE.rose, 1.55, 1),
+    roundedBoxGeometry(4.2, 9.6, 0.4, 0.08, 2),
+    emissiveSurface('silicon', FORTRESS_PALETTE.rose, 1.85, 1),
     0,
-    9.2,
-    3.4,
+    11.4,
+    3.9,
   );
   aperture.userData.glow = true;
 
-  const under = new THREE.PointLight(FORTRESS_PALETTE.rose, 1.85, 42, 2);
-  under.position.set(0, 8.4, 4.2);
+  const under = new THREE.PointLight(FORTRESS_PALETTE.rose, 2.35, 52, 2);
+  under.position.set(0, 10.2, 5.2);
   under.castShadow = false;
   under.userData.lightRole = 'monument';
   under.userData.baseIntensity = under.intensity;
   landmark.add(under);
 
-  landmark.add(fxCone(FORTRESS_PALETTE.rose, 4.2, 20, 0.05, 0, 1.2));
-  const marquee = gothicLabel('THE STATE KEEP', '#FB7185', 1.3);
-  marquee.position.set(0, 23.4, 2.2);
+  // Unfogged heat pylon above the keep so the landmark survives FogExp2.
+  const pylon = addMesh(
+    landmark,
+    roundedBoxGeometry(1.1, 8.4, 1.1, 0.08, 2),
+    emissiveSurface('silicon', FORTRESS_PALETTE.ember, 1.9, 1),
+    0,
+    32.4,
+    0,
+  );
+  pylon.material.fog = false;
+  pylon.userData.cast = true;
+
+  landmark.add(fxCone(FORTRESS_PALETTE.rose, 5.2, 26, 0.055, 0, 1.4));
+  const marquee = gothicLabel('THE STATE KEEP', '#FB7185', 1.45);
+  marquee.position.set(0, 30.2, 2.6);
   landmark.add(marquee);
 
   scene.add(landmark);
@@ -325,8 +347,8 @@ function buildLightShaft(scene) {
     side: THREE.DoubleSide,
     fog: false,
   });
-  const shaft = new THREE.Mesh(new THREE.ConeGeometry(7.2, 26, 20, 1, true), material);
-  shaft.position.set(KEEP.x, 14, KEEP.z + 2);
+  const shaft = new THREE.Mesh(new THREE.ConeGeometry(8.4, 32, 20, 1, true), material);
+  shaft.position.set(KEEP.x, 18, KEEP.z + 2);
   shaft.rotation.z = 0.04;
   shaft.castShadow = false;
   shaft.renderOrder = 3;
@@ -544,8 +566,8 @@ function buildFortressWorldScene(scene, model, theme, helpers) {
   });
 
   scene.background = new THREE.Color(FORTRESS_PALETTE.void);
-  scene.fog = new THREE.FogExp2(FORTRESS_PALETTE.fog, 0.014);
-  scene.userData.baseFogDensity = 0.014;
+  scene.fog = new THREE.FogExp2(FORTRESS_PALETTE.fog, 0.0115);
+  scene.userData.baseFogDensity = 0.0115;
 
   const lighting = buildFortressLighting(scene, low);
   buildShell(scene, model, concrete, plate);
@@ -575,8 +597,8 @@ function buildFortressWorldScene(scene, model, theme, helpers) {
   markSelectiveShadows(scene);
 
   (scene.userData.anims = scene.userData.anims || []).push((time) => {
-    monument.under.intensity = 1.65 + Math.sin(time * 1.4) * 0.28;
-    monument.aperture.material.emissiveIntensity = 1.35 + Math.sin(time * 1.9) * 0.25;
+    monument.under.intensity = 2.1 + Math.sin(time * 1.4) * 0.32;
+    monument.aperture.material.emissiveIntensity = 1.65 + Math.sin(time * 1.9) * 0.28;
     shaft.material.opacity = 0.012 + Math.sin(time * 0.65) * 0.006;
     atmosphere.rotation.y = time * 0.003;
     motes.rotation.y = -time * 0.008;
