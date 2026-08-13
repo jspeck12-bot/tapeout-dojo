@@ -51,6 +51,17 @@ function UiKitScreen({ go }) {
           mask-image:linear-gradient(to top,#000 10%,transparent 78%);
           z-index:0;
         }
+        .sg-ui-swatches{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:var(--sg-space-3)}
+        .sg-ui-main{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--sg-space-4);align-content:start}
+        .sg-ui-type{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:center}
+        @media (max-width:860px){
+          .sg-ui-swatches{grid-template-columns:repeat(4,minmax(0,1fr))}
+          .sg-ui-main{grid-template-columns:1fr}
+          .sg-ui-type{grid-template-columns:1fr}
+        }
+        @media (max-width:520px){
+          .sg-ui-swatches{grid-template-columns:repeat(2,minmax(0,1fr))}
+        }
         @media (prefers-reduced-motion:reduce){
           .sg-ui-floor{transform:none;opacity:.35}
         }
@@ -92,13 +103,7 @@ function UiKitScreen({ go }) {
         </header>
 
         <Panel title="Color tokens" wide>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
-              gap: 'var(--sg-space-3)',
-            }}
-          >
+          <div className="sg-ui-swatches">
             {SWATCHES.map(([name, value]) => (
               <div key={name} style={{ display: 'grid', gap: 6 }}>
                 <div
@@ -119,14 +124,7 @@ function UiKitScreen({ go }) {
           </div>
         </Panel>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1.4fr 1fr',
-            gap: 'var(--sg-space-4)',
-            alignContent: 'start',
-          }}
-        >
+        <div className="sg-ui-main">
           <Panel title="Buttons">
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
               <Button variant="primary" icon={<PlayMark size={15} />}>continue</Button>
@@ -154,7 +152,7 @@ function UiKitScreen({ go }) {
           </Panel>
 
           <Panel title="Type & motion" style={{ gridColumn: '1 / -1' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 18, alignItems: 'center' }}>
+            <div className="sg-ui-type">
               <div style={{ display: 'grid', gap: 10 }}>
                 <div className="sg-display" style={{ fontSize: 28, color: 'var(--sg-brass)' }}>
                   Display · Oxanium
