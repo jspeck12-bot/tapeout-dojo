@@ -33,30 +33,52 @@ function UiKitScreen({ go }) {
         inset: 0,
         zIndex: 40,
         overflow: 'auto',
-        padding: '28px 22px 48px',
+        padding: 'clamp(20px, 3vh, 40px) clamp(20px, 4vw, 56px) 40px',
       }}
     >
       <style>{TOKEN_CSS}</style>
+      <style>{`
+        .sg-ui-floor{
+          position:fixed;left:-20%;right:-20%;bottom:-8%;height:42%;
+          background-image:
+            linear-gradient(color-mix(in srgb, var(--sg-brass) 12%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--sg-cyan) 10%, transparent) 1px, transparent 1px);
+          background-size:48px 48px;
+          transform:perspective(520px) rotateX(58deg);
+          transform-origin:50% 100%;
+          pointer-events:none;
+          -webkit-mask-image:linear-gradient(to top,#000 10%,transparent 78%);
+          mask-image:linear-gradient(to top,#000 10%,transparent 78%);
+          z-index:0;
+        }
+        @media (prefers-reduced-motion:reduce){
+          .sg-ui-floor{transform:none;opacity:.35}
+        }
+      `}</style>
+      <div className="sg-ui-floor" aria-hidden="true" />
 
       <div
         style={{
-          maxWidth: 980,
+          position: 'relative',
+          zIndex: 1,
+          maxWidth: 1280,
           margin: '0 auto',
+          minHeight: 'calc(100vh - 80px)',
           display: 'grid',
-          gap: 'var(--sg-space-5)',
+          gridTemplateRows: 'auto auto 1fr auto',
+          gap: 'clamp(16px, 2.4vh, 28px)',
         }}
       >
-        <header style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <header style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', justifyContent: 'space-between' }}>
           <div>
             <div className="sg-eyebrow" style={{ color: 'var(--sg-cyan)' }}>
               silicon gothic · ui kit
             </div>
-            <h1 className="sg-display" style={{ margin: '8px 0 6px', fontSize: 'clamp(28px, 5vw, 42px)', color: 'var(--sg-ink)' }}>
-              TAPEOUT<span style={{ color: 'var(--sg-cyan)' }}>_</span> CONTROLS
+            <h1 className="sg-display" style={{ margin: '10px 0 8px', fontSize: 'clamp(36px, 6vw, 64px)', color: 'var(--sg-ink)', lineHeight: 1 }}>
+              TAPEOUT<span style={{ color: 'var(--sg-cyan)' }}>_</span>
             </h1>
-            <p style={{ margin: 0, maxWidth: 520, color: 'var(--sg-ink-muted)', fontSize: 13.5 }}>
-              Tokens, Button, and Panel — diegetic fab chrome for the upcoming screen pass.
-              Gameplay routes are unchanged.
+            <p style={{ margin: 0, maxWidth: 640, color: 'var(--sg-ink-muted)', fontSize: 14.5 }}>
+              Control surface tokens — Button, Panel, brass brackets. Screens stay on legacy chrome until the migrate pass.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -73,7 +95,7 @@ function UiKitScreen({ go }) {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+              gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
               gap: 'var(--sg-space-3)',
             }}
           >
@@ -82,7 +104,7 @@ function UiKitScreen({ go }) {
                 <div
                   aria-label={`${name} ${value}`}
                   style={{
-                    height: 44,
+                    height: 56,
                     borderRadius: 'var(--sg-radius-sm)',
                     border: '1px solid var(--sg-line)',
                     background: value,
@@ -100,51 +122,57 @@ function UiKitScreen({ go }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gridTemplateColumns: '1.4fr 1fr',
             gap: 'var(--sg-space-4)',
+            alignContent: 'start',
           }}
         >
           <Panel title="Buttons">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 14 }}>
-              <Button variant="primary" icon={<PlayMark size={14} />}>continue</Button>
-              <Button variant="brass" icon={<ChipMark size={14} />}>forge</Button>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+              <Button variant="primary" icon={<PlayMark size={15} />}>continue</Button>
+              <Button variant="brass" icon={<ChipMark size={15} />}>forge</Button>
               <Button>default</Button>
               <Button variant="danger" onClick={() => setArmed(a => !a)}>
                 {armed ? 'armed' : 'erase'}
               </Button>
-              <Button variant="ghost" icon={<GearMark size={14} />}>settings</Button>
+              <Button variant="ghost" icon={<GearMark size={15} />}>settings</Button>
               <Button size="sm" disabled>locked</Button>
             </div>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--sg-ink-dim)' }}>
-              Variants: primary · brass · default · danger · ghost. Focus ring uses --sg-focus. Reduced-motion disables hover transitions.
+            <p style={{ margin: 0, fontSize: 12.5, color: 'var(--sg-ink-dim)' }}>
+              Variants: primary · brass · default · danger · ghost. Focus ring uses --sg-focus.
+              Reduced-motion strips button transitions.
             </p>
           </Panel>
 
-          <Panel title="Panel anatomy" tight>
-            <p style={{ margin: '0 0 10px' }}>
-              Brass corner brackets mark equipment frames. Titles use Oxanium; body copy stays IBM Plex Mono.
+          <Panel title="Panel anatomy">
+            <p style={{ margin: '0 0 14px' }}>
+              Brass corner brackets mark equipment frames. Titles: Oxanium. Body: IBM Plex Mono.
             </p>
             <Button variant="primary" size="lg" style={{ width: '100%' }}>
               commit to wafer
             </Button>
           </Panel>
+
+          <Panel title="Type & motion" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 18, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gap: 10 }}>
+                <div className="sg-display" style={{ fontSize: 28, color: 'var(--sg-brass)' }}>
+                  Display · Oxanium
+                </div>
+                <div style={{ fontFamily: 'var(--sg-font-mono)', color: 'var(--sg-ink)', fontSize: 15 }}>
+                  Mono · IBM Plex Mono — module and_gate (a, b, y);
+                </div>
+              </div>
+              <div style={{ fontSize: 12.5, color: 'var(--sg-ink-dim)', lineHeight: 1.7 }}>
+                --sg-motion-fast {TOKENS.motion.fast}<br />
+                --sg-motion-med {TOKENS.motion.med}<br />
+                ease {TOKENS.motion.ease}
+              </div>
+            </div>
+          </Panel>
         </div>
 
-        <Panel title="Type & motion">
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div className="sg-display" style={{ fontSize: 22, color: 'var(--sg-brass)' }}>
-              Display · Oxanium
-            </div>
-            <div style={{ fontFamily: 'var(--sg-font-mono)', color: 'var(--sg-ink)' }}>
-              Mono · IBM Plex Mono — module and_gate (a, b, y);
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--sg-ink-dim)' }}>
-              Motion tokens: --sg-motion-fast {TOKENS.motion.fast} · --sg-motion-med {TOKENS.motion.med} · ease {TOKENS.motion.ease}
-            </div>
-          </div>
-        </Panel>
-
-        <footer className="sg-eyebrow" style={{ textAlign: 'center', paddingBottom: 8 }}>
+        <footer className="sg-eyebrow" style={{ textAlign: 'center' }}>
           UI KIT · data-uikit-status={stage} · screens still on legacy .btn until migrated
         </footer>
       </div>
