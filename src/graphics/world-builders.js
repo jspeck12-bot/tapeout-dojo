@@ -6,7 +6,7 @@ import { nextStationOf } from '../world/progression.js';
 import { CAMPUS_SIZE, CAMPUS_DISTRICTS } from '../world/campus.js';
 import { mineGateOpen } from '../world/mine.js';
 import { dungeonGateOpen } from '../world/dungeon.js';
-import { explorationState } from '../world/exploration.js';
+import { elevationAt, explorationState } from '../world/exploration.js';
 import {
   WALL_H, makeTextCanvas, groundTexture, matStd, addBoxMesh, mineLabelSprite,
 } from './primitives.js';
@@ -22,12 +22,21 @@ function buildExplorationProps(scene, model, accent) {
   const built = {};
   for (const zone of model.exploration?.elevationZones || []) {
     const overlook = new THREE.Mesh(
-      new THREE.CylinderGeometry(zone.radius * 0.55, zone.radius, zone.height, 28),
+      new THREE.CylinderGeometry(zone.radius, zone.radius, 0.3, 32),
       matStd(0x263242, { roughness: 0.9, metalness: 0.18 }),
     );
-    overlook.position.set(zone.x, zone.height / 2 - 0.05, zone.z);
+    overlook.position.set(zone.x, zone.height - 0.15, zone.z);
     overlook.receiveShadow = true;
     scene.add(overlook);
+    const rampLength = zone.radius * 2;
+    const ramp = new THREE.Mesh(
+      new THREE.BoxGeometry(2.4, 0.22, rampLength),
+      matStd(0x334357, { roughness: 0.8, metalness: 0.24 }),
+    );
+    ramp.rotation.x = Math.atan2(zone.height, rampLength);
+    ramp.position.set(zone.x, zone.height / 2, zone.z + zone.radius);
+    ramp.receiveShadow = true;
+    scene.add(ramp);
     const rail = new THREE.Mesh(
       new THREE.TorusGeometry(zone.radius * 0.58, 0.08, 6, 36),
       new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.36 }),
@@ -38,7 +47,7 @@ function buildExplorationProps(scene, model, accent) {
   }
   for (const feature of (model.exploration && model.exploration.features) || []) {
     const group = new THREE.Group();
-    group.position.set(feature.x, 0, feature.z);
+    group.position.set(feature.x, elevationAt(model, feature.x, feature.z), feature.z);
     if (feature.kind === 'grace') {
       const ring = new THREE.Mesh(
         new THREE.TorusGeometry(0.9, 0.09, 8, 28),
@@ -772,7 +781,7 @@ function buildValley(scene, model, theme) {
   const acc = theme.accent;
   const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
   scene.background = new THREE.Color(0x16240e);
-  scene.fog = new THREE.FogExp2(0x1c2e12, 0.0085);
+  scene.fog = new THREE.FogExp2(0x1c2e12, 0.0085 / (model.worldScale || 1));
   skyDome(scene, 0x0c1606, 0x33491c, cx, cz, 360);
   scene.add(new THREE.HemisphereLight(0x3a5a1e, 0x0a1206, 0.82));
   scene.add(new THREE.AmbientLight(0x24300f, theme.ambient * 0.7));
@@ -811,7 +820,7 @@ function buildCanyon(scene, model, theme) {
   const acc = theme.accent;
   const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
   scene.background = new THREE.Color(0x24130a);
-  scene.fog = new THREE.FogExp2(0x2c1808, 0.016);
+  scene.fog = new THREE.FogExp2(0x2c1808, 0.016 / (model.worldScale || 1));
   skyDome(scene, 0x140a04, 0x5a3416, cx, cz, 190);
   scene.add(new THREE.HemisphereLight(0x6a4420, 0x140a04, 0.6));
   scene.add(new THREE.AmbientLight(0x2e1c0c, theme.ambient * 0.7));
@@ -846,8 +855,8 @@ function buildCanyon(scene, model, theme) {
 
 function buildMineWorld(scene, model) {
   scene.background = new THREE.Color(0x0a0604);
-  scene.fog = new THREE.FogExp2(0x0a0604, 0.045);
-  scene.add(new THREE.AmbientLight(0x3a2c1a, 0.62));
+  scene.fog = new THREE.FogExp2(0x0a0604, 0.045 / (model.worldScale || 1));
+  scene.add(new THREE.AmbientLight(0x3a2c1a, 0.78));
   const hemi = new THREE.HemisphereLight(0x32281a, 0x0a0604, 0.4);
   scene.add(hemi);
 
@@ -918,7 +927,7 @@ function buildMineWorld(scene, model) {
 
   // lanterns
   model.lanterns.forEach(L => {
-    const pt = new THREE.PointLight(0xffb066, 1.05, 17, 1.6);
+    const pt = new THREE.PointLight(0xffb066, 1.3, 17 * (model.worldScale || 1), 1.6);
     pt.position.set(L.x, 3.6, L.z);
     scene.add(pt);
     const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.46, 0.32), new THREE.MeshBasicMaterial({ color: 0xffc98a }));
@@ -938,7 +947,7 @@ function buildMineWorld(scene, model) {
     const creature = makeCreature(creatureSpec(1, en.name, it.boss), beaconMat);
     creature.position.set(it.x, 0.5, it.z);
     scene.add(creature);
-    const fl = new THREE.PointLight(it.boss ? 0xfacc15 : 0xff6b62, it.boss ? 0.9 : 0.6, 15, 2.0);
+    const fl = new THREE.PointLight(it.boss ? 0xfacc15 : 0xff6b62, it.boss ? 1.0 : 0.72, 15 * (model.worldScale || 1), 2.0);
     fl.position.set(it.x, 3.2 * sc, it.z);
     scene.add(fl);
     scene.add(fxCone(it.boss ? 0xfacc15 : 0xff6b62, it.boss ? 3.2 : 2.0, 5.1, it.boss ? 0.1 : 0.06, it.x, it.z));
@@ -1091,7 +1100,7 @@ function buildDungeonNodes(scene, model, theme, api) {
     const beaconMat = new THREE.MeshBasicMaterial({ color: it.boss ? 0xfacc15 : acc });
     const creature = makeCreature(creatureSpec(model.world, en.name, it.boss), beaconMat);
     creature.position.set(it.x, 0.5, it.z); scene.add(creature);
-    const lt = new THREE.PointLight(it.boss ? 0xfacc15 : acc, it.boss ? 1.0 : 0.7, 16, 1.8);
+    const lt = new THREE.PointLight(it.boss ? 0xfacc15 : acc, it.boss ? 1.1 : 0.82, 16 * (model.worldScale || 1), 1.8);
     lt.position.set(it.x, 3.6 * sc, it.z); scene.add(lt);
     scene.add(fxCone(it.boss ? 0xfacc15 : acc, it.boss ? 3.4 : 2.1, theme.ceil ? 5.1 : (it.boss ? 15 : 12), it.boss ? 0.1 : 0.06, it.x, it.z));
     const nl = mineLabelSprite((it.boss ? '★ FINAL · ' : it.ord ? '#' + it.ord + ' · ' : '') + en.name, it.boss ? '#FFE27A' : '#CFE0F2', it.boss ? 0.44 : 0.34);
@@ -1229,7 +1238,7 @@ function buildDungeonWorld(scene, model, theme) {
   if (model.biome === 'canyon') return buildCanyon(scene, model, theme);
   const acc = theme.accent;
   scene.background = new THREE.Color(theme.bg);
-  scene.fog = new THREE.FogExp2(theme.bg, theme.fog);
+  scene.fog = new THREE.FogExp2(theme.bg, theme.fog / (model.worldScale || 1));
   scene.add(new THREE.AmbientLight(0x2a3344, theme.ambient));
   scene.add(new THREE.HemisphereLight(acc, theme.bg, 0.32));
 

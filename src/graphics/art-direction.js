@@ -216,10 +216,10 @@ function buildWorldArt(scene, model, world) {
   const shaft = addLightShaft(scene, landmarkPoint.x, landmarkPoint.z, config.key, center.span);
   const fillIntensity = world === 3 || world === 5 ? 1.05
     : world === 6 ? 0.62
-      : world === 1 ? 0.38 : 0.48;
+      : world === 1 ? 0.72 : 0.48;
   const fill = new THREE.HemisphereLight(config.horizon, config.top, fillIntensity);
   scene.add(fill);
-  const spawnGlow = new THREE.PointLight(config.key, low ? 0.3 : fillIntensity * 0.65, Math.max(28, center.span * 0.38), 1.5);
+  const spawnGlow = new THREE.PointLight(config.key, low ? 0.3 : fillIntensity * 0.82, Math.max(28, center.span * 0.42), 1.5);
   const spawn = model.spawn || center;
   spawnGlow.position.set(spawn.x, 5, spawn.z);
   scene.add(spawnGlow);

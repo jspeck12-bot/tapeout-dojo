@@ -107,7 +107,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
       if (post && api.worldArt) post.setGrade(api.worldArt.grade);
 
       // headlamp
-      const lamp = new THREE.SpotLight(0xffe7c0, 2.3, 44, 0.52, 0.5, 1.3);
+      const lamp = new THREE.SpotLight(0xffe7c0, 2.6, 44 * (model.worldScale || 1), 0.52, 0.5, 1.3);
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 48; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
       ambRef.current = createAmbience(scene, 'mine');
