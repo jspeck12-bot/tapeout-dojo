@@ -3,7 +3,26 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "TAPEOUT - the Verilog dojo. A 3D RPG that teaches Verilog.",
+  "description": "TAPEOUT — a first-person 3D RPG that teaches Verilog with a real in-browser compiler, four-state simulator, and RTL export.",
+  "author": "Joshua Speck",
+  "license": "MIT",
+  "homepage": "https://jspeck12-bot.github.io/tapeout-dojo/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jspeck12-bot/tapeout-dojo.git"
+  },
+  "keywords": [
+    "verilog",
+    "hdl",
+    "education",
+    "threejs",
+    "rpg",
+    "tiny-tapeout",
+    "chip-design"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

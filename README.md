@@ -3,98 +3,67 @@
 [![gate](https://github.com/jspeck12-bot/tapeout-dojo/actions/workflows/gate.yml/badge.svg)](https://github.com/jspeck12-bot/tapeout-dojo/actions/workflows/gate.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**[▶ Play it in the browser](https://jspeck12-bot.github.io/tapeout-dojo/)**
+A first-person 3D RPG that teaches chip design. You walk seven worlds, read
+field notes, and fight by writing **real Verilog**. Boss health bars *are*
+test vectors. Passing a fight means your module compiled and simulated
+correctly — not that you matched a string.
 
-**A first-person 3D RPG that teaches you to design chips.** You walk seven
-worlds, read field notes, fight creatures by writing Verilog, and export your
-designs as real synthesizable RTL with self-checking testbenches and Tiny
-Tapeout wrappers.
-
-There is a working Verilog compiler and four-state event simulator inside the
-game, isolated on a Web Worker so a runaway student design cannot freeze the
-tab. Boss health bars *are* test vectors. When your circuit fails, the game
-shows you the waveform (X as a red hatch, Z as a mid dashed line), the exact
-cycle where reality diverged, a schematic of the gates your code became, and
-an educational static-timing report of the critical path.
+Built by **Joshua Speck**. Static Vite app: no backend, no Unity, no asset
+pack. The interesting part is the compiler.
 
 ```bash
-npm install && npm run dev
+npm install && npm run dev    # http://localhost:5173
 ```
 
+**[▶ Play in the browser](https://jspeck12-bot.github.io/tapeout-dojo/)** (GitHub Pages, deploys from `main`)
+
 ---
 
-## What's in it
+## What this is
 
-| | |
+A teaching game wrapped around a **working HDL toolchain in the browser**:
+
+| Layer | What you get |
 |---|---|
-| **7 worlds** | The Bit Mines · Gate Valley · Module Foundry · Combinational Canyon · The Clock Tower · FSM Fortress · TAPEOUT |
-| **44 challenges** | 28 write-real-Verilog · 15 rapid-fire gauntlets · 1 truth-table duel |
-| **25 field notes** | each with a "going deeper" section — noise margins, two's complement, carry vs. overflow, setup/hold, metastability, RTL→GDSII |
-| **4 boss fights** | culminating in CHIP-1, a sequential accumulator-ALU |
-| **plus** | 22 achievements, 10 synthesized music tracks, gear, scrap economy, NG+, spaced review |
+| **Compiler** | Lexer → parser → elaborator → four-state event simulator for a synthesizable Verilog subset (`src/engine/`) |
+| **Debug Bay** | First-divergence diagnosis, waveforms (X = red hatch, Z = dashed), gate-level schematic, educational static timing |
+| **Export** | Synthesizable RTL + self-checking testbench + Tiny Tapeout `tt_um_*` wrapper |
+| **Worlds** | 7 stations, 44 challenges, 25 field notes, 4 bosses (CHIP-1 is a sequential accumulator-ALU) |
 
-Everything renders in three.js: walkable worlds with god rays, bloom, and
-dynamic shadows, and a fab campus with a floating wafer monument and sweeping
-searchlights.
+Wrong code fails for the right reason. An incomplete `always @(*)` draws the
+**inferred latch** as a dashed red feedback loop. Combinational loops are a
+named error, not a frozen tab — simulation runs on a Web Worker with hard
+timeouts.
 
----
-
-## The interesting part: the compiler
-
-`vCompile()` (in `src/engine/core.js`) is a real lexer → parser → elaborator →
-four-state event simulator for the synthesizable Verilog subset. The gate
-imports it **synchronously in Node**. The browser talks to the same core through
-a Worker (`compile` / `runTest` / `netlist` / `timing` / `export`) with hard
-timeouts and a main-thread fallback.
-
-**Supported:** `assign`, `always @(*)`, `always @(posedge clk)`, blocking and
-non-blocking assignment, `if`/`else`, `case`, vectors, part-selects, bit-selects,
-concatenation and replication, the full operator set, `1'bx` / `1'bz` literals,
-X-propagation, tri-state resolution, and educational static timing on the
-extracted gate netlist.
-
-**Not supported, deliberately:** module instantiation, `$display`, delays.
-Registers power up **X** — reset discipline is part of the lesson.
-
-### Failure teaches
-
-When a test fails you get three things:
-
-1. **First-divergence diagnosis** — `first divergence at cycle 4 → q: expected 0xA, got 0x2`
-2. **Waveforms** for sequential designs, **truth-table diffs** for combinational
-3. **View as hardware** — your code rendered as a levelized gate schematic
-
-That third one is the point of the whole project. Your `assign` becomes three
-gates. Your `if` becomes a mux. Your registers become flip-flops. And if you
-write an incomplete `always @(*)` block, the schematic draws the **inferred
-latch** as a dashed red feedback loop — the classic beginner bug, made visible
-instead of explained.
-
-Compiler errors link back to the numbered field note that covers the concept.
-
-### RTL export
-
-Every signed-off challenge exports as:
-
-- a clean synthesizable module
-- a self-checking testbench with golden vectors from the in-game simulator
-- a `tt_um_*` Tiny Tapeout wrapper with correct pin mapping
-
-Run it in Icarus Verilog or EDA Playground. The capstone chip is submittable.
+Runtime dependencies: `react`, `react-dom`, `three@0.128`, `lucide-react`.
 
 ---
 
-## Learning design
+## Architecture
 
-The worlds are the syllabus. Every field note and challenge is a **numbered
-station** on a glowing trail, ordered so each note is immediately followed by
-the challenges that use it. A **NEXT beacon** always marks your first unfinished
-station, and approaching a fight whose prerequisite note you skipped shows
-`✦ read note #3 first`. The numbers on the 2D world screen match the numbers on
-the ground.
+```
+┌─ browser ─────────────────────────────────────────────────────┐
+│  src/tapeout.jsx          game shell (worlds, combat, UI)     │
+│       │                                                       │
+│       ├─ content/         catalog: worlds, notes, challenges  │
+│       └─ engine client ─ Worker (2s compile / 5s sim) ─┐      │
+│                         └ fallback: same core, main thread    │
+└───────────────────────────────────────────────────────────────┘
+                              │
+                    src/engine/core.js
+                    (pure Node — no DOM, no Worker)
+                              │
+┌─ npm run gate ────────────────────────────────────────────────┐
+│  vitest + layout BFS + every shipped solution compiles/passes │
+│  + impostor fails + RTL recompiles + visual + React smoke     │
+└───────────────────────────────────────────────────────────────┘
+```
 
-Progress is tracked per topic, feeding spaced review and NG+ variants that alter
-the spec so you can't win from memory.
+The gate **never** goes through the Worker. It imports the engine
+synchronously. That is deliberate: a compiler you can only test in a browser
+is a compiler you cannot trust.
+
+Details: [ARCHITECTURE.md](ARCHITECTURE.md) · [src/engine/README.md](src/engine/README.md) · [content/README.md](content/README.md)
 
 ---
 
@@ -103,91 +72,74 @@ the spec so you can't win from memory.
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run gate     # the test suite — must print GATE GREEN
+npm run gate     # must print GATE GREEN
 npm run build    # production bundle
 ```
 
-Requires Node 18+.
+Node 18+.
 
----
-
-## The gate
-
-`npm run gate` runs seven stages, fail-fast:
-
-| stage | what it proves |
-|---|---|
-| **build** | the file bundles |
-| **validate** | all 7 world layouts — containment, spacing, station numbering, and boss reachability by BFS through the real colliders (gate closed ⇒ unreachable, open ⇒ reachable) |
-| **engine** | vitest: tokenizer, parser, precedence, blocking vs NBA, latches, combinational loops, 4-state truth tables, timing (ripple vs lookahead), schema + shipped-ID immutability |
-| **content** | every solution compiles and passes (walks **any** new challenge automatically); a stuck-at-0 impostor **fails** every test; RTL exports recompile; netlists extract and lay out finitely; gauntlet generators are sane; learning order is correct; golf save round-trips |
-| **visual** | all 8 scenes build against real three.js with a stub DOM |
-| **smoke** | the real React tree mounts headlessly — menu, no-WebGL fallback |
-| **artifact compat** | one default export · no localStorage · core three only · relative engine/content imports allowed |
-
-Individual stages: `npm run gate:layout`, `gate:content`, `gate:visual`, `gate:smoke`.
-
-This is not decoration. The gate has caught, in shipped code: a rasterization
-parity bug that **sealed an entire world** behind phantom walls, a boss gate
-players could walk around, three GLSL compile errors that would have silently
-disabled the entire post-processing pipeline, and a test that was passing
-vacuously because it checked the wrong field name.
+`npm run gate` is fail-fast: bundle → 7-world layout BFS → engine unit tests
+(tokenizer, NBA vs blocking, latches, combinational loops, 4-state, timing) →
+every solution compiles and a stuck-at-0 impostor fails → headless three.js
+scenes → React smoke → artifact constraints (one default export, no
+`localStorage` in the game file, core three only).
 
 ---
 
 ## Layout
 
 ```
-src/tapeout.jsx      game shell (UI, worlds, combat) — one default export
-src/engine/          pure synchronous Verilog core + Worker wrapper
-content/             worlds, lessons, challenges, schema, ID manifest
-src/main.jsx         local entry point + window.storage shim
-dev/                 gate scripts
-tests/               engine / content / timing / four-state unit tests
-.cursorrules         hard constraints, for AI-assisted editing
+src/tapeout.jsx     game shell — one default export
+src/engine/         Verilog core + Worker wrapper
+src/main.jsx        Vite entry + window.storage shim (not game code)
+content/            worlds, lessons, challenges, ID manifest
+dev/                gate scripts (copy source; never edit tapeout.jsx in place)
+tests/              vitest: engine, timing, four-state, schema
+.github/workflows   gate.yml on every PR; pages.yml deploys main
 ```
 
-See `src/engine/README.md` (protocol, delay model, four-state encoding) and
-`content/README.md` (how to add a challenge).
+---
+
+## What's on `main` vs other branches
+
+**`main` is the product.** Compiler, four-state sim, Worker isolation,
+validated content catalog, Debug Bay, RTL export, gate.
+
+These branches are **experiments — not merged, not the resume piece:**
+
+| Branch | What it is | Why it is not on `main` |
+|---|---|---|
+| `cursor/foundation-onboarding-codex-e1a1` | Modular UI split, onboarding, Codex | Different three.js major (r185). Engine mainline is r128. |
+| `cursor/silicon-gothic-overhaul-d485` | Art / lighting pass | Presentation prototype. Must not land with the engine. |
+| `cursor/combat-overhaul-prototype-b003` | Combat-loop prototype | Gameplay experiment. Same rule. |
+
+Older setup PRs were scaffolding for this tree and are closed.
 
 ---
 
 ## Constraints (and why)
 
-- **three r128, core only** — no `three/examples/*`; bloom, chromatic
-  aberration, vignette and grain are hand-written ShaderMaterial passes
-- **No localStorage in the game file** — it calls an async `window.storage` API;
-  local persistence comes from a shim in `main.jsx`
-- **All audio synthesized** — 10 tracks of Web Audio, zero asset files
-- **Engine is a pure Node module** — the Worker is a wrapper, never a
-  prerequisite for the gate
-- **Content is validated data** — shipped IDs cannot disappear
-
-`npm run gate` enforces every one of these.
-
----
-
-## Flight recorder
-
-Press **`** in-game to log a note. Settings → **view flight report** → copy.
-
-The report captures build tag, resolution, graphics settings, per-screen FPS
-(with an `·fx` / `·nofx` flag showing whether the post pipeline compiled),
-session path, everything cleared, failures per challenge, flatlines, and your
-notes — a play session compressed into a work list.
+- **three r128, core only** — no `three/examples/*`. Bloom / CA / vignette /
+  grain are hand-written `ShaderMaterial` passes.
+- **No `localStorage` in the game file** — it calls async `window.storage`;
+  `src/main.jsx` shims it for local play.
+- **Audio is synthesized** — Web Audio, zero sample files.
+- **Engine is a pure Node module** — Worker is a wrapper, not a prerequisite.
+- **Shipped challenge IDs are immutable** — `content/ids.manifest.json`.
+- **The 28 canonical solutions are regression oracles** — do not “fix” them
+  to make the engine happier.
 
 ---
 
 ## Roadmap
 
-**Shipped:** worlds and progression · station-ordered learning · graphics pass ·
-Debug Bay (waveforms, divergence diagnosis, latch detection, schematic view) ·
-RTL export · flight recorder.
+**Shipped:** seven worlds · station-ordered learning · Worker-isolated
+four-state compiler · Debug Bay (waveforms, divergence, latches, schematic,
+educational STA) · RTL + Tiny Tapeout export · flight recorder · gate.
 
-**Next:** Recall Engine (retrieval questions gating field-note XP, mastery map,
-weakest-topic-first review) → compiler expansion (`parameter`, module
-instantiation) → a content wave using those features → single-cycle datapath
-capstone (PC → register file → ALU → control → integrated datapath).
+**Next:** Recall Engine (retrieval questions, mastery map) → compiler
+`parameter` / module instantiation → a content wave that needs those
+features → single-cycle datapath capstone (PC → regfile → ALU → control).
 
 ---
 
