@@ -3,16 +3,19 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "TAPEOUT - the Verilog dojo. Single-file React RPG that teaches Verilog.",
+  "description": "TAPEOUT - the Verilog dojo. A 3D RPG that teaches Verilog.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "gate": "node dev/gate.cjs",
     "gate:layout": "node dev/validate.cjs",
     "gate:content": "node dev/test_content.cjs",
     "gate:visual": "node dev/visual.cjs",
-    "gate:smoke": "node dev/smoke.cjs"
+    "gate:smoke": "node dev/smoke.cjs",
+    "gate:engine": "vitest run"
   },
   "dependencies": {
     "react": "18.2.0",
@@ -24,6 +27,8 @@
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.0",
     "esbuild": "^0.23.0",
-    "react-test-renderer": "18.2.0"
+    "react-test-renderer": "18.2.0",
+    "valibot": "^1.1.0",
+    "vitest": "^2.1.9"
   }
 }

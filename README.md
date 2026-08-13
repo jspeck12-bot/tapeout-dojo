@@ -10,12 +10,12 @@ worlds, read field notes, fight creatures by writing Verilog, and export your
 designs as real synthesizable RTL with self-checking testbenches and Tiny
 Tapeout wrappers.
 
-There is a working Verilog compiler and event simulator inside the game. Boss
-health bars *are* test vectors. When your circuit fails, the game shows you the
-waveform, the exact cycle where reality diverged, and a schematic of the gates
-your code actually became.
-
-One file. No engine, no asset pipeline, no backend.
+There is a working Verilog compiler and four-state event simulator inside the
+game, isolated on a Web Worker so a runaway student design cannot freeze the
+tab. Boss health bars *are* test vectors. When your circuit fails, the game
+shows you the waveform (X as a red hatch, Z as a mid dashed line), the exact
+cycle where reality diverged, a schematic of the gates your code became, and
+an educational static-timing report of the critical path.
 
 ```bash
 npm install && npm run dev
@@ -41,19 +41,20 @@ searchlights.
 
 ## The interesting part: the compiler
 
-`vCompile()` is a real lexer → parser → elaborator → 2-state event simulator for
-the synthesizable Verilog subset. Not regex matching, not string comparison
-against a stored answer — your module is compiled and simulated against test
-vectors, so any correct implementation passes and a wrong one fails for the
-right reason.
+`vCompile()` (in `src/engine/core.js`) is a real lexer → parser → elaborator →
+four-state event simulator for the synthesizable Verilog subset. The gate
+imports it **synchronously in Node**. The browser talks to the same core through
+a Worker (`compile` / `runTest` / `netlist` / `timing` / `export`) with hard
+timeouts and a main-thread fallback.
 
 **Supported:** `assign`, `always @(*)`, `always @(posedge clk)`, blocking and
 non-blocking assignment, `if`/`else`, `case`, vectors, part-selects, bit-selects,
-concatenation and replication, and the full operator set — bitwise, logical,
-arithmetic, comparison, shift, reduction.
+concatenation and replication, the full operator set, `1'bx` / `1'bz` literals,
+X-propagation, tri-state resolution, and educational static timing on the
+extracted gate netlist.
 
-**Not supported, deliberately:** module instantiation, `parameter`, `$display`,
-delays, four-state logic. The dojo teaches the synthesizable core.
+**Not supported, deliberately:** module instantiation, `$display`, delays.
+Registers power up **X** — reset discipline is part of the lesson.
 
 ### Failure teaches
 
@@ -112,16 +113,17 @@ Requires Node 18+.
 
 ## The gate
 
-`npm run gate` runs six stages, fail-fast:
+`npm run gate` runs seven stages, fail-fast:
 
 | stage | what it proves |
 |---|---|
 | **build** | the file bundles |
 | **validate** | all 7 world layouts — containment, spacing, station numbering, and boss reachability by BFS through the real colliders (gate closed ⇒ unreachable, open ⇒ reachable) |
-| **content** | 309 checks: every solution compiles and passes; a stuck-at-0 impostor **fails** every test; RTL exports recompile; netlists extract and lay out finitely; gauntlet generators are sane; learning order is correct |
-| **visual** | all 8 scenes build against real three.js with a stub DOM; progress sync and the NEXT beacon behave |
-| **smoke** | the real React tree mounts headlessly — menu, Tapeout Bay, no-WebGL fallback, flight recorder |
-| **artifact compat** | one default export · no localStorage · core three only |
+| **engine** | vitest: tokenizer, parser, precedence, blocking vs NBA, latches, combinational loops, 4-state truth tables, timing (ripple vs lookahead), schema + shipped-ID immutability |
+| **content** | every solution compiles and passes (walks **any** new challenge automatically); a stuck-at-0 impostor **fails** every test; RTL exports recompile; netlists extract and lay out finitely; gauntlet generators are sane; learning order is correct; golf save round-trips |
+| **visual** | all 8 scenes build against real three.js with a stub DOM |
+| **smoke** | the real React tree mounts headlessly — menu, no-WebGL fallback |
+| **artifact compat** | one default export · no localStorage · core three only · relative engine/content imports allowed |
 
 Individual stages: `npm run gate:layout`, `gate:content`, `gate:visual`, `gate:smoke`.
 
@@ -136,33 +138,30 @@ vacuously because it checked the wrong field name.
 ## Layout
 
 ```
-src/tapeout.jsx    the entire game — one file, one default export
-src/main.jsx       local entry point + window.storage shim (not part of the game)
-dev/               gate scripts
-.cursorrules       hard constraints, for AI-assisted editing
+src/tapeout.jsx      game shell (UI, worlds, combat) — one default export
+src/engine/          pure synchronous Verilog core + Worker wrapper
+content/             worlds, lessons, challenges, schema, ID manifest
+src/main.jsx         local entry point + window.storage shim
+dev/                 gate scripts
+tests/               engine / content / timing / four-state unit tests
+.cursorrules         hard constraints, for AI-assisted editing
 ```
 
-`src/tapeout.jsx` opens with a table of contents listing 36 sections — grep a
-title to jump. Major regions: `VERILOG ENGINE`, `CONTENT`, `DEBUG BAY CORE`,
-`FLIGHT RECORDER`, `COMBAT SYSTEM`, `FAB CAMPUS`, `BIT MINES`,
-`TRAIL DUNGEON MODELS`, `ULTRA POST PIPELINE`, `ULTRA FAB LAYER`, `APP SHELL`.
+See `src/engine/README.md` (protocol, delay model, four-state encoding) and
+`content/README.md` (how to add a challenge).
 
 ---
 
 ## Constraints (and why)
 
-The file has to run in two places: locally under Vite, and pasted straight into
-a Claude.ai artifact. That forces real discipline:
-
-- **One file, one default export** — no module splitting
 - **three r128, core only** — no `three/examples/*`; bloom, chromatic
-  aberration, vignette and grain are hand-written ShaderMaterial passes, and the
-  pipeline self-checks on startup and falls back cleanly if a shader won't
-  compile on the host GPU
+  aberration, vignette and grain are hand-written ShaderMaterial passes
 - **No localStorage in the game file** — it calls an async `window.storage` API;
-  local persistence comes from a shim in `main.jsx`, so the game file stays
-  artifact-legal
+  local persistence comes from a shim in `main.jsx`
 - **All audio synthesized** — 10 tracks of Web Audio, zero asset files
+- **Engine is a pure Node module** — the Worker is a wrapper, never a
+  prerequisite for the gate
+- **Content is validated data** — shipped IDs cannot disappear
 
 `npm run gate` enforces every one of these.
 

@@ -1,42 +1,49 @@
 # TAPEOUT — the Verilog dojo
 
-A first-person 3D RPG that teaches Verilog. `src/tapeout.jsx` is a SINGLE FILE
-(~670KB, ~14k lines) that must stay runnable both locally (Vite) and pasted
-into a Claude.ai artifact.
+A first-person 3D RPG that teaches Verilog.
 
-## Hard constraints — do not violate
+`src/tapeout.jsx` is the game shell (UI, worlds, combat). The **simulation
+engine** lives in `src/engine/` as a pure synchronous Node-importable core,
+wrapped in a Web Worker for the browser. Content lives in `content/` as
+validated data. `src/main.jsx` is the local Vite entry only.
 
-1. **Single file.** All game code lives in `src/tapeout.jsx` with exactly ONE
-   `export default`. Do not split it into modules. `src/main.jsx` is the local
-   entry point only and is NOT part of the game.
-2. **three r128, core only.** No `three/examples/*`, no jsm imports, no
+## Binding constraints — do not violate
+
+1. **three r128, core only.** No `three/examples/*`, no jsm imports, no
    OrbitControls, no EffectComposer. `THREE.CapsuleGeometry` does not exist in
    r128 — use Cylinder + Sphere. Post-processing is hand-rolled in
    `makePostFX` with ShaderMaterial + WebGLRenderTarget.
-3. **No localStorage inside `tapeout.jsx`.** The artifact runtime forbids it.
-   The game calls the async `window.storage` API and degrades to in-memory
-   saves if absent. Local persistence comes from the shim in `src/main.jsx`.
-4. **All audio is synthesized** via Web Audio. No asset files, ever.
-5. **lucide-react** icons must be imported by name; `Map` must be aliased
+2. **No localStorage inside `tapeout.jsx`.** The game calls the async
+   `window.storage` API and degrades to in-memory saves if absent. Local
+   persistence comes from the shim in `src/main.jsx`.
+3. **All audio is synthesized** via Web Audio. No asset files, ever.
+4. **lucide-react** icons must be imported by name; `Map` must be aliased
    (`Map as MapIcon`) because it collides with the global.
-6. **No new runtime dependencies.** react, react-dom, three, lucide-react only.
+5. **No new runtime dependencies.** react, react-dom, three, lucide-react only.
+   Gate-only deps (valibot, vitest) stay in `devDependencies`.
+6. **The 28 canonical solutions are unmodified regression oracles.**
+7. **Save keys are load-bearing.** Challenge / lesson / achievement IDs are
+   immutable. Removing a shipped ID fails the gate (`content/ids.manifest.json`).
+8. **60fps.** No new main-thread work in the render loop. Compile/simulate via
+   the engine client (Worker, with main-thread fallback).
+9. **The gate tests the engine synchronously in Node** — import
+   `src/engine/core.js` directly. Never require a browser or Worker for
+   `npm run gate`.
 
 ## Workflow
 
 - Run `npm run gate` before considering any change done. It must print
-  `GATE GREEN`. It runs: esbuild bundle -> layout validation (all 7 worlds) ->
-  content validation (309 checks) -> visual harness (8 scenes) -> React smoke
-  test -> artifact-compatibility check.
+  `GATE GREEN`. Never weaken a check to pass.
 - The gate scripts import internals by appending an export line to a COPY of
-  the source in `.gate/` — never add exports to `tapeout.jsx` itself.
+  `src/tapeout.jsx` under `.gate/` — never add exports to `tapeout.jsx` itself.
 - `npm run dev` for the actual game.
+- Adding a Verilog challenge: one object in `content/world-N/challenges.js`.
+  See `content/README.md`.
 
 ## Navigation
 
-The file opens with a TABLE OF CONTENTS listing ~36 fenced sections. Grep a
-section title to jump. Major regions: VERILOG ENGINE, CONTENT, DEBUG BAY CORE,
-FLIGHT RECORDER, COMBAT SYSTEM, FAB CAMPUS, BIT MINES, TRAIL DUNGEON MODELS,
-ULTRA POST PIPELINE, ULTRA FAB LAYER, APP SHELL.
+`src/tapeout.jsx` opens with a TABLE OF CONTENTS. Grep a section title to jump.
+Engine: `src/engine/` (see `src/engine/README.md`). Content: `content/`.
 
 ## Gotchas learned the hard way
 
@@ -51,3 +58,4 @@ ULTRA POST PIPELINE, ULTRA FAB LAYER, APP SHELL.
 - Station numbering (`ord`) comes from `stationSequence()` and must match
   between the 3D world and the 2D world screen — both derive from
   `challengesOf(w)`.
+- **TOPIC_OF.chip1 === 'fsm'.** Do not change it to `integration`.
