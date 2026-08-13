@@ -1,3 +1,5 @@
+import { bossSpec } from './bosses.js';
+
 // ============================================================
 // RPG SPINE — levels, gear, enemies (pure, testable)
 // ============================================================
@@ -23,6 +25,13 @@ const ITEMS = [
   { id: 't_jtag', slot: 'tool', name: 'JTAG Talisman', cost: 180, slow: 1.15, blurb: 'Enemy attacks wind up 15% slower. You see them coming.' },
   { id: 'c_solder', slot: 'consumable', inv: 'potions', name: 'Solder Ration', cost: 30, heal: 40, blurb: 'Restores 40 HP mid-fight. Tastes like flux. Carry 5.' },
   { id: 'c_flux', slot: 'consumable', inv: 'flux', name: 'Flux Vial', cost: 25, blurb: 'Triples the suppression of your next improving run. Carry 5.' },
+  { id: 'r_overflow', slot: 'weapon', name: 'Overflow Shard', cost: 0, atk: 22, remembrance: true, blurb: 'The Omen’s broken sign bit, ground into a probe.' },
+  { id: 'r_bubble', slot: 'armor', name: 'Universal Carapace', cost: 0, hp: 35, def: 0.12, remembrance: true, blurb: 'Equivalent protection, no matter which way the bubbles face.' },
+  { id: 'r_hierarch', slot: 'tool', name: 'Hierarch Spindle', cost: 0, hint: 1, slow: 1.08, remembrance: true, blurb: 'Keeps every port and wire in its proper place.' },
+  { id: 'r_encoder', slot: 'weapon', name: 'Priority Lance', cost: 0, atk: 45, remembrance: true, blurb: 'When many requests arrive, this one lands first.' },
+  { id: 'r_tyrant', slot: 'tool', name: 'Tyrant Escapement', cost: 0, timer: 1.4, remembrance: true, blurb: 'Steals timing margin from the Clock Tyrant.' },
+  { id: 'r_sequence', slot: 'armor', name: 'State Crown', cost: 0, hp: 75, def: 0.25, remembrance: true, blurb: 'The throne remembers every useful suffix.' },
+  { id: 'r_tapeout', slot: 'weapon', name: 'Golden Sign-Off Probe', cost: 0, atk: 80, lifesteal: 10, remembrance: true, blurb: 'CHIP-1 passed. The silicon answers to you now.' },
 ];
 const ITEM_BY_ID = {};
 ITEMS.forEach(i => { ITEM_BY_ID[i.id] = i; });
@@ -60,7 +69,8 @@ function enemyFor(id, world, xp, isBoss, mode, ng) {
   const fam = ENEMY_FAMILIES[world] || ENEMY_FAMILIES[1];
   let h = 7;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  const name = isBoss ? fam.boss : fam.fam[h % fam.fam.length];
+  const canonicalBoss = isBoss ? bossSpec(id) : null;
+  const name = canonicalBoss ? canonicalBoss.name : isBoss ? fam.boss : fam.fam[h % fam.fam.length];
   const m = mode === 'apprentice' ? { dmg: 0.6, int: 1.6 }
     : mode === 'architect' ? { dmg: 1.25, int: 0.9 }
       : { dmg: 1, int: 1 };
@@ -68,6 +78,7 @@ function enemyFor(id, world, xp, isBoss, mode, ng) {
   const ngM = ng ? 1.5 : 1;
   return {
     id, name, world, boss: !!isBoss,
+    bossSpec: canonicalBoss,
     hp: Math.round((40 + (xp || 30) * 1.8) * wM * (isBoss ? 2.4 : 1)),
     atk: Math.round((7 + world * 3) * m.dmg * ngM * (isBoss ? 1.7 : 1)),
     interval: Math.max(6, (17 - world) * m.int * (isBoss ? 0.8 : 1)),

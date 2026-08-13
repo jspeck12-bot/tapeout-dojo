@@ -11,6 +11,7 @@ import {
   ACHIEVEMENTS, RANKS, MODES, modeOf, TOPIC_OF,
 } from '../game/content.js';
 import { noteMeta } from '../game/codex.js';
+import { bossSpec, grantRemembrance } from '../game/bosses.js';
 import {
   levelFromXp, ITEM_BY_ID,
 } from '../game/rpg.js';
@@ -28,6 +29,7 @@ import {
 import { MainMenu, TapeoutBay, DrillScreen } from '../ui/menu.jsx';
 import { PrologueScreen } from '../ui/PrologueScreen.jsx';
 import { CodexScreen } from '../ui/codex/CodexScreen.jsx';
+import { BossRushScreen } from '../ui/BossRushScreen.jsx';
 import {
   GfxPanel,
 } from '../ui/world-shared.jsx';
@@ -165,6 +167,7 @@ export function App() {
         next.xp += def.xp;
         fx.push([`ACHIEVEMENT · ${def.name}`, `${def.desc} (+${def.xp} XP)`, 'ach']);
       },
+      notify: (title, sub, kind) => fx.push([title, sub, kind]),
     };
     const before = rankIndex(prev.xp);
     fn(next, ctx);
@@ -213,6 +216,14 @@ export function App() {
         ctx.award('first_blood');
         const ch = ALL_CHALLENGES.find(c => c.id === id);
         if (ch.kind === 'code') ctx.award('it_compiles');
+        if (ch.boss) {
+          const spec = bossSpec(id);
+          const reward = grantRemembrance(s, id);
+          if (spec && reward) {
+            const item = ITEM_BY_ID[reward];
+            ctx.notify('REMEMBRANCE ACQUIRED', item ? item.name : spec.name, 'ach');
+          }
+        }
         if (!ng) {
           for (let w = 1; w <= 6; w++) if (worldDone(w, s)) ctx.award(`w${w}_done`);
           if (id === 'chip1') { s.tapeoutDone = true; ctx.award('tapeout'); }
@@ -513,6 +524,7 @@ export function App() {
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
         {screen.name === 'codex' && <CodexScreen save={save} go={go} onRecall={onLessonRecall} />}
+        {screen.name === 'bossrush' && <BossRushScreen save={save} go={go} />}
         {screen.name === 'drill' && <DrillScreen save={save} go={go} onReview={(id, kind) => { drillReturnRef.current = true; go({ name: kind, id }); }} />}
         {screen.name === 'tapeout' && <TapeoutBay save={save} go={go} />}
         {screen.name === 'world' && <WorldScreen w={screen.w} save={save} go={go} onLessonRecall={onLessonRecall} />}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen, Check, ChevronLeft, ChevronRight, Coins, Cpu, Gamepad2, Medal, Play,
-  RotateCcw, Settings, Sparkles, Star, Terminal,
+  RotateCcw, Settings, Sparkles, Star, Swords, Terminal,
 } from "lucide-react";
 import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,
@@ -106,6 +106,13 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
           <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>CODEX &amp; MASTERY DIE</div><div style={{ fontSize: 11, color: '#76849A' }}>search recovered notes · inspect weak topics</div></span>
           <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
         </button>
+        {save.tapeoutDone && (
+          <button className="mm-btn" onClick={() => { AudioFX.bad(); go({ name: 'bossrush' }); }}>
+            <span className="mm-ico" style={{ background: 'rgba(255,107,98,.12)' }}><Swords size={16} color="#FF8B82" /></span>
+            <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>BOSS RUSH</div><div style={{ fontSize: 11, color: '#76849A' }}>seven remembrances · no runback</div></span>
+            <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
+          </button>
+        )}
         <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}>
           <span className="mm-ico" style={{ background: 'rgba(255,125,240,.12)' }}><Gamepad2 size={17} color="#FF7DF0" /></span>
           <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>ARCADE</div><div style={{ fontSize: 11, color: '#76849A' }}>training, blitz, bug bounty &amp; the kit</div></span>

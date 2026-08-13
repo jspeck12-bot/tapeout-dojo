@@ -233,6 +233,29 @@ async function run() {
     checks++;
   }
 
+  const bossSave = m.normalizeSave(null);
+  ['b1', 'b2', 'b3', 'b4', 'b5'].forEach((id) => {
+    bossSave.done[id] = { stars: 3, mode: 'engineer' };
+  });
+  const bossRoot = await mountAndFlush(TR, React, m.MineScreen, {
+    ...common,
+    save: bossSave,
+  });
+  const openBoss = findClickable(bossRoot.toJSON(), 'OVERFLOW OMEN');
+  assert(typeof openBoss === 'function', 'cleared mine cannot choose its boss');
+  act(() => { openBoss(); });
+  assert(textOf(bossRoot.toJSON()).includes('FOG GATE CROSSED'),
+    'boss choice did not show the cinematic name card');
+  assert(textOf(bossRoot.toJSON()).includes('The Sign That Turned Against Itself'),
+    'boss name card is missing its epithet');
+  const enterFog = findClickable(bossRoot.toJSON(), 'enter the fog');
+  assert(typeof enterFog === 'function', 'boss name card cannot enter combat');
+  act(() => { enterFog(); });
+  assert(textOf(bossRoot.toJSON()).includes('ENGAGED — OVERFLOW OMEN'),
+    'fog gate did not hand off to the boss challenge');
+  checks += 5;
+  act(() => { bossRoot.unmount(); });
+
   const bayRoot = await mountAndFlush(TR, React, m.TapeoutBay, { save, go: noop });
   const bayText = textOf(bayRoot.toJSON());
   assert(bayText.includes('Silicon Export') && bayText.includes('No modules signed off yet'),

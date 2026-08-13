@@ -10,6 +10,7 @@ import {
 import { FR } from '../../telemetry/flight-recorder.js';
 import { WORLDS, LESSONS, LESSON_DEPTH } from '../../game/content.js';
 import { enemyFor } from '../../game/rpg.js';
+import { bossSpec } from '../../game/bosses.js';
 import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
 import { spawnShatter } from '../../graphics/rock.js';
 import { updateCreature, makeViewModel, updateViewModel } from '../../graphics/creatures.js';
@@ -30,6 +31,7 @@ import { NoteTerminal } from '../codex/NoteTerminal.jsx';
 import { Paragraphs } from '../foundations.jsx';
 import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
 import { WorldMap } from './WorldMap.jsx';
+import { BossIntro } from '../BossIntro.jsx';
 
 function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack(trackForWorld(w)); musicSetState('explore'); } catch (e) { } }, [w]);
@@ -48,6 +50,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   const [banner, setBanner] = useState(cfg.zone);
   const [showHelp, setShowHelp] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [bossIntro, setBossIntro] = useState(null);
   const ctxRef = useRef(null);
   const ambRef = useRef(null);
   const engineRef = useRef(null);
@@ -149,7 +152,18 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         if (overlayRef.current) return;
         const it = nearestInteractable(player.x, player.z, model.interactables);
         if (!it) return;
+        if (it.kind === 'fog') {
+          if (!dungeonGateOpen(saveRefD.current, model)) { AudioFX.bad(); return; }
+          try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+          setBossIntro({ spec: bossSpec(it.bossId), target: it.target });
+          return;
+        }
         if (lockedTest(it)) { AudioFX.bad(); return; }
+        if (it.kind === 'fight' && it.boss) {
+          try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { }
+          setBossIntro({ spec: bossSpec(it.id), target: it.target });
+          return;
+        }
         if (it.kind === 'exit') { AudioFX.click(); go({ name: 'menu' }); return; }
         if (it.kind === 'grace' || it.kind === 'cache' || it.kind === 'lore') {
           cb.onExploreFeature(it);
@@ -258,7 +272,11 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
               const lock = lockedTest(it);
               let text;
               if (lock) text = lock;
-              else if (it.kind === 'fight') {
+              else if (it.kind === 'fog') {
+                text = dungeonGateOpen(saveRefD.current, model)
+                  ? (isTouch ? '⏎ ' : '[E] ') + 'ENTER THE FOG — ' + it.title
+                  : 'SEALED — clear the ' + cfg.zone.toLowerCase();
+              } else if (it.kind === 'fight') {
                 const en = enemyFor(it.id, w, it.xp || 30, it.boss, activeMode, save.ngplus);
                 text = (isTouch ? '⏎ ' : '[E] ') + 'FIGHT — ' + (it.boss ? '★ FINAL · ' : it.ord ? '#' + it.ord + ' · ' : '') + en.name + (it.title ? ' · ' + it.title : '');
                 const bks = model.interactables.filter(b => b.kind === 'book' && b.ord && b.ord < (it.ord || 1e9));
@@ -442,7 +460,9 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
                 return (
                   <button key={it.id} className="card" disabled={sealed}
                     style={{ padding: '10px 13px', textAlign: 'left', font: 'inherit', color: 'inherit', cursor: sealed ? 'not-allowed' : 'pointer', opacity: sealed ? 0.45 : 1, borderColor: it.boss ? '#7A6310' : undefined }}
-                    onClick={() => openOverlay({ ...it.target })}>
+                    onClick={() => it.boss
+                      ? setBossIntro({ spec: bossSpec(it.id), target: it.target })
+                      : openOverlay({ ...it.target })}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: done ? '#7CE7A2' : it.boss ? '#FFE27A' : '#E8F1FA' }}>{it.boss ? '★ FINAL · ' : '#' + it.ord + ' · '}{en.name}{done ? ' ✓' : ''}</span>
                     <div style={{ fontSize: 11, color: '#76849A' }}>{sealed ? 'SEALED — clear the hall first' : (it.title || it.id)}</div>
                   </button>
@@ -478,6 +498,8 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
           </div>
         </div>
         {mapOpen && <WorldMap model={model} save={save} world={w} accent={accHex} onClose={() => setMapOpen(false)} />}
+        {bossIntro && <BossIntro spec={bossIntro.spec} onCancel={() => setBossIntro(null)}
+          onEnter={() => { const target = bossIntro.target; setBossIntro(null); openOverlay({ ...target }); }} />}
       </div>
     );
   }
@@ -540,6 +562,8 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
 
       {overlay && renderOverlay()}
       {mapOpen && <WorldMap model={modelMemo} save={save} world={w} accent={accHex} onClose={() => setMapOpen(false)} />}
+      {bossIntro && <BossIntro spec={bossIntro.spec} onCancel={() => setBossIntro(null)}
+        onEnter={() => { const target = bossIntro.target; setBossIntro(null); openOverlay({ ...target }); }} />}
     </div>
   );
 }

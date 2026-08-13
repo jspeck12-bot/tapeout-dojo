@@ -112,6 +112,53 @@ function applyExplorationProgress(api, save) {
   });
 }
 
+function buildFogGate(scene, model, accent) {
+  const fog = model.fogGate;
+  if (!fog) return null;
+  const gate = model.gateCollider;
+  const horizontal = (gate.maxX - gate.minX) > (gate.maxZ - gate.minZ);
+  const width = horizontal ? gate.maxX - gate.minX : gate.maxZ - gate.minZ;
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(accent) },
+      time: { value: 0 },
+      opacity: { value: 0.36 },
+    },
+    vertexShader: 'varying vec2 vUv; void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+    fragmentShader: [
+      'uniform vec3 color; uniform float time; uniform float opacity; varying vec2 vUv;',
+      'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+      'void main(){float edge=smoothstep(0.0,.14,vUv.x)*smoothstep(0.0,.14,1.0-vUv.x);',
+      'float veil=.45+.35*sin(vUv.y*22.0+time*1.7)+.2*hash(floor(vUv*18.0)+time);',
+      'gl_FragColor=vec4(color,opacity*edge*veil);}',
+    ].join('\n'),
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+  });
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(7, width), 6.5, 20, 12), material);
+  plane.position.set(fog.x, 3.25, fog.z);
+  if (!horizontal) plane.rotation.y = Math.PI / 2;
+  plane.renderOrder = 6;
+  scene.add(plane);
+  const label = mineLabelSprite('CROSS THE FOG', '#FF8B82', 0.42);
+  label.position.set(fog.x, 6.9, fog.z);
+  scene.add(label);
+  (scene.userData.anims = scene.userData.anims || []).push((time) => {
+    material.uniforms.time.value = time;
+  });
+  return { plane, material, label, feature: fog };
+}
+
+function applyFogProgress(api, model, save, open) {
+  if (!api?.fogGate) return;
+  const boss = model.interactables.find((item) => item.boss);
+  const visible = !!open && !activeDone(save)[boss.id];
+  api.fogGate.plane.visible = visible;
+  api.fogGate.label.visible = visible;
+}
+
 function buildFabUltra(scene, model, api) {
   const low = typeof window !== 'undefined' && 'ontouchstart' in window;
   const A = api.anims;
@@ -942,6 +989,7 @@ function buildMineWorld(scene, model) {
   caveDressing(scene, model);
   lightScene(scene, model.bounds, { ceil: true, dust: 0x6a5030, glowSize: 4.8, glowOpacity: 0.8 });
   api.exploration = buildExplorationProps(scene, model, 0xf5b14c);
+  api.fogGate = buildFogGate(scene, model, 0xff6b62);
   api.worldArt = buildWorldArt(scene, model, 1);
 
   return api;
@@ -966,6 +1014,7 @@ function applyMineProgress(api, model, save) {
     else api.nextGrp.visible = false;
   }
   applyExplorationProgress(api, save);
+  applyFogProgress(api, model, save, mineGateOpen(save));
 }
 
 function buildArcadeWorld(scene, model) {
@@ -1077,6 +1126,7 @@ function buildDungeonNodes(scene, model, theme, api) {
   ll.position.set(lift.x, 3.1, lift.z); scene.add(ll);
   api.nextGrp = makeNextBeacon(scene, acc, !theme.ceil);
   api.exploration = buildExplorationProps(scene, model, acc);
+  api.fogGate = buildFogGate(scene, model, 0xff6b62);
 }
 
 function scatterStructures(scene, model, theme) {
@@ -1240,10 +1290,11 @@ function applyDungeonProgress(api, model, save) {
     else api.nextGrp.visible = false;
   }
   applyExplorationProgress(api, save);
+  applyFogProgress(api, model, save, dungeonGateOpen(save, model));
 }
 
 export {
-  buildExplorationProps, applyExplorationProgress,
+  buildExplorationProps, applyExplorationProgress, buildFogGate, applyFogProgress,
   buildFabUltra, buildCampusWorld, applyCampusProgress, makeNextBeacon,
   skyDome, cliffRun, valleyMountains, buildPathTrail,
   buildValley, buildCanyon, buildMineWorld, applyMineProgress,

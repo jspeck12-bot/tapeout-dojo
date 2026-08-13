@@ -62,6 +62,8 @@ function assertWorldApi(name, model, api) {
   assert(api && api.totems && api.books, `scene "${name}" returned an incomplete progress api`);
   assert(api.gateGrp, `scene "${name}" has no gate group`);
   assert(api.nextGrp, `scene "${name}" has no NEXT beacon`);
+  assert(api.fogGate && api.fogGate.plane && api.fogGate.label,
+    `scene "${name}" has no cinematic fog gate`);
   assert(Object.keys(api.totems).length === fights.length,
     `scene "${name}" has ${Object.keys(api.totems).length} totems for ${fights.length} fights`);
   assert(Object.keys(api.books).length === books.length,
@@ -104,6 +106,8 @@ function assertStationProgress(m, name, model, api, applyProgress, world) {
   applyProgress(api, model, save);
   assert(m.nextStationOf(model, save) === null, `scene "${name}" NEXT remains after completion`);
   assert(api.nextGrp.visible === false, `scene "${name}" NEXT beacon remains visible after completion`);
+  assert(api.fogGate.plane.visible === false,
+    `scene "${name}" fog gate remains after boss completion`);
 
   for (const item of model.interactables.filter((entry) => entry.kind === 'fight')) {
     const color = api.totems[item.id].beaconMat.color.getHex();
@@ -118,12 +122,16 @@ function assertStationProgress(m, name, model, api, applyProgress, world) {
   applyProgress(api, model, gateSave);
   assert(api.gateGrp.visible === (world !== 7),
     `scene "${name}" gate has wrong initial visibility`);
+  assert(api.fogGate.plane.visible === (world === 7),
+    `scene "${name}" fog gate has wrong initial visibility`);
   const regularIds = world === 1
     ? m.MINE_FIGHTS.filter((fight) => !fight.boss).map((fight) => fight.id)
     : model.regularIds;
   regularIds.forEach((id) => { gateSave.done[id] = { stars: 3 }; });
   applyProgress(api, model, gateSave);
   assert(api.gateGrp.visible === false, `scene "${name}" gate stayed closed after regular clears`);
+  assert(api.fogGate.plane.visible === true,
+    `scene "${name}" fog gate did not appear after regular clears`);
   for (const id of regularIds) {
     assert(api.totems[id].beaconMat.color.getHex() === 0x2ea56a,
       `scene "${name}" regular fight ${id} did not turn green`);

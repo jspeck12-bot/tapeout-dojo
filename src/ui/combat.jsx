@@ -41,7 +41,8 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     const np = bossPhase(ne, enemy.hp);
     if (np > phaseRef.current) {
       phaseRef.current = np; setPhase(np); setPhaseT(Date.now()); AudioFX.bad();
-      push(enemy.name + (np >= 3 ? ' — LAST STAND · PHASE III' : ' — ENRAGED · PHASE II'), 'boss');
+      const phaseName = enemy.bossSpec?.phases?.[np - 1] || (np >= 3 ? 'LAST STAND' : 'ENRAGED');
+      push(`${enemy.name} — ${phaseName} · PHASE ${np === 3 ? 'III' : 'II'}`, 'boss');
       if (nextRef.current) nextRef.current = Math.min(nextRef.current, Date.now() + 700);
     }
   };
@@ -203,6 +204,11 @@ function CombatHUD({ c, save }) {
               <span style={{ fontSize: 9, color: '#8FA3BC', letterSpacing: '.12em', marginLeft: 4 }}>PHASE {['I', 'II', 'III'][(c.phase || 1) - 1]}</span>
             </div>
           )}
+          {c.enemy.boss && c.enemy.bossSpec?.mechanic?.[Math.max(0, (c.phase || 1) - 1)] && (
+            <div style={{ marginTop: 6, fontSize: 10.5, color: '#FFC76B' }}>
+              {c.enemy.bossSpec.mechanic[Math.max(0, (c.phase || 1) - 1)]}
+            </div>
+          )}
           <div style={{ fontSize: 10, color: '#76849A', marginTop: 7, display: 'flex', justifyContent: 'space-between' }}>
             <span>winding up{c.tele > 0.85 ? ' — BRACE' : ''}</span>
           </div>
@@ -278,7 +284,7 @@ function ShopScreen({ save, go, onBuy, onEquip }) {
         <div key={slot}>
           <div className="eyebrow" style={{ margin: '14px 0 8px' }}>{label}</div>
           <div className="twocol" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {ITEMS.filter(i => i.slot === slot).map(it => {
+            {ITEMS.filter(i => i.slot === slot && (!i.remembrance || (save.owned || []).includes(i.id))).map(it => {
               const owned = (save.owned || []).includes(it.id);
               const equipped = save.gear && save.gear[it.slot] === it.id;
               const cnt = it.slot === 'consumable' ? ((save.inv && save.inv[it.inv]) || 0) : null;

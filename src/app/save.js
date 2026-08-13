@@ -14,6 +14,7 @@ const DEFAULT_SAVE = {
   skill: {},
   noteRecall: {},
   exploration: { graces: {}, lore: {}, caches: {}, discovered: {} },
+  remembrances: {},
   campusVisited: false,
   tutorial: { completed: false, skipped: false, step: 0, replays: 0 },
 };
@@ -34,6 +35,7 @@ function cloneSaveForMutation(previous) {
       caches: { ...source.exploration.caches },
       discovered: { ...source.exploration.discovered },
     },
+    remembrances: { ...source.remembrances },
     bugsSolved: [...source.bugsSolved],
     bugClean: [...source.bugClean],
     streak: { ...source.streak },
@@ -92,6 +94,7 @@ function normalizeSaveBase(p) {
       caches: { ...objectOf(exploration.caches) },
       discovered: { ...objectOf(exploration.discovered) },
     },
+    remembrances: { ...objectOf(q.remembrances) },
     sound: typeof q.sound === 'boolean' ? q.sound : DEFAULT_SAVE.sound,
     tapeoutDone: !!q.tapeoutDone,
     ngplus: !!q.ngplus,
