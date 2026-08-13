@@ -3,7 +3,7 @@ import * as THREE from 'three';
 const WORLD_ART = {
   0: { name: 'Fab Campus', top: 0x050a18, horizon: 0x173f55, key: 0x7defff, rim: 0x9b7dff, prop: 0x24364a, dust: 0x7defff, density: 54 },
   1: { name: 'Bit Mines', top: 0x080402, horizon: 0x4b2710, key: 0xffb35c, rim: 0x54d9ff, prop: 0x4a3520, dust: 0xffc76b, density: 64 },
-  2: { name: 'Gate Valley', top: 0x06110b, horizon: 0x416329, key: 0xa3e635, rim: 0x7defff, prop: 0x334523, dust: 0xd7ffa1, density: 72 },
+  2: { name: 'Gate Valley', top: 0x071724, horizon: 0x58736d, key: 0xa3e635, rim: 0x7defff, prop: 0x33473f, dust: 0xd7ffa1, density: 72 },
   3: { name: 'Module Foundry', top: 0x120705, horizon: 0x723217, key: 0xff7b38, rim: 0x22d3ee, prop: 0x4b2b22, dust: 0xff9a55, density: 72 },
   4: { name: 'Combinational Canyon', top: 0x120806, horizon: 0x9b6030, key: 0xffa14a, rim: 0xffdf91, prop: 0x5a4028, dust: 0xffc47a, density: 76 },
   5: { name: 'Clock Tower', top: 0x040814, horizon: 0x24446b, key: 0x5bd9ff, rim: 0xa78bfa, prop: 0x26384e, dust: 0x8ee9ff, density: 62 },
@@ -214,6 +214,15 @@ function buildWorldArt(scene, model, world) {
   const detail = addInstancedDetail(scene, model, config, world, low);
   const atmosphere = addAtmosphere(scene, model, config, world, low);
   const shaft = addLightShaft(scene, landmarkPoint.x, landmarkPoint.z, config.key, center.span);
+  const fillIntensity = world === 3 || world === 5 ? 1.05
+    : world === 6 ? 0.62
+      : world === 1 ? 0.38 : 0.48;
+  const fill = new THREE.HemisphereLight(config.horizon, config.top, fillIntensity);
+  scene.add(fill);
+  const spawnGlow = new THREE.PointLight(config.key, low ? 0.3 : fillIntensity * 0.65, Math.max(28, center.span * 0.38), 1.5);
+  const spawn = model.spawn || center;
+  spawnGlow.position.set(spawn.x, 5, spawn.z);
+  scene.add(spawnGlow);
   const rim = new THREE.DirectionalLight(config.rim, low ? 0.35 : 0.7);
   rim.position.set(center.x - center.span * 0.25, center.span * 0.45, center.z + center.span * 0.2);
   rim.target.position.set(center.x, 0, center.z);
@@ -237,9 +246,11 @@ function buildWorldArt(scene, model, world) {
     detail,
     atmosphere,
     shaft,
+    fill,
+    spawnGlow,
     quality: low ? 'low' : 'high',
     grade: {
-      saturation: world === 7 ? 0.96 : 1.08,
+      saturation: world === 6 ? 0.9 : world === 2 || world === 7 ? 0.96 : 1.06,
       contrast: world === 0 ? 1.06 : 1.1,
       tint: new THREE.Color(config.horizon).lerp(new THREE.Color(0xffffff), 0.82).getHex(),
     },

@@ -905,7 +905,7 @@ function buildMineWorld(scene, model) {
   // field-note books
   model.interactables.filter(i => i.kind === 'book').forEach(it => {
     const { bookMat } = fieldNoteProp(scene, it.x, it.z, 0x7defff);
-    const lbl = mineLabelSprite((it.ord ? '#' + it.ord + ' · ' : '') + 'FIELD NOTE', '#7DEFFF', 0.62);
+    const lbl = mineLabelSprite((it.ord ? '#' + it.ord + ' · ' : '') + 'FIELD NOTE', '#7DEFFF', 0.42);
     lbl.position.set(it.x, 2.5, it.z);
     scene.add(lbl);
     scene.add(fxCone(0x7defff, 1.6, 5.1, 0.055, it.x, it.z));
@@ -1053,7 +1053,7 @@ function buildDungeonNodes(scene, model, theme, api) {
   });
   model.interactables.filter(i => i.kind === 'book').forEach(it => {
     const { bookMat } = fieldNoteProp(scene, it.x, it.z, acc);
-    const lbl = mineLabelSprite((it.ord ? '#' + it.ord + ' · ' : '') + 'FIELD NOTE', '#' + acc.toString(16).padStart(6, '0'), 0.62);
+    const lbl = mineLabelSprite((it.ord ? '#' + it.ord + ' · ' : '') + 'FIELD NOTE', '#' + acc.toString(16).padStart(6, '0'), 0.42);
     lbl.position.set(it.x, 2.5, it.z); scene.add(lbl);
     scene.add(fxCone(acc, 1.6, theme.ceil ? 5.1 : 9, 0.055, it.x, it.z));
     api.books[it.lid] = { bookMat };

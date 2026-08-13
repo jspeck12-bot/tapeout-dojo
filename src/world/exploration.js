@@ -129,15 +129,12 @@ function withExploration(model, world) {
   model.exploration = {
     features,
     landmark: WORLD_LANDMARKS[world],
-    elevationZones: model.rects
-      .filter((rect) => rect.zone !== model.bossZone)
-      .sort((a, b) => ((b.x2 - b.x1) * (b.z2 - b.z1)) - ((a.x2 - a.x1) * (a.z2 - a.z1)))
-      .slice(0, 2)
-      .map((rect, index) => ({
-        x: (rect.x1 + rect.x2) / 2,
-        z: (rect.z1 + rect.z2) / 2,
-        radius: Math.max(5, Math.min(rect.x2 - rect.x1, rect.z2 - rect.z1) * 0.28),
-        height: 1.5 + index * 1.5,
+    elevationZones: chosen.slice(4, 6)
+      .map((point, index) => ({
+        x: point.x,
+        z: point.z,
+        radius: 4.5 + index * 1.5,
+        height: 1.2 + index * 1.1,
       })),
   };
   return model;
