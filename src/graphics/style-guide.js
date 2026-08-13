@@ -108,6 +108,19 @@ function buildStyleGuideScene(scene) {
   marker.add(markerRing);
   marker.position.set(8, 0, -18);
   scene.add(marker);
+  const signalPath = new THREE.Mesh(
+    roundedBoxGeometry(0.38, 0.08, 46, 0.035, 1),
+    new THREE.MeshStandardMaterial({
+      color: 0xffc76b,
+      emissive: 0xff9b3d,
+      emissiveIntensity: 2.8,
+      roughness: 0.3,
+      toneMapped: false,
+    }),
+  );
+  signalPath.position.set(0, 0.07, -22);
+  signalPath.receiveShadow = true;
+  scene.add(signalPath);
 
   const worldArt = buildWorldArt(scene, STYLE_GUIDE_MODEL, 0);
   worldArt.materialCoverage = finalizeWorldMaterials(scene, 0);
