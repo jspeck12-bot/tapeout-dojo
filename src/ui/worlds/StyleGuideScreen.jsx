@@ -252,10 +252,15 @@ function StyleGuideScreen({ go, onSettings }) {
 
         installStyleGuideEnvironment(renderer, scene, qualityRef.current);
         setStage('compiling');
-        try {
-          await renderer.compileAsync?.(scene, camera);
-        } catch (error) {
-          // The first real render remains the authoritative compatibility test.
+        if (
+          renderer.compileAsync &&
+          renderer.extensions?.has('KHR_parallel_shader_compile')
+        ) {
+          try {
+            await renderer.compileAsync(scene, camera);
+          } catch (error) {
+            // The first real render remains the compatibility test.
+          }
         }
         if (!alive) return;
 
