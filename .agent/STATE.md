@@ -23,8 +23,15 @@ ENGINE: todo (after COMBAT)
 AUDIO: todo (after ENGINE)
 
 ## Last run
-ui-pass-1920 — Silicon Gothic UI directive closeout. Fonts self-hosted (Oxanium / IBM Plex Sans / JetBrains Mono); live CM6; ShopBay comparison plate; SettingsPanel search + gfx preview; kit on tokens; CombatHUD chrome. Stock lucide-react imports removed from `src/` (custom fab marks). Remaining system font stacks killed (prologue, Tapeout Bay, flight report, schematic labels, 3D sprites). Screen enter fade on 2D routes. Settings tab-row CSS fix. GATE pending this revision.
-Still shop probes / suits / rations, settings graphics / search / difficulty, workbench CM6, uikit kit — see prior 1440p stills.
+ui-pass-1920 — Silicon Gothic UI directive closeout. Fonts self-hosted (Oxanium / IBM Plex Sans / JetBrains Mono); live CM6; ShopBay comparison plate; SettingsPanel search + gfx preview; kit on tokens; CombatHUD chrome. Stock lucide-react imports removed from `src/` (custom fab marks). Remaining system font stacks killed (prologue, Tapeout Bay, flight report, schematic labels, 3D sprites). Screen enter fade on 2D routes. Settings tab-row CSS fix. GATE GREEN (155 unit, 711 layout, 1685 content, 10 visual / 154, 108 smoke). Bundle 1293 KB.
+Still shop probes: Iron Probe equipped + rack + loadout HP/ATK/DEF; PNG ~0.54 MB @2560×1440.
+Still shop suits: Cotton Coat vs Static Wrap deltas; PNG ~0.54 MB.
+Still shop rations: catalog + loadout; PNG ~0.54 MB.
+Still settings graphics: tabs + exposure/bloom/fog + live preview; PNG ~0.50 MB.
+Still settings search: query bloom → GRAPHICS + bloom slider; PNG ~0.46 MB.
+Still settings difficulty: Easy/Normal/Hard + hazard/loot; PNG ~0.52 MB.
+Still workbench CM6: line 6 error gutter + COMPLETE PORTS + diff; PNG ~0.52 MB.
+Still uikit kit: Oxanium/Plex/JetBrains + kit; PNG ~0.56 MB.
 
 ## Known problems
 - Pedagogy screens (World/Gauntlet/Truth/Code chrome, Tapeout Bay, Prologue, training) still mix leftover inline hex with the token system — kit/shop/settings/HUD/victory do not.
