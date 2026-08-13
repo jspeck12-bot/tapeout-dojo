@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, X,
+  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, SlidersHorizontal, X,
 } from "lucide-react";
 import * as THREE from "three";
 import {
@@ -12,6 +12,12 @@ import { WORLDS, LESSONS, LESSON_DEPTH } from '../../game/content.js';
 import { enemyFor } from '../../game/rpg.js';
 import { bossSpec } from '../../game/bosses.js';
 import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
+import {
+  STYLE_GUIDE_QUALITY,
+  configureStyleGuideRenderer,
+  installStyleGuideEnvironment,
+  makeStyleGuidePostFX,
+} from '../../graphics/style-guide-renderer.js';
 import { spawnShatter } from '../../graphics/rock.js';
 import { updateCreature, makeViewModel, updateViewModel } from '../../graphics/creatures.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
@@ -33,6 +39,40 @@ import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shar
 import { WorldMap } from './WorldMap.jsx';
 import { BossIntro } from '../BossIntro.jsx';
 
+function applyValleyGfx(ctx, gfx, quality) {
+  if (!ctx) return;
+  const { renderer, scene, post } = ctx;
+  try {
+    renderer.toneMappingExposure = 0.9 * (gfx.exposure ?? 1.08);
+    post?.setBloom?.(Math.min(0.5, 0.18 + (gfx.bloom ?? 0.58) * 0.22));
+    post?.setQuality?.(quality);
+    if (scene.fog?.isFogExp2) {
+      const base = scene.userData.baseFogDensity || 0.0066;
+      scene.fog.density = base * ((gfx.fog ?? 0.032) / 0.032);
+    }
+    scene.traverse(object => {
+      if (object.isLight) {
+        if (object.userData.baseIntensity == null) {
+          object.userData.baseIntensity = object.intensity;
+        }
+        const role = object.userData.lightRole;
+        const ambient = role === 'ambient' || role === 'fill' || object.isAmbientLight || object.isHemisphereLight;
+        object.intensity = object.userData.baseIntensity * (ambient ? (gfx.ambient ?? 0.92) : (gfx.lights ?? 1.1));
+      }
+      if (object.isSprite && object.material?.blending === THREE.AdditiveBlending) {
+        object.material.opacity = gfx.glow ?? 0.7;
+      }
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach(material => {
+        if (material?.normalScale) material.normalScale.setScalar(gfx.normal ?? 0.95);
+      });
+    });
+  } catch (error) {
+    // Live tuning must never tear down the world.
+  }
+}
+
 function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack(trackForWorld(w)); musicSetState('explore'); } catch (e) { } }, [w]);
   const world = WORLDS.find(x => x.id === w);
@@ -51,6 +91,14 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   const [showHelp, setShowHelp] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [bossIntro, setBossIntro] = useState(null);
+  const gothic = w === 2;
+  const [quality, setQuality] = useState(() => (
+    typeof window !== 'undefined' && 'ontouchstart' in window ? 'low' : 'high'
+  ));
+  const [stage, setStage] = useState('booting');
+  const [gfxOpen, setGfxOpen] = useState(false);
+  const qualityRef = useRef(quality);
+  qualityRef.current = quality;
   const ctxRef = useRef(null);
   const ambRef = useRef(null);
   const engineRef = useRef(null);
@@ -103,30 +151,73 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch);
-      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
-      renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
+      const width = mount.clientWidth || window.innerWidth;
+      const height = mount.clientHeight || window.innerHeight;
+      if (gothic) {
+        configureStyleGuideRenderer(renderer, qualityRef.current);
+        renderer.setSize(width, height);
+        if (renderer.domElement.dataset) renderer.domElement.dataset.engine = 'silicon-gothic';
+      } else {
+        tuneRenderer(renderer, isTouch);
+        renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
+        renderer.setSize(width, height);
+      }
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
-      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, post };
-      const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
+      const camera = new THREE.PerspectiveCamera(74, (width || 1) / (height || 1), 0.1, gothic ? 500 : 300);
       scene.add(camera);
       let _vm = null, _vmWeap = null, _vmJabT = -9e9;
       camera.rotation.order = 'YXZ';
 
       const model = modelMemo;
       const api = buildDungeonWorld(scene, model, model.theme);
-      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
-      const lamp = new THREE.SpotLight(0xfff0d8, 2.2, 42 * (model.worldScale || 1), 0.56, 0.5, 1.3);
+      ctxRef.current = { renderer, scene, post: null, camera };
+      if (gothic) {
+        try { renderer.render(scene, camera); } catch (error) { /* first frame probes the context */ }
+        setStage('environment');
+        try {
+          installStyleGuideEnvironment(renderer, scene, qualityRef.current);
+        } catch (error) {
+          // PMREM IBL needs a real GPU; the valley still plays with local lights.
+        }
+        if (
+          renderer.compileAsync
+          && renderer.extensions?.has('KHR_parallel_shader_compile')
+        ) {
+          renderer.compileAsync(scene, camera).catch(() => {});
+        }
+        setStage('compiling');
+        try {
+          if (!isTouch) {
+            post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
+              preset: qualityRef.current,
+              bloom: 0.3,
+              grade: api.worldArt?.grade,
+              focus: 22,
+              dof: false,
+            });
+          }
+        } catch (error) {
+          post = null;
+        }
+        ctxRef.current.post = post;
+        applyValleyGfx(ctxRef.current, gfx, qualityRef.current);
+      } else {
+        try { if (!isTouch) post = makePostFX(renderer, width, height); } catch (e) { post = null; }
+        ctxRef.current.post = post;
+        if (post && api.worldArt) post.setGrade(api.worldArt.grade);
+      }
+      const lamp = new THREE.SpotLight(gothic ? 0xe8ffd4 : 0xfff0d8, gothic ? 1.95 : 2.2, 42 * (model.worldScale || 1), gothic ? 0.5 : 0.56, 0.5, 1.3);
+      lamp.userData.lightRole = 'headlamp';
+      lamp.userData.baseIntensity = lamp.intensity;
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 46; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
-      const fillLight = new THREE.PointLight(model.theme.accent, 0.45, 26, 1.6);
-      scene.add(fillLight);
-      ambRef.current = createAmbience(scene, 'cave');
+      const fillLight = gothic ? null : new THREE.PointLight(model.theme.accent, 0.45, 26, 1.6);
+      if (fillLight) scene.add(fillLight);
+      ambRef.current = createAmbience(scene, gothic ? 'canyon' : 'cave');
       cleanup.push(() => { try { ambRef.current && ambRef.current.dispose(); } catch (e) { } });
 
       const grace = model.exploration?.features.find(feature =>
@@ -231,6 +322,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
 
       applyDungeonProgress(api, model, saveRefD.current);
       let last = performance.now();
+      let announcedReady = false;
       let _aim = null, _flash = null, _hp = null, _hpTex = null, _lastBar = -1, _prevE = null, _prevP = null, _punchT = -9e9, _flashT = -9e9, _shakeT = -9e9, _vigT = -9e9, _prevOver = null, _prevPhase = 1;
       const drawHpBar = (tex, frac, tele) => {
         const cv = tex.userData.cv, x = cv.getContext('2d'); x.clearRect(0, 0, 256, 64);
@@ -345,7 +437,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
           if (vignetteRef.current && vignetteRef.current.style.opacity !== '0') vignetteRef.current.style.opacity = '0';
         }
         lamp.position.set(player.x, 1.78 + elevation, player.z);
-        fillLight.position.set(player.x, 2.6 + elevation, player.z);
+        if (fillLight) fillLight.position.set(player.x, 2.6 + elevation, player.z);
         const fx2 = -Math.sin(player.yaw), fz2 = -Math.cos(player.yaw);
         lamp.target.position.set(player.x + fx2 * 7, elevation + 1.0 + player.pitch * 4, player.z + fz2 * 7);
         if (api.creatures) { const _ct = now / 1000; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
@@ -353,7 +445,14 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         { const gw = (saveRefD.current.gear && saveRefD.current.gear.weapon) || 'w_iron'; if (gw !== _vmWeap) { if (_vm) camera.remove(_vm); _vm = makeViewModel(gw); camera.add(_vm); _vmWeap = gw; } if (_vm) updateViewModel(_vm, now, _moving, _vmJabT); }
         FR.tick(post ? 1 : 0);
-        if (post) post.render(scene, camera); else renderer.render(scene, camera);
+        if (post) {
+          post.setMoving?.(_moving);
+          post.render(scene, camera);
+        } else renderer.render(scene, camera);
+        if (gothic && !announcedReady) {
+          announcedReady = true;
+          setStage('ready');
+        }
       };
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));
@@ -364,7 +463,10 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
     return teardown;
   }, []); // eslint-disable-line
 
-  useEffect(() => { applyGfx(ctxRef.current, gfx); }, [gfx]); // eslint-disable-line
+  useEffect(() => {
+    if (gothic) applyValleyGfx(ctxRef.current, gfx, quality);
+    else applyGfx(ctxRef.current, gfx);
+  }, [gfx, quality, gothic]);
 
   const renderOverlay = () => {
     if (!overlay) return null;
@@ -506,19 +608,78 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}>
+    <div
+      className={gothic ? 'sg-world' : undefined}
+      data-valley-status={gothic ? stage : undefined}
+      style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
+    >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+      {gothic && <div className="sg-corners" />}
 
       <CinematicFX accent={accHex} />
       <DevPerfHUD ctxRef={ctxRef} />
-      <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
+      {gothic && stage !== 'ready' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 27, display: 'grid', placeItems: 'center',
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle at 50% 42%, rgba(16,28,18,.18), rgba(5,7,11,.7))',
+        }}>
+          <div className="eyebrow" style={{
+            padding: '12px 16px', color: '#d7e4d8', background: 'rgba(5,7,11,.84)',
+            border: '1px solid #2a3340', letterSpacing: '.16em',
+          }}>
+            GATE VALLEY · {stage.toUpperCase()}
+          </div>
+        </div>
+      )}
+      {onSettings && (
+        <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: gothic ? 32 : 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
+      )}
+      {gothic && (
+        <>
+          <button
+            className="btn sm"
+            style={{ position: 'absolute', top: 12, right: onSettings ? 108 : 12, zIndex: 32 }}
+            onClick={() => { AudioFX.click(); setGfxOpen(open => !open); }}
+          >
+            <SlidersHorizontal size={12} /> graphics
+          </button>
+          {gfxOpen && (
+            <div className="card" style={{
+              position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
+              padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
+            }}>
+              <div className="eyebrow" style={{ color: '#a3e635', marginBottom: 10 }}>quality · gate valley</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
+                  <button
+                    key={name}
+                    className="btn sm"
+                    onClick={() => { AudioFX.click(); setQuality(name); }}
+                    style={{
+                      flex: 1,
+                      padding: '4px 0',
+                      color: quality === name ? '#061017' : '#cbb79a',
+                      background: quality === name ? '#a3e635' : 'rgba(20,16,12,.7)',
+                      borderColor: quality === name ? '#a3e635' : '#2a3340',
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+              <button className="lnk" style={{ paddingLeft: 0 }} onClick={() => setGfxOpen(false)}>close</button>
+            </div>
+          )}
+        </>
+      )}
       <EnterFade />
 
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: gothic ? 32 : 25 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
         <ChevronLeft size={12} /> menu
       </button>
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: 25 }}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: gothic ? 32 : 25 }}
         onClick={() => { AudioFX.click(); setMapOpen(true); }}>
         <MapIcon size={12} /> map
       </button>

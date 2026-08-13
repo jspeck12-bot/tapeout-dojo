@@ -22,6 +22,7 @@ import {
   applyCampusUltra,
   applyCampusProgress,
 } from './campus-world.js';
+import { buildValleyWorldScene } from './valley-world.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -282,42 +283,12 @@ function buildPathTrail(scene, path, acc, openSky) {
 }
 
 function buildValley(scene, model, theme) {
-  const acc = theme.accent;
-  const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  scene.background = new THREE.Color(0x16240e);
-  scene.fog = new THREE.FogExp2(0x1c2e12, 0.0085 / (model.worldScale || 1));
-  skyDome(scene, 0x0c1606, 0x33491c, cx, cz, 360);
-  scene.add(new THREE.HemisphereLight(0x3a5a1e, 0x0a1206, 0.82));
-  scene.add(new THREE.AmbientLight(0x24300f, theme.ambient * 0.7));
-
-  // grassy basin floor (extends well past the cliffs to the horizon)
-  const fw = (b.maxX - b.minX) + 300, fd = (b.maxZ - b.minZ) + 300;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), matStd(theme.floorCol, { roughness: 0.98, metalness: 0.04 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0, cz); scene.add(floor);
-  buildPathTrail(scene, model.path, acc, true);
-
-  // enclosing rock walls (read as valley cliffs)
-  cliffRun(scene, model, rockMaterial({ repeat: [2, 3], normal: 1.3, tint: 0x3a4a22 }), 12, 3.0, 200 + model.world);
-  valleyMountains(scene, cx, cz, 700 + model.world);
-
-  // stone arches — a grand gateway flanking the gate, plus standalone ruins
-  const postMat = matStd(0x2a3a16, { roughness: 0.8, metalness: 0.2 });
-  const accMat = new THREE.MeshBasicMaterial({ color: acc });
-  const arch = (x, z, w, h) => {
-    [-1, 1].forEach((s) => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.85, h, 0.85), postMat); p.position.set(x + s * w / 2, h / 2, z); scene.add(p); });
-    const lint = new THREE.Mesh(new THREE.BoxGeometry(w + 1.4, 0.95, 0.95), postMat); lint.position.set(x, h - 0.1, z); scene.add(lint);
-    const cap = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, 0.32, 0.55), accMat); cap.position.set(x, h + 0.35, z); scene.add(cap);
-  };
-  arch(0, -99, 16, 9);               // grand gateway at the golem grounds entrance
-  arch(-38, -34, 7, 6);
-  arch(40, -56, 7, 6);
-  arch(-18, -82, 6, 5.4);
-
-  const api = { totems: {}, books: {}, gateGrp: null, creatures: [] };
-  buildDungeonNodes(scene, model, theme, api);
-  lightScene(scene, model.bounds, { ceil: false, dust: acc, glowSize: 5.0, glowOpacity: 0.78, sky: 0x3a5a1e, skyI: 0.95 });
-  api.worldArt = buildWorldArt(scene, model, model.world);
-  return api;
+  return buildValleyWorldScene(scene, model, theme, {
+    makeNextBeacon,
+    buildFogGate,
+    buildExplorationProps,
+    buildDungeonNodes,
+  });
 }
 
 function buildCanyon(scene, model, theme) {
