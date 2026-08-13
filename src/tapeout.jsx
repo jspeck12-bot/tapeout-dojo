@@ -5,7 +5,7 @@ import {
   RotateCcw, Play, Eye, Lightbulb, Terminal, ChevronRight, ChevronDown,
   Sparkles, Medal, SkipForward,
   Coins, Swords, Heart, Skull, FlaskConical,
-  Gamepad2, Settings
+  Gamepad2, Settings, Shield, Target, Radio, Hexagon, Gauge
 } from "lucide-react";
 import * as THREE from "three";
 
@@ -36,7 +36,7 @@ import * as THREE from "three";
 //   14 · DEBUG BAY UI — hardware schematic view
 //   15 · APP SHELL — save system, routing, screens wiring
 //   16 · META UI — training grounds, forge, profiles, stats
-//   17 · COMBAT SYSTEM — combat hook, HUD, flatline, shop, level-up
+//   17 · COMBAT SYSTEM — state machine, damage formula, stagger/parry, HUD, flatline, shop, level-up
 //   18 · FAB CAMPUS CORE — model, pure logic, 3D builders
 //   19 · ULTRA FAB LAYER — monument, sigils, conveyor, towers, traces, wisps
 //   20 · FAB CAMPUS SCREEN — walkable fab, overlay bridge, HUD
@@ -2821,8 +2821,8 @@ defRemix('chip1', {
 // ---------- difficulty modes ----------
 const MODES = [
   { id: 'apprentice', label: 'Apprentice', mult: 1, maxHints: 99, solAfter: 3, blurb: 'Full hints, starter code, standard benches.' },
-  { id: 'engineer', label: 'Engineer', mult: 1.5, maxHints: 1, solAfter: 5, blurb: 'One hint, extended benches, 1.5× XP.' },
-  { id: 'architect', label: 'Architect', mult: 2, maxHints: 0, solAfter: Infinity, blurb: 'No hints, no starter code, timed bosses, 2× XP.' },
+  { id: 'engineer', label: 'Engineer', mult: 1.5, maxHints: 1, solAfter: 5, blurb: 'One hint, generous combat windows, forgiving stagger, 1.5× XP.' },
+  { id: 'architect', label: 'Architect', mult: 2, maxHints: 0, solAfter: Infinity, blurb: 'No hints, tight windows, no starter. Fair, not cheap. 2× XP.' },
 ];
 const modeOf = (id) => MODES.find(m => m.id === id) || MODES[0];
 const BOSS_TIME = { c7: 240, s7: 300, f3: 360, chip1: 480 };
@@ -3038,12 +3038,12 @@ const ITEMS = [
   { id: 'a_cloth', slot: 'armor', name: 'Cotton Coat', cost: 0, hp: 0, def: 0, blurb: 'It has pockets.' },
   { id: 'a_wrap', slot: 'armor', name: 'Static Wrap', cost: 100, hp: 20, def: 0.10, blurb: 'Grounded at the wrist. +20 HP, −10% damage taken.' },
   { id: 'a_bunny', slot: 'armor', name: 'Bunny Suit', cost: 280, hp: 50, def: 0.20, blurb: 'Cleanroom rated. The particles fear you. +50 HP, −20%.' },
-  { id: 'a_mail', slot: 'armor', name: 'Faraday Mail', cost: 600, hp: 90, def: 0.30, blurb: 'A walking ground plane. +90 HP, −30%.' },
-  { id: 't_sink', slot: 'tool', name: 'Heatsink Charm', cost: 250, timer: 1.25, blurb: '+25% on boss timers. Thermal headroom is time.' },
-  { id: 't_scope', slot: 'tool', name: 'Pocket Scope', cost: 220, hint: 1, blurb: '+1 hint charge in every fight, any difficulty.' },
-  { id: 't_jtag', slot: 'tool', name: 'JTAG Talisman', cost: 180, slow: 1.15, blurb: 'Enemy attacks wind up 15% slower. You see them coming.' },
+  { id: 'a_mail', slot: 'armor', name: 'Faraday Mail', cost: 600, hp: 90, def: 0.30, latchImmune: true, blurb: 'A walking ground plane. +90 HP, −30%. Latch hits no longer stagger you.' },
+  { id: 't_sink', slot: 'tool', name: 'Heatsink Charm', cost: 250, timer: 1.25, chargeMult: 0.75, blurb: 'Faster overclock. +25% on boss timers. Thermal headroom is time.' },
+  { id: 't_scope', slot: 'tool', name: 'Pocket Scope', cost: 220, hint: 1, probeCheap: true, blurb: '+1 hint charge, cheaper probes. See the next attack coming.' },
+  { id: 't_jtag', slot: 'tool', name: 'JTAG Talisman', cost: 180, slow: 1.15, parryWiden: 1.35, blurb: 'Wider parry windows. Attacks wind up 15% slower.' },
   { id: 'c_solder', slot: 'consumable', inv: 'potions', name: 'Solder Ration', cost: 30, heal: 40, blurb: 'Restores 40 HP mid-fight. Tastes like flux. Carry 5.' },
-  { id: 'c_flux', slot: 'consumable', inv: 'flux', name: 'Flux Vial', cost: 25, blurb: 'Triples the suppression of your next improving run. Carry 5.' },
+  { id: 'c_flux', slot: 'consumable', inv: 'flux', name: 'Flux Vial', cost: 25, blurb: 'Combat identity: clear a hex/jam, restore stagger, or refund a hint.' },
 ];
 const ITEM_BY_ID = {};
 ITEMS.forEach(i => { ITEM_BY_ID[i.id] = i; });
@@ -3064,7 +3064,190 @@ function derivedStats(save) {
     timerMult: (T && T.timer) || 1,
     hintBonus: (T && T.hint) || 0,
     slowMult: (T && T.slow) || 1,
+    chargeMult: (T && T.chargeMult) || 1,
+    parryWiden: (T && T.parryWiden) || 1,
+    probeCheap: !!(T && T.probeCheap),
+    latchImmune: !!(A && A.latchImmune),
   };
+}
+
+// ============================================================
+// COMBAT MATH — pure, testable. Verilog is the weapon.
+//
+// State machine (prototype kit):
+//   IDLE --grace/gap--> WIND(attack) --telegraph--> ACTIVE | RESOLVE
+//   WIND(overload) interrupted by a damaging submit
+//   ACTIVE(probe) answered in-window = PARRY (no damage, stagger++)
+//   CRIT_OPENING after stagger fills: next hit ×2.5, enemy visibly broken
+//   DEAD → retry() resets the fight in place (no runback)
+//
+// Damage (only NEW vectors since best-so-far, so repeating a 50% bench
+// cannot farm HP). A full passing testbench always wins — the compiler
+// stays authoritative. HP at 1 is "broken"; you still need a clean bench
+// to finish. Gate count comes from netlistOf.
+// ============================================================
+const COMBAT_PROTO_ID = 'm1';
+const COMBAT_GATE_TYPES = { AND: 1, OR: 1, XOR: 1, XNOR: 1, NOT: 1, NEG: 1, MUX: 1, ADD: 1, SUB: 1, MUL: 1, DIV: 1, MOD: 1, SHL: 1, SHR: 1, CMP: 1, RED: 1, DFF: 1, LATCH: 1 };
+const COMBAT_VEC_HP = 10;
+const COMBAT_STAGGER_MAX = 100;
+const PROTO_ATTACKS = ['probe', 'jam', 'hex', 'overload']; // four telegraphed types; corrupt/clock extra
+const ATK_TELL = {
+  probe: { name: 'PROBE VOLLEY', color: '#7DEFFF', verb: 'Answer the question — parry with knowledge, not reflexes.' },
+  jam: { name: 'SIGNAL JAM', color: '#C4B5FD', verb: 'A waveform is blinded. Read the schematic, or probe to clear it.' },
+  hex: { name: 'CONSTRAINT HEX', color: '#FACC15', verb: 'A construct is forbidden. Rewrite around it.' },
+  overload: { name: 'OVERLOAD', color: '#FF6B62', verb: 'Heavy hit winding up. Land a bench hit to interrupt.' },
+  corrupt: { name: 'CORRUPTION', color: '#FB7185', verb: 'A line of your code mutated. Find it and fix it.' },
+  clock: { name: 'CLOCK STORM', color: '#22D3EE', verb: 'Next answer must be timing-correct. Use non-blocking <= in the clocked block.' },
+};
+
+function gateCountOf(net) {
+  if (!net || !net.nodes) return 0;
+  let n = 0;
+  for (let i = 0; i < net.nodes.length; i++) if (COMBAT_GATE_TYPES[net.nodes[i].type]) n++;
+  return n;
+}
+function gateMultOf(gates) {
+  const g = Math.max(1, gates | 0);
+  return Math.round(Math.max(0.7, Math.min(1.6, 1.68 - (g - 1) * 0.08)) * 100) / 100;
+}
+function combatDamageOf(o) {
+  const total = Math.max(1, (o && o.total) | 0);
+  const passed = Math.max(0, (o && o.passCount) | 0);
+  const best = Math.max(0, (o && o.bestPass) | 0);
+  const full = !!(o && o.fullPass) || passed >= total;
+  const delta = Math.max(full ? 1 : 0, passed - best);
+  if (delta <= 0 && !full) return { dmg: 0, miss: true, full: false, parts: [], breakdown: 'no new vectors' };
+  const base = delta * COMBAT_VEC_HP;
+  const g = Math.max(1, (o && o.gates) | 0);
+  const gateMult = gateMultOf(g);
+  const hintMult = (o && o.hintsUnused) ? 1.15 : 1;
+  const firstMult = (o && o.firstTry) ? 1.25 : 1;
+  const latchOn = !!(o && o.latched && o.latched.length && !(o && o.latchImmune));
+  const latchMult = latchOn ? 0.55 : 1;
+  const chargeMult = (o && o.charged) ? 1.8 : 1;
+  const critMult = (o && o.crit) ? 2.5 : 1;
+  const atkMult = Math.max(0.7, ((o && o.atk) || 30) / 30);
+  const dmg = Math.max(1, Math.round(base * gateMult * hintMult * firstMult * latchMult * chargeMult * critMult * atkMult));
+  const parts = [
+    { k: 'vec', n: delta, label: delta + ' vectors' },
+    { k: 'gate', n: gateMult, label: gateMult.toFixed(2) + ' (' + g + ' gate' + (g === 1 ? '' : 's') + ')' },
+  ];
+  if (firstMult > 1) parts.push({ k: 'first', n: firstMult, label: '1.25 first-try' });
+  if (hintMult > 1) parts.push({ k: 'hint', n: hintMult, label: '1.15 hints unused' });
+  if (chargeMult > 1) parts.push({ k: 'oc', n: chargeMult, label: '1.8 overclock' });
+  if (critMult > 1) parts.push({ k: 'crit', n: critMult, label: '2.5 opening' });
+  if (latchMult < 1) parts.push({ k: 'latch', n: latchMult, label: '0.55 latch' });
+  return { dmg, miss: false, full, latch: latchOn, crit: !!(o && o.crit), parts, breakdown: parts.map(p => p.label).join(' × '), gateMult };
+}
+function combatTune(mode, extended, stats) {
+  const arch = mode === 'architect';
+  const app = mode === 'apprentice';
+  const t = (extended ? 1.75 : 1) * ((stats && stats.slowMult) || 1);
+  const chargeT = (stats && stats.chargeMult) || 1;
+  const parryW = (stats && stats.parryWiden) || 1;
+  const ms = (n) => Math.round(n * t);
+  return {
+    grace: ms(app ? 14000 : arch ? 8000 : 11000),
+    gap: ms(app ? 6500 : arch ? 3800 : 5200),
+    windup: ms(app ? 3200 : arch ? 1800 : 2400),
+    volley: Math.round(ms(app ? 22000 : arch ? 12000 : 18000) * parryW),
+    jam: ms(app ? 22000 : arch ? 14000 : 18000),
+    hex: ms(20000),
+    overload: ms(app ? 14000 : arch ? 7500 : 11000),
+    clock: ms(app ? 20000 : arch ? 12000 : 16000),
+    charge: Math.round((app ? 3200 : arch ? 1600 : 2400) * chargeT * (extended ? 1.75 : 1)),
+    crit: ms(app ? 10000 : arch ? 5000 : 8000),
+    staggerHit: app ? 38 : arch ? 28 : 34,
+    staggerParry: app ? 50 : arch ? 40 : 45,
+    probeCost: (stats && stats.probeCheap) ? 0.18 : 0.32,
+    atkScale: app ? 0.65 : arch ? 1.2 : 1,
+    architect: arch,
+    engineer: !arch,
+  };
+}
+function staggerAfter(cur, add, miss, forgive) {
+  if (miss) return forgive ? Math.floor(Math.max(0, cur) * 0.45) : 0;
+  return Math.max(0, Math.min(COMBAT_STAGGER_MAX, (cur | 0) + (add | 0)));
+}
+function stripVerilogComments(src) {
+  return String(src || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
+}
+function hexViolates(src, hex) {
+  if (!hex) return false;
+  const s = stripVerilogComments(src);
+  if (hex.kind === 'ternary') return /\?/.test(s);
+  if (hex.kind === 'case') return /\bcase\b/.test(s);
+  return false;
+}
+function clockStormFails(src) {
+  const s = stripVerilogComments(src);
+  let i = 0;
+  while (i < s.length) {
+    const m = s.slice(i).search(/always\s*@\s*\(\s*posedge/i);
+    if (m < 0) return false;
+    const start = i + m;
+    const chunk = s.slice(start, start + 900).replace(/<=/g, '\0').replace(/==/g, '\0').replace(/!=/g, '\0').replace(/<=/g, '\0');
+    if (/=/.test(chunk)) return true;
+    i = start + 8;
+  }
+  return false;
+}
+function pickHexKind(rng) {
+  const kinds = [
+    { kind: 'ternary', label: 'no ternary  (? :)' },
+    { kind: 'case', label: 'no case' },
+    { kind: 'gates', label: 'gate budget ≤ 2', budget: 2 },
+  ];
+  const r = typeof rng === 'function' ? rng() : Math.random();
+  return kinds[Math.floor(r * kinds.length) % kinds.length];
+}
+function makeVolley(ch, rng) {
+  const r = typeof rng === 'function' ? rng : Math.random;
+  const bank = [
+    { q: 'Bitwise AND is which operator?', opts: ['&', '&&', '*', 'and'], correct: 0, explain: '`&` is bitwise AND (gates). `&&` is logical AND — different hardware.' },
+    { q: '`assign y = …` means', opts: ['run once at t=0', 'a continuous wire', 'infer a flip-flop', 'a delay'], correct: 1, explain: '`assign` solders a wire. The RHS drives the LHS forever.' },
+    { q: '1 AND 0 =', opts: ['1', '0', 'X', '2'], correct: 1, explain: 'AND is 1 only when every input is 1.' },
+    { q: 'NAND of a, b is', opts: ['~(a & b)', '~a & b', 'a & ~b', 'a | b'], correct: 0, explain: 'Invert the AND, not one input. Parentheses matter.' },
+    { q: 'Fewer gates in the netlist means', opts: ['less damage', 'more damage', 'a latch', 'a fail'], correct: 1, explain: 'Optimization is a combat skill. Tight hardware hits harder.' },
+  ];
+  if (ch && ch.test && ch.test.type === 'comb' && ch.test.vectors && ch.test.vectors.length) {
+    const v = ch.test.vectors[Math.floor(r() * ch.test.vectors.length)];
+    if (v && v.in && v.out) {
+      const ins = Object.keys(v.in).map(k => k + '=' + v.in[k]).join(', ');
+      const ok = Object.keys(v.out)[0];
+      if (ok != null) {
+        const ans = String(v.out[ok]);
+        const decoy = ans === '1' ? '0' : '1';
+        bank.push({ q: 'Bench row: ' + ins + ' → ' + ok + ' = ?', opts: [ans, decoy, 'X', 'z'], correct: 0, explain: 'Read it off the spec / truth table. The bench is the enemy\'s tell.' });
+      }
+    }
+  }
+  return bank[Math.floor(r() * bank.length) % bank.length];
+}
+function corruptPatch(src) {
+  const lines = String(src || '').split('\n');
+  const cands = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (!ln.trim() || /^\s*\/\//.test(ln) || /^\s*\/\*/.test(ln)) continue;
+    if (/endmodule|^\s*module\b|^\s*(input|output|wire|reg)\b/.test(ln)) continue;
+    cands.push(i);
+  }
+  if (!cands.length) return null;
+  const i = cands[Math.floor(Math.random() * cands.length)];
+  const orig = lines[i];
+  let next = orig;
+  if (/&/.test(orig) && !/&&/.test(orig)) next = orig.replace('&', '|');
+  else if (/\|/.test(orig) && !/\|\|/.test(orig)) next = orig.replace('|', '&');
+  else if (/;/.test(orig)) next = orig.replace(';', '');
+  else if (/\b0\b/.test(orig)) next = orig.replace(/\b0\b/, '1');
+  else next = orig.replace(/\s*$/, ' /* garbled */');
+  if (next === orig) next = orig.replace(/\s*$/, ' /* garbled */');
+  lines[i] = next;
+  return { src: lines.join('\n'), line: i + 1, from: orig, to: next };
+}
+function combatKitFor(id) {
+  return id === COMBAT_PROTO_ID ? { proto: true, attacks: PROTO_ATTACKS.concat(['corrupt']) } : { proto: false, attacks: [] };
 }
 
 const ENEMY_FAMILIES = {
@@ -3111,6 +3294,7 @@ function rpgFix(s) {
   s.inv = { potions: Math.max(0, Math.min(5, s.inv.potions | 0)), flux: Math.max(0, Math.min(5, s.inv.flux | 0)) };
   if (!s.combat || typeof s.combat !== 'object') s.combat = {};
   s.combat = { kills: s.combat.kills | 0, deaths: s.combat.deaths | 0, flawless: s.combat.flawless | 0 };
+  if (s.extendedTiming == null) s.extendedTiming = false;
   if (s.lvlSeen === undefined) s.lvlSeen = levelFromXp(s.xp || 0);
   return s;
 }
@@ -3203,7 +3387,15 @@ const CSS = `
 .field:focus{border-color:#22D3EE}
 .modalbg{position:fixed;inset:0;background:rgba(4,6,10,.78);z-index:90;display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
 .lessonbody p{margin:0 0 10px}
-@media(prefers-reduced-motion:reduce){.cursorblink,.toast,.popin,.shake{animation:none !important}.confetti{display:none !important}}
+@keyframes dmgpop{0%{transform:translate(-50%,8px) scale(.7);opacity:0}18%{opacity:1;transform:translate(-50%,-6px) scale(1.12)}100%{opacity:0;transform:translate(-50%,-42px) scale(.92)}}
+.dmgnum{position:absolute;left:50%;bottom:18px;animation:dmgpop .95s cubic-bezier(.22,1,.36,1) forwards;pointer-events:none;font-weight:700;letter-spacing:.03em;text-shadow:0 2px 0 #04060c,0 0 12px rgba(0,0,0,.6);white-space:nowrap}
+@keyframes telepulse{0%,100%{opacity:.78}50%{opacity:1}}
+.telebanner{animation:telepulse 1.15s ease-in-out infinite}
+@keyframes critglow{0%,100%{box-shadow:inset 0 0 0 1px rgba(250,204,21,.25)}50%{box-shadow:inset 0 0 0 1px rgba(250,204,21,.8),0 0 18px rgba(250,204,21,.28)}}
+.critopen{animation:critglow .85s ease-in-out infinite}
+@keyframes vecfly{0%{transform:translate(0,0);opacity:1}100%{transform:translate(var(--dx,40px),var(--dy,-28px));opacity:0}}
+.vecchip{display:inline-block;animation:vecfly .7s ease-out forwards;font-size:10px;color:#7DEFFF;margin-right:4px}
+@media(prefers-reduced-motion:reduce){.cursorblink,.toast,.popin,.shake,.dmgnum,.telebanner,.critopen,.vecchip{animation:none !important}.confetti{display:none !important}}
 .wavescroll{overflow-x:auto;border:1px solid #1D2632;border-radius:8px;background:#080B10;padding:10px 6px}
 `;
 
@@ -3238,6 +3430,11 @@ const AudioFX = {
   },
   click() { this.tone(660, 0.045, 'square', 0.025); },
   good() { this.tone(880, 0.07, 'sine', 0.06); this.tone(1318, 0.09, 'sine', 0.05, 0.07); },
+  compile() { this.tone(520, 0.05, 'triangle', 0.04); this.tone(780, 0.07, 'sine', 0.035, 0.04); },
+  testPass() { this.tone(660, 0.06, 'square', 0.05); this.tone(990, 0.08, 'sine', 0.05, 0.05); this.tone(1320, 0.1, 'triangle', 0.04, 0.1); },
+  crit() { this.tone(196, 0.12, 'sawtooth', 0.07); this.tone(784, 0.14, 'square', 0.05, 0.04); this.tone(1568, 0.16, 'triangle', 0.045, 0.1); },
+  parry() { this.tone(1480, 0.05, 'square', 0.06); this.tone(1760, 0.08, 'triangle', 0.05, 0.04); this.tone(988, 0.1, 'sine', 0.04, 0.09); },
+  telegraph() { this.tone(110, 0.18, 'sine', 0.05); this.tone(165, 0.22, 'triangle', 0.03, 0.05); },
   bad() { this.tone(150, 0.2, 'sawtooth', 0.05); },
   tick() { this.tone(1250, 0.03, 'square', 0.03); },
   win() { [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.06, i * 0.09)); },
@@ -3778,6 +3975,18 @@ function buildMusic(cfg) {
       rampLayer(gPad, T.pad); rampLayer(gBass, T.bass); rampLayer(gRumble, T.rumble); rampLayer(gStab, T.stab);
       rampLayer(gPipe, T.pipe || 0); rampLayer(gPipe2, T.pipe2 || 0);
     },
+    setMix(t) {
+      const a = stateLayers('combat'), b = stateLayers('boss');
+      const u = Math.max(0, Math.min(1, t || 0));
+      const mix = {};
+      Object.keys(Z).forEach(k => { mix[k] = (a[k] || 0) * (1 - u) + (b[k] || 0) * u; });
+      T = mix;
+      const now = ctx.currentTime, d = 0.45;
+      const ramp = (node, v) => { try { node.gain.cancelScheduledValues(now); node.gain.setValueAtTime(Math.max(0.0001, node.gain.value), now); node.gain.linearRampToValueAtTime(Math.max(0.0001, v), now + d); } catch (e) { } };
+      ramp(gKick, T.kick); ramp(gClap, T.clap); ramp(gHat, T.hat); ramp(gPerc, T.perc);
+      ramp(gPad, T.pad); ramp(gBass, T.bass); ramp(gRumble, T.rumble); ramp(gStab, T.stab);
+      ramp(gPipe, T.pipe || 0); ramp(gPipe2, T.pipe2 || 0);
+    },
     ensure() { if (ctx.state === 'suspended') ctx.resume().catch(() => { }); },
     setVolume(v) { __musicVol = Math.max(0, Math.min(1, v)); },
     stop() { if (timer) { clearInterval(timer); timer = null; } try { master.gain.setTargetAtTime(0, ctx.currentTime, 0.2); } catch (e) { } persistent.forEach(o => { try { o.stop(); } catch (e) { } }); },
@@ -3806,6 +4015,7 @@ function musicEnsure() {
   else __music.ensure();
 }
 function musicSetState(s) { __pendingState = s; if (__music) __music.setState(s); }
+function musicSetCombatMix(t) { if (__music && __music.setMix) __music.setMix(t); }
 function musicSetTrack(id, force) {
   if (!AudioFX.ctx) { __pendingTrack = id; return; }
   if (!force && id === __trackId && __music) return;
@@ -3823,7 +4033,7 @@ function musicCycleTrack(dir) {
 }
 
 // ---------- waveform ----------
-function Waveform({ trace, watch, inputNames, widths, accent }) {
+function Waveform({ trace, watch, inputNames, widths, accent, jam }) {
   const CW = 38, LBL = 100, RH = 26, GAP = 12, TOP = 22;
   const n = trace.length;
   const rows = [{ name: 'clk', kind: 'clk' }];
@@ -3857,6 +4067,11 @@ function Waveform({ trace, watch, inputNames, widths, accent }) {
         d += `M ${x} ${yBot} L ${x} ${yTop} L ${x + CW / 2} ${yTop} L ${x + CW / 2} ${yBot} L ${x + CW} ${yBot} `;
       }
       els.push(<path key={'clk'} d={d} stroke={c} strokeWidth="1.4" fill="none" />);
+      return;
+    }
+    if (jam && row.sig === jam) {
+      els.push(<rect key={'jam' + ri} x={LBL} y={yTop} width={n * CW} height={RH} fill="rgba(109,40,217,.18)" />);
+      els.push(<text key={'jamt' + ri} x={LBL + n * CW / 2} y={yTop + RH / 2 + 4} fontSize="11" textAnchor="middle" fill="#C4B5FD">JAMMED — read the schematic</text>);
       return;
     }
     const w = widths[row.sig || row.name] || 1;
@@ -3904,14 +4119,16 @@ function Waveform({ trace, watch, inputNames, widths, accent }) {
 }
 
 // ---------- comb results ----------
-function CombResults({ result, iface }) {
+function CombResults({ result, iface, jam }) {
   const inPorts = iface.ports.filter(p => p.d === 'in');
   const outPorts = iface.ports.filter(p => p.d === 'out');
   const widthOf = (nm) => (iface.ports.find(p => p.n === nm) || { w: 1 }).w;
   const fails = result.rows.filter(r => !r.ok);
   const shown = fails.length ? [...fails.slice(0, 6), ...result.rows.filter(r => r.ok).slice(0, 6)] : result.rows.slice(0, 10);
+  const hide = (nm) => jam && nm === jam;
   return (
     <div>
+      {jam && <div style={{ fontSize: 11.5, color: '#C4B5FD', marginBottom: 6 }}>SIGNAL JAM — `{jam}` is blinded. Open VIEW AS HARDWARE, or probe to clear.</div>}
       <table className="tbl" style={{ width: '100%' }}>
         <thead>
           <tr>
@@ -3925,8 +4142,8 @@ function CombResults({ result, iface }) {
           {shown.map((r, i) => (
             <tr key={i}>
               {inPorts.map(p => <td key={p.n} style={{ color: '#8FA3BC' }}>{fmtVal(r.in[p.n], widthOf(p.n))}</td>)}
-              {outPorts.map(p => <td key={p.n} style={{ color: r.got[p.n] === r.expect[p.n] ? '#D7E0EA' : '#FF8B82' }}>{fmtVal(r.got[p.n], widthOf(p.n))}</td>)}
-              {outPorts.map(p => <td key={p.n + 'e'} style={{ color: '#7CE7A2' }}>{fmtVal(r.expect[p.n], widthOf(p.n))}</td>)}
+              {outPorts.map(p => <td key={p.n} style={{ color: hide(p.n) ? '#5A6A80' : (r.got[p.n] === r.expect[p.n] ? '#D7E0EA' : '#FF8B82') }}>{hide(p.n) ? '░░' : fmtVal(r.got[p.n], widthOf(p.n))}</td>)}
+              {outPorts.map(p => <td key={p.n + 'e'} style={{ color: hide(p.n) ? '#5A6A80' : '#7CE7A2' }}>{hide(p.n) ? '░░' : fmtVal(r.expect[p.n], widthOf(p.n))}</td>)}
               <td>{r.ok ? <Check size={14} color="#3F8A5C" /> : <X size={14} color="#FF8B82" />}</td>
             </tr>
           ))}
@@ -4499,8 +4716,9 @@ function SchematicView({ mod, iface, accent }) {
   );
 }
 
-function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, onConsume, onCombatFx }) {
-  useEffect(() => { try { musicEnsure(); musicSetState('boss'); } catch (e) { } return () => { try { musicSetState('explore'); } catch (e) { } }; }, []);
+function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, onConsume, onCombatFx, forceLive }) {
+  const proto = id === COMBAT_PROTO_ID || !!forceLive;
+  useEffect(() => { try { musicEnsure(); musicSetState(proto ? 'combat' : 'boss'); } catch (e) { } return () => { try { musicSetState('explore'); } catch (e) { } }; }, []); // eslint-disable-line
   const base = CODE_CHALLENGES.find(c => c.id === id);
   const ng = !!save.ngplus && !!REMIX[id];
   const ch = ng ? { ...base, ...REMIX[id], id: base.id, world: base.world } : base;
@@ -4531,10 +4749,30 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
   const chsW = challengesOf(ch.world);
   const isBossFight = !!ch.boss || chsW[chsW.length - 1].id === ch.id;
   const enemy = useMemo(() => enemyFor(ch.id, ch.world, ch.xp, isBossFight, effMode, ng), []); // eslint-disable-line
-  const combat = useCombat({ enemy, save, live: !already, onEnd: onCombatEnd, onConsume });
-  useEffect(() => { if (onCombatFx) onCombatFx({ ehp: combat.ehp, maxEhp: combat.enemy.hp, php: combat.php, maxPhp: combat.stats.maxHp, tele: combat.tele, over: combat.over, phase: combat.phase, boss: combat.enemy.boss }); }, [combat.ehp, combat.php, combat.tele, combat.over, combat.phase]); // eslint-disable-line
+  const combat = useCombat({ enemy, save, live: forceLive || !already, onEnd: onCombatEnd, onConsume, proto, ch, seq: !!(ch.test && ch.test.type === 'seq') });
+  useEffect(() => {
+    if (!onCombatFx) return;
+    const fx = combat.fx || {};
+    onCombatFx({
+      ehp: combat.ehp, maxEhp: combat.enemy.hp, php: combat.php, maxPhp: combat.stats.maxHp,
+      tele: combat.tele, over: combat.over, phase: combat.phase, boss: combat.enemy.boss,
+      stagger: combat.stagger, crit: combat.critOpen, atkType: combat.atk && combat.atk.type,
+      hitStopUntil: fx.hitStopUntil, shakeAmp: fx.shakeAmp, broken: !!(fx.broken || combat.critOpen),
+    });
+  }, [combat.ehp, combat.php, combat.tele, combat.over, combat.phase, combat.stagger, combat.critOpen, combat.atk, combat.fx]); // eslint-disable-line
 
   const setCodeWrapped = (v) => { draftStore[dk] = v; setCode(v); };
+
+  useEffect(() => {
+    if (!combat.pendingPatch) return;
+    const patch = corruptPatch(code);
+    combat.consumePatch();
+    if (patch) {
+      setCodeWrapped(patch.src);
+      setErrLines(new Set([patch.line]));
+      setOut({ lines: [{ cls: 'c-warn', text: 'CORRUPTION flipped line ' + patch.line + ' — read it, fix it, re-run.' }], result: null });
+    }
+  }, [combat.pendingPatch]); // eslint-disable-line
 
   useEffect(() => {
     if (!bossT || passed || expired) return;
@@ -4543,16 +4781,24 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
   }, [bossT, passed, expired]);
   useEffect(() => { if (expired) timeUpRef.current = true; }, [expired]);
 
+  const packHit = (mod, extra) => {
+    let gates = 0, latched = [];
+    if (mod) { try { const n = netlistOf(mod); gates = gateCountOf(n); latched = n.latched || []; } catch (eN) { } }
+    return Object.assign({
+      gates, latched, src: code, clockFail: clockStormFails(code),
+    }, extra || {});
+  };
   const run = () => {
     if (combat.dead) return;
     AudioFX.click();
+    if (proto) AudioFX.compile();
     const res = vCompile(code, ch.iface);
     const lines = [];
     const eset = new Set();
     if (!res.ok) {
       attemptsRef.current++;
       onStat(topic, false);
-      combat.onRun({ ok: false, frac: 0 });
+      combat.onRun(packHit(null, { ok: false, frac: 0, compileFail: true, passCount: 0, total: 0 }));
       res.errors.forEach(e => {
         lines.push({ cls: 'c-err', text: `ERROR${e.line ? ' line ' + e.line : ''}: ${e.msg}` });
         if (e.hint) lines.push({ cls: 'c-hint', text: '  ↳ ' + e.hint });
@@ -4576,7 +4822,7 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
       result = runChallengeTest(res.mod, activeTest);
     } catch (e) {
       lines.push({ cls: 'c-err', text: 'SIM ERROR: ' + e.message });
-      combat.onRun({ ok: false, frac: 0 });
+      combat.onRun(packHit(res.mod, { ok: false, frac: 0, compileFail: true, passCount: 0, total: 0 }));
       FR.ev('sfail', { id: ch.id });
       setErrLines(new Set()); setOut({ lines, result: null, mod: res.mod });
       AudioFX.bad();
@@ -4585,7 +4831,7 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
     if (result.runtimeError) {
       attemptsRef.current++;
       onStat(topic, false);
-      combat.onRun({ ok: false, frac: 0 });
+      combat.onRun(packHit(res.mod, { ok: false, frac: 0, compileFail: true, passCount: 0, total: 0 }));
       lines.push({ cls: 'c-err', text: `RUNTIME${result.runtimeError.line ? ' line ' + result.runtimeError.line : ''}: ${result.runtimeError.msg}` });
       if (result.runtimeError.hint) lines.push({ cls: 'c-hint', text: '  ↳ ' + result.runtimeError.hint });
       if (result.runtimeError.line) eset.add(result.runtimeError.line);
@@ -4602,7 +4848,7 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
         if (timeUpRef.current) stars = Math.min(stars, 1);
         lines.push({ cls: 'c-dim', text: `// synthesis-clean. logged as ${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}` });
         if (timeUpRef.current) lines.push({ cls: 'c-warn', text: '// boss timer expired — clean work, late tapeout. capped at 1★' });
-        combat.onRun({ ok: true, frac: 1 });
+        combat.onRun(packHit(res.mod, { ok: true, frac: 1, passCount: result.total, total: result.total }));
         onComplete(ch.id, stars, ch.xp);
         if (ch.id === 'chip1') onBossWin(ng);
       } else {
@@ -4614,11 +4860,11 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
     } else {
       attemptsRef.current++;
       onStat(topic, false);
-      combat.onRun({ ok: false, frac: result.total ? result.passCount / result.total : 0 });
+      combat.onRun(packHit(res.mod, { ok: false, frac: result.total ? result.passCount / result.total : 0, passCount: result.passCount, total: result.total }));
       lines.push({ cls: 'c-err', text: `TESTBENCH FAILED — ${result.passCount}/${result.total} ${result.kind === 'comb' ? 'vectors' : 'cycles'} passing` });
       lines.push({ cls: 'c-dim', text: result.kind === 'comb' ? '// mismatches highlighted below' : '// red cycles in the waveform are where you and the reference disagree' });
       FR.ev('bfail', { id: ch.id, frac: result.total ? +(result.passCount / result.total).toFixed(2) : 0 });
-      AudioFX.bad();
+      if (!proto) AudioFX.bad();
     }
     setErrLines(new Set());
     setOut({ lines, result, mod: res.mod });
@@ -4636,8 +4882,13 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
 
   return (
     <div style={{ marginTop: 22 }}>
-      {combat.dead && <FlatlineOverlay c={combat} onRetreat={() => go({ name: 'world', w: ch.world })} />}
-      <button className="lnk" onClick={() => go({ name: 'world', w: ch.world })}><ChevronLeft size={14} /> {world.name}</button>
+      {combat.dead && <FlatlineOverlay c={combat} onRetry={proto ? combat.retry : undefined} onRetreat={() => go(forceLive ? { name: 'menu' } : { name: 'world', w: ch.world })} />}
+      <button className="lnk" onClick={() => go(forceLive ? { name: 'menu' } : { name: 'world', w: ch.world })}><ChevronLeft size={14} /> {forceLive ? 'menu' : world.name}</button>
+      {proto && (
+        <div className="eyebrow" style={{ color: '#FACC15', margin: '6px 0 2px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Swords size={12} /> COMBAT PROTOTYPE · {effMode} · {save.extendedTiming ? 'extended timing' : 'standard windows'} · Verilog is the weapon
+        </div>
+      )}
       <CombatHUD c={combat} save={save} />
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, margin: '8px 0 10px', flexWrap: 'wrap' }}>
         {ch.boss && <Zap size={17} color="#FACC15" fill="#FACC15" />}
@@ -4667,7 +4918,7 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
               <Lightbulb size={14} color="#FFC76B" />
               <span className="eyebrow">hints · {hintsOpen}/{Math.min(ch.hints.length, M.maxHints)} used</span>
               {hintsOpen < Math.min(ch.hints.length, M.maxHints) && (
-                <button className="lnk" style={{ marginLeft: 'auto' }} onClick={() => { AudioFX.click(); setHintsOpen(h => h + 1); }}>reveal hint {hintsOpen + 1}</button>
+                <button className="lnk" style={{ marginLeft: 'auto' }} onClick={() => { AudioFX.click(); setHintsOpen(h => h + 1); if (combat.markHint) combat.markHint(); }}>reveal hint {hintsOpen + 1}</button>
               )}
             </div>
             {ch.hints.slice(0, hintsOpen).map((h, i) => (
@@ -4709,13 +4960,13 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
               {dbgView === 'hw' && out.mod
                 ? <SchematicView mod={out.mod} iface={ch.iface} accent={world.color} />
                 : out.result.kind === 'comb'
-                  ? <CombResults result={out.result} iface={ch.iface} />
-                  : <Waveform trace={out.result.trace} watch={activeTest.watch} inputNames={inputNames} widths={widths} accent={world.color} />}
+                  ? <CombResults result={out.result} iface={ch.iface} jam={combat.jam} />
+                  : <Waveform trace={out.result.trace} watch={activeTest.watch} inputNames={inputNames} widths={widths} accent={world.color} jam={combat.jam} />}
             </div>
           )}
           {passed && (
             <div className="popin" style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button className="btn primary" onClick={() => go({ name: 'world', w: ch.world })}>back to {world.name} <ChevronRight size={13} /></button>
+              <button className="btn primary" onClick={() => go(forceLive ? { name: 'menu' } : { name: 'world', w: ch.world })}>{forceLive ? 'back to menu' : 'back to ' + world.name} <ChevronRight size={13} /></button>
               {nextChallengeAfter(ch.id) && (
                 <button className="btn" onClick={() => { const n = nextChallengeAfter(ch.id); go({ name: n.kind, id: n.id }); }}>
                   next: {nextChallengeAfter(ch.id).title} <SkipForward size={13} />
@@ -5440,6 +5691,7 @@ export default function App() {
         {screen.name === 'gauntlet' && <GauntletScreen key={screen.id} id={screen.id} save={save} go={go} onComplete={completeChallenge} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'truth' && <TruthScreen key={screen.id} id={screen.id} save={save} go={go} onComplete={completeChallenge} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'code' && <CodeScreen key={screen.id + '|' + (save.ngplus ? 'ng' : save.mode)} id={screen.id} save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
+        {screen.name === 'combat_proto' && <CodeScreen forceLive id="m1" save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'blitz' && <BlitzScreen save={save} go={go} onBlitzEnd={onBlitzEnd} />}
         {screen.name === 'bugs' && <BugScreen save={save} go={go} onBugSolve={onBugSolve} />}
         {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} cb={{ onLessonRead, completeChallenge, onBossWin, onStat, onTrainingClear, onBlitzEnd, onBugSolve, onVisited, onCombatEnd, onConsume, onBuy, onEquip, activeSlot, onLoadSlot, onNewSlot, onDeleteSlot, onImport, readSlot }} />}
@@ -5542,9 +5794,13 @@ export default function App() {
               );
             })}
           </div>
-          <div style={{ fontSize: 11, color: save.ngplus ? '#FFC76B' : '#3A4759', marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: save.ngplus ? '#FFC76B' : '#3A4759', marginBottom: 10 }}>
             {save.ngplus ? 'NG+ pins the fab to Architect rules.' : 'Switch any time — earned stars and XP are kept.'}
           </div>
+          <button className="btn sm" onClick={() => { AudioFX.click(); mutate(s => { s.extendedTiming = !s.extendedTiming; }); }}
+            style={save.extendedTiming ? { borderColor: '#22D3EE', color: '#7DEFFF', marginBottom: 14 } : { marginBottom: 14 }}>
+            <Timer size={12} /> {save.extendedTiming ? 'extended timing ON — windows ×1.75' : 'extended timing — never gate learning behind reflexes'}
+          </button>
 
           <div className="eyebrow" style={{ marginBottom: 8, color: '#FFE27A' }}>new game+</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -5964,9 +6220,12 @@ function ProfilesScreen({ save, activeSlot, go, onLoadSlot, onNewSlot, onDeleteS
 // COMBAT SYSTEM — combat hook, HUD, flatline, shop, level-up
 // ============================================================
 
-function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
+function useCombat({ enemy, save, live: liveIn, onEnd, onConsume, proto, ch, seq }) {
   const live0 = useRef(liveIn).current;
   const stats = useMemo(() => derivedStats(save), [save.xp, save.gear]);
+  const mode = save.ngplus ? 'architect' : (save.mode || 'engineer');
+  const tune = useMemo(() => combatTune(mode, !!save.extendedTiming, stats), [mode, save.extendedTiming, stats]);
+  const kit = proto ? combatKitFor(COMBAT_PROTO_ID) : { proto: false, attacks: [] };
   const [php, setPhp] = useState(stats.maxHp);
   const [ehp, setEhp] = useState(enemy.hp);
   const [phase, setPhase] = useState(1);
@@ -5974,8 +6233,22 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
   const [phaseT, setPhaseT] = useState(0);
   const [tele, setTele] = useState(0);
   const [feed, setFeed] = useState([]);
-  const [over, setOver] = useState(null); // 'won' | 'dead'
+  const [over, setOver] = useState(null);
   const [fluxArmed, setFluxArmed] = useState(false);
+  const [stagger, setStagger] = useState(0);
+  const [atk, setAtk] = useState(null);
+  const [jam, setJam] = useState(null);
+  const [hex, setHex] = useState(null);
+  const [clockStorm, setClockStorm] = useState(false);
+  const [charging, setCharging] = useState(false);
+  const [critOpen, setCritOpen] = useState(false);
+  const [hits, setHits] = useState([]);
+  const [intel, setIntel] = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [pendingPatch, setPendingPatch] = useState(null);
+  const [fx, setFx] = useState({ hitStopUntil: 0, shakeAmp: 0, flinch: 0, broken: false, crit: false });
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const bestPassRef = useRef(0);
   const bestRef = useRef(0);
   const hitRef = useRef(false);
   const endedRef = useRef(false);
@@ -5984,14 +6257,67 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
   const fluxRef = useRef(false); fluxRef.current = fluxArmed;
   const statsRef = useRef(stats); statsRef.current = stats;
   const saveRef = useRef(save); saveRef.current = save;
+  const tuneRef = useRef(tune); tuneRef.current = tune;
+  const atkRef = useRef(null); atkRef.current = atk;
+  const staggerRef = useRef(0); staggerRef.current = stagger;
+  const critRef = useRef(false); critRef.current = critOpen;
+  const chargeRef = useRef(false); chargeRef.current = charging;
+  const hexRef = useRef(null); hexRef.current = hex;
+  const jamRef = useRef(null); jamRef.current = jam;
+  const clockRef = useRef(false); clockRef.current = clockStorm;
+  const ehpRef = useRef(enemy.hp); ehpRef.current = ehp;
+  const phpRef = useRef(stats.maxHp); phpRef.current = php;
+  const nextAtkRef = useRef(null);
+  const atkIdxRef = useRef(0);
+  const submitsRef = useRef(0);
+  const chargeUntilRef = useRef(0);
+  const critUntilRef = useRef(0);
+  const jamUntilRef = useRef(0);
+  const hexUntilRef = useRef(0);
+  const rngRef = useRef(mulberry32((enemy.id || 'x').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7)));
   const fid = useRef(0);
-  const push = (txt, cls) => setFeed(f => [...f.slice(-3), { id: ++fid.current, txt, cls }]);
+  const hid = useRef(0);
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const push = (txt, cls) => setFeed(f => [...f.slice(-4), { id: ++fid.current, txt, cls }]);
   const psp = () => enemy.boss ? (phaseRef.current >= 3 ? 0.84 : phaseRef.current === 2 ? 0.92 : 1) : 1;
   const pdm = () => enemy.boss ? (phaseRef.current >= 3 ? 1.16 : phaseRef.current === 2 ? 1.08 : 1) : 1;
+
+  const pulseFx = (kind, amp) => {
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const stop = reduceMotion ? 0 : (kind === 'crit' ? 90 : kind === 'hit' ? 55 : 0);
+    setFx({
+      hitStopUntil: now + stop,
+      shakeAmp: reduceMotion ? 0 : (amp || (kind === 'crit' ? 1.6 : kind === 'hurt' ? 1.1 : 0.7)),
+      flinch: now,
+      broken: staggerRef.current >= COMBAT_STAGGER_MAX - 1 || critRef.current,
+      crit: kind === 'crit',
+    });
+  };
+  const floatHit = (n, cls, sub) => {
+    const id = ++hid.current;
+    setHits(h => [...h.slice(-4), { id, n, cls, sub }]);
+    setTimeout(() => setHits(h => h.filter(x => x.id !== id)), 1100);
+  };
+  const hurt = (raw, why) => {
+    const dmg = Math.max(1, Math.round(raw * (1 - statsRef.current.defPct) * pdm() * (tuneRef.current.atkScale || 1)));
+    hitRef.current = true;
+    AudioFX.bad();
+    push((why || 'hit') + ' — −' + dmg + ' HP', 'hit');
+    floatHit(-dmg, 'hurt');
+    pulseFx('hurt', 1.15);
+    setPhp(p => {
+      const np = Math.max(0, p - dmg);
+      phpRef.current = np;
+      if (np <= 0 && !endedRef.current) { try { FR.ev('flatline', {}); } catch (eFl) { } setOver('dead'); }
+      return np;
+    });
+  };
   const applyEhp = (ne) => {
-    setEhp(ne);
+    const clamped = Math.max(proto ? 1 : 0, ne);
+    ehpRef.current = clamped;
+    setEhp(clamped);
     if (!enemy.boss) return;
-    const np = bossPhase(ne, enemy.hp);
+    const np = bossPhase(clamped, enemy.hp);
     if (np > phaseRef.current) {
       phaseRef.current = np; setPhase(np); setPhaseT(Date.now()); AudioFX.bad();
       push(enemy.name + (np >= 3 ? ' — LAST STAND · PHASE III' : ' — ENRAGED · PHASE II'), 'boss');
@@ -5999,8 +6325,96 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     }
   };
 
+  const fillStagger = (add) => {
+    const ns = staggerAfter(staggerRef.current, add, false, false);
+    staggerRef.current = ns;
+    setStagger(ns);
+    if (ns >= COMBAT_STAGGER_MAX) {
+      critRef.current = true;
+      setCritOpen(true);
+      critUntilRef.current = Date.now() + tuneRef.current.crit;
+      staggerRef.current = 0;
+      setStagger(0);
+      push('CRITICAL OPENING — the netlist is broken. Land it.', 'win');
+      AudioFX.crit();
+      pulseFx('crit', 1.8);
+    }
+  };
+  const breakStagger = (why) => {
+    const ns = staggerAfter(staggerRef.current, 0, true, !tuneRef.current.architect);
+    staggerRef.current = ns;
+    setStagger(ns);
+    critRef.current = false;
+    setCritOpen(false);
+    if (why) push(why, 'hit');
+  };
+
+  const startAtk = (now) => {
+    const list = kit.attacks && kit.attacks.length ? kit.attacks : PROTO_ATTACKS;
+    let type = list[atkIdxRef.current % list.length];
+    atkIdxRef.current++;
+    if (type === 'clock' && !seq) type = 'overload';
+    const data = {};
+    if (type === 'probe') data.volley = makeVolley(ch, () => rngRef.current());
+    if (type === 'hex') data.hex = pickHexKind(() => rngRef.current());
+    if (type === 'jam' && ch && ch.iface) {
+      const outs = (ch.iface.ports || []).filter(p => p.d === 'out');
+      data.sig = (outs[0] && outs[0].n) || 'y';
+    }
+    const wind = tuneRef.current.windup;
+    const next = { type, phase: 'wind', t0: now, tEnd: now + wind, data };
+    atkRef.current = next;
+    setAtk(next);
+    AudioFX.telegraph();
+    const tell = ATK_TELL[type];
+    if (tell) push(tell.name + ' winding up', 'boss');
+  };
+
+  const resolveAtk = (now, a) => {
+    const tn = tuneRef.current;
+    if (a.phase === 'wind') {
+      if (a.type === 'probe') {
+        const next = { ...a, phase: 'active', t0: now, tEnd: now + tn.volley };
+        atkRef.current = next; setAtk(next);
+        push('PROBE VOLLEY — answer to parry', 'boss');
+        return;
+      }
+      if (a.type === 'jam') {
+        setJam(a.data.sig || 'y'); jamRef.current = a.data.sig || 'y'; jamUntilRef.current = now + tn.jam;
+        push('SIGNAL JAM on `' + (a.data.sig || 'y') + '` — read the schematic', 'hit');
+        setLesson('Jam: the waveform lied. The schematic still tells the truth.');
+      } else if (a.type === 'hex') {
+        const h = a.data.hex || pickHexKind(() => rngRef.current());
+        hexRef.current = h; setHex(h); hexUntilRef.current = now + tn.hex;
+        push('CONSTRAINT HEX — ' + h.label + ' for 20s', 'hit');
+        setLesson('Hex: rewrite around the forbidden construct. Same spec, different hardware.');
+      } else if (a.type === 'corrupt') {
+        setPendingPatch({ t: now });
+        push('CORRUPTION — a line of your RTL mutated. Find it.', 'hit');
+        setLesson('Corruption: read your own code. The bug is on the page.');
+      } else if (a.type === 'clock') {
+        clockRef.current = true; setClockStorm(true);
+        push('CLOCK STORM — non-blocking <= on the next clocked answer', 'hit');
+        setLesson('Clock storm: blocking = in always @(posedge) is a race. Use <=.');
+      } else if (a.type === 'overload') {
+        hurt(enemy.atk * 1.85, 'OVERLOAD lands');
+        setLesson('Overload: a passing bench during the wind-up interrupts the hit.');
+      }
+      atkRef.current = null; setAtk(null);
+      nextAtkRef.current = now + tn.gap;
+      return;
+    }
+    if (a.phase === 'active' && a.type === 'probe') {
+      hurt(enemy.atk * 0.85, 'probe volley unanswered');
+      setLesson((a.data.volley && a.data.volley.explain) || 'Volley: the question is the parry window.');
+      atkRef.current = null; setAtk(null);
+      nextAtkRef.current = now + tn.gap;
+    }
+  };
+
+  // ---- legacy timer (non-prototype encounters keep current feel) ----
   useEffect(() => {
-    if (!live0) return;
+    if (!live0 || proto) return;
     nextRef.current = Date.now() + enemy.grace * 1000;
     const iv = setInterval(() => {
       if (overRef.current) return;
@@ -6021,11 +6435,49 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
       }
     }, 120);
     return () => clearInterval(iv);
-  }, [live0]); // eslint-disable-line
+  }, [live0, proto]); // eslint-disable-line
+
+  // ---- prototype state machine ----
+  useEffect(() => {
+    if (!live0 || !proto) return;
+    nextAtkRef.current = Date.now() + tuneRef.current.grace;
+    const iv = setInterval(() => {
+      if (overRef.current) return;
+      const now = Date.now();
+      const a = atkRef.current;
+      if (a) {
+        const span = Math.max(1, a.tEnd - a.t0);
+        setTele(Math.max(0, Math.min(1, (now - a.t0) / span)));
+        if (now >= a.tEnd) resolveAtk(now, a);
+      } else {
+        setTele(0);
+        if (now >= (nextAtkRef.current || 0)) startAtk(now);
+      }
+      if (critRef.current && now >= critUntilRef.current) {
+        critRef.current = false; setCritOpen(false);
+        push('opening closed', 'hit');
+      }
+      if (chargeRef.current && now >= chargeUntilRef.current) {
+        chargeRef.current = false; setCharging(false);
+        push('overclock dumped — no submit', 'hit');
+      }
+      if (jamRef.current && jamUntilRef.current && now >= jamUntilRef.current) {
+        jamRef.current = null; setJam(null);
+        push('jam lifted', 'good');
+      }
+      if (hexRef.current && hexUntilRef.current && now >= hexUntilRef.current) {
+        hexRef.current = null; setHex(null);
+        push('hex expired', 'good');
+      }
+      try { musicSetCombatMix(1 - (ehpRef.current / Math.max(1, enemy.hp))); } catch (eM) { }
+    }, 80);
+    return () => clearInterval(iv);
+  }, [live0, proto]); // eslint-disable-line
 
   const suppress = () => {
     const sec = Math.min(20, (0.5 + statsRef.current.atk / 10) * (fluxRef.current ? 3 : 1));
     if (nextRef.current) nextRef.current = Math.max(nextRef.current, Date.now()) + sec * 1000;
+    if (nextAtkRef.current) nextAtkRef.current = Math.max(nextAtkRef.current, Date.now()) + sec * 400;
     push((fluxRef.current ? 'flux burn — ' : '') + 'suppressed +' + sec.toFixed(1) + 's', 'good');
     if (fluxRef.current) setFluxArmed(false);
     if (statsRef.current.lifesteal) setPhp(p => Math.min(statsRef.current.maxHp, p + statsRef.current.lifesteal));
@@ -6043,25 +6495,118 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
   const victory = () => {
     if (endedRef.current || !live0 || overRef.current === 'dead') return;
     endedRef.current = true;
-    setEhp(0); setOver('won');
+    setEhp(0); ehpRef.current = 0; setOver('won');
     const flaw = !hitRef.current;
     const scrap = Math.round(enemy.scrap * statsRef.current.scrapMult * (flaw ? 1.5 : 1));
     push(enemy.name + ' destroyed · +' + scrap + ' scrap' + (flaw ? ' · FLAWLESS ×1.5' : ''), 'win');
     onEnd({ win: true, scrap, flawless: flaw });
   };
-  const onRun = ({ ok, frac }) => {
-    if (!live0 || overRef.current) return;
-    if (ok) { victory(); return; }
-    const f = Math.max(0, Math.min(1, frac || 0));
-    if (f > bestRef.current) {
-      const gained = f - bestRef.current;
-      bestRef.current = f;
-      applyEhp(Math.max(1, Math.round(enemy.hp * (1 - f))));
-      push('dealt ' + Math.max(1, Math.round(enemy.hp * gained)) + ' dmg', 'good');
-      suppress();
-    } else {
-      counter('no ground gained');
+
+  const landHit = (hit, extra) => {
+    const a = atkRef.current;
+    if (a && a.type === 'overload' && a.phase === 'wind') {
+      atkRef.current = null; setAtk(null);
+      nextAtkRef.current = Date.now() + tuneRef.current.gap;
+      push('OVERLOAD interrupted', 'good');
+      AudioFX.parry();
     }
+    const nextHp = Math.max(proto ? 1 : 0, ehpRef.current - hit.dmg);
+    applyEhp(nextHp);
+    const usedCrit = !!hit.crit;
+    if (usedCrit) { critRef.current = false; setCritOpen(false); }
+    fillStagger(tuneRef.current.staggerHit * (hit.latch ? 0.5 : 1) * (hit.full ? 1.15 : 1));
+    pulseFx(usedCrit ? 'crit' : 'hit', hit.dmg > 40 ? 1.4 : 0.85);
+    floatHit('+' + hit.dmg, usedCrit ? 'crit' : 'good', hit.breakdown);
+    push(hit.breakdown, 'good');
+    if (extra) extra.forEach(t => push(t, 'good'));
+    if (hit.latch && !statsRef.current.latchImmune) {
+      hurt(Math.max(3, Math.round(enemy.counter * 0.6)), 'inferred latch — you stagger');
+      setLesson('Latch: an uncovered always @(*) path is accidental memory. Cover every path.');
+    }
+    if (statsRef.current.lifesteal) setPhp(p => Math.min(statsRef.current.maxHp, p + statsRef.current.lifesteal));
+    chargeRef.current = false; setCharging(false);
+  };
+
+  const onRun = (payload) => {
+    if (!live0 || overRef.current) return;
+    const p = payload || {};
+    if (!proto) {
+      if (p.ok) { victory(); return; }
+      const f = Math.max(0, Math.min(1, p.frac || 0));
+      if (f > bestRef.current) {
+        const gained = f - bestRef.current;
+        bestRef.current = f;
+        applyEhp(Math.max(1, Math.round(enemy.hp * (1 - f))));
+        push('dealt ' + Math.max(1, Math.round(enemy.hp * gained)) + ' dmg', 'good');
+        suppress();
+      } else {
+        counter('no ground gained');
+      }
+      return;
+    }
+    submitsRef.current++;
+    if (p.compileFail) {
+      breakStagger('compile failed — stagger dropped');
+      if (chargeRef.current) { chargeRef.current = false; setCharging(false); hurt(enemy.atk, 'overclock dumped'); }
+      return;
+    }
+    if (clockRef.current && p.clockFail) {
+      breakStagger('clock storm: blocking assignment');
+      hurt(enemy.atk * 0.7, 'blocking = in a clocked block');
+      setLesson('Clocked logic captures with <=. Blocking = races the clock.');
+      if (chargeRef.current) { chargeRef.current = false; setCharging(false); hurt(enemy.atk, 'overclock dumped'); }
+      return;
+    }
+    if (clockRef.current && !p.clockFail) {
+      clockRef.current = false; setClockStorm(false);
+      push('clock storm ridden — non-blocking holds', 'good');
+    }
+    const hx = hexRef.current;
+    const violated = (hx && hx.kind === 'gates' && (p.gates | 0) > (hx.budget || 2)) || hexViolates(p.src || '', hx);
+    const hit = combatDamageOf({
+      passCount: p.passCount | 0,
+      total: p.total | 0,
+      bestPass: bestPassRef.current,
+      gates: p.gates,
+      latched: p.latched,
+      hintsUnused: hintsUsed === 0,
+      firstTry: submitsRef.current === 1 && ((p.passCount | 0) > bestPassRef.current || p.ok),
+      charged: chargeRef.current,
+      crit: critRef.current,
+      latchImmune: statsRef.current.latchImmune,
+      atk: statsRef.current.atk,
+      fullPass: !!p.ok,
+    });
+    if (p.ok) {
+      if (violated) {
+        hit.dmg = Math.max(1, Math.round(hit.dmg * 0.45));
+        hit.breakdown += ' × 0.45 hex-held';
+        push('hex holds — the bench is clean but the constraint stands', 'hit');
+      } else if (hx) {
+        hexRef.current = null; setHex(null);
+        push('hex broken by the rewrite', 'good');
+      }
+      bestPassRef.current = Math.max(bestPassRef.current, p.passCount | 0);
+      landHit(hit);
+      AudioFX.testPass();
+      if (hit.crit || critRef.current) AudioFX.crit();
+      victory();
+      return;
+    }
+    if (hit.miss) {
+      breakStagger('no new vectors — chain broken');
+      AudioFX.bad();
+      if (chargeRef.current) { chargeRef.current = false; setCharging(false); hurt(enemy.atk, 'overclock dumped'); }
+      return;
+    }
+    if (violated) {
+      hit.dmg = Math.max(1, Math.round(hit.dmg * 0.45));
+      hit.breakdown += ' × 0.45 hex-held';
+    }
+    bestPassRef.current = Math.max(bestPassRef.current, p.passCount | 0);
+    landHit(hit);
+    AudioFX.testPass();
+    if (!violated && hx) { hexRef.current = null; setHex(null); }
   };
   const onAnswer = (right) => {
     if (!live0 || overRef.current) return;
@@ -6071,6 +6616,102 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
       push('clean hit — ' + Math.round(enemy.hp * 0.2) + ' dmg', 'good');
       suppress();
     } else counter('counterattack');
+  };
+  const parry = (idx) => {
+    if (!live0 || overRef.current) return;
+    const a = atkRef.current;
+    if (!a || a.type !== 'probe' || a.phase !== 'active') return;
+    const v = a.data.volley;
+    if (!v) return;
+    if (idx === v.correct) {
+      atkRef.current = null; setAtk(null);
+      nextAtkRef.current = Date.now() + tuneRef.current.gap;
+      fillStagger(tuneRef.current.staggerParry);
+      AudioFX.parry();
+      push('PARRY — ' + (v.explain || 'clean'), 'good');
+      floatHit('PARRY', 'parry');
+      pulseFx('hit', 0.5);
+      setLesson(v.explain);
+    } else {
+      hurt(enemy.atk * 0.7, 'whiffed parry');
+      push((v.explain || 'wrong') + ' — answer was ' + v.opts[v.correct], 'hit');
+      setLesson(v.explain);
+      atkRef.current = null; setAtk(null);
+      nextAtkRef.current = Date.now() + tuneRef.current.gap;
+    }
+  };
+  const probe = () => {
+    if (!live0 || overRef.current) return;
+    const a = atkRef.current;
+    const cost = tuneRef.current.probeCost;
+    if (a) {
+      const span = Math.max(1, a.tEnd - a.t0);
+      const next = { ...a, tEnd: a.t0 + (a.tEnd - a.t0) * (1 - cost), t0: a.t0 };
+      // advancing tele: shrink remaining
+      const remain = a.tEnd - Date.now();
+      next.tEnd = Date.now() + Math.max(80, remain * (1 - cost));
+      atkRef.current = next; setAtk(next);
+    } else if (nextAtkRef.current) {
+      const remain = nextAtkRef.current - Date.now();
+      nextAtkRef.current = Date.now() + Math.max(80, remain * (1 - cost));
+    }
+    if (jamRef.current) {
+      jamRef.current = null; setJam(null);
+      push('probe cleared the jam', 'good');
+      AudioFX.compile();
+      return;
+    }
+    if (a) {
+      const tell = ATK_TELL[a.type];
+      setIntel(tell ? tell.name + ' — ' + tell.verb : 'attack incoming');
+      push('probe: ' + (tell ? tell.name : a.type), 'good');
+    } else if (ch && ch.test && ch.test.vectors && ch.test.vectors.length) {
+      const v = ch.test.vectors[Math.floor(rngRef.current() * ch.test.vectors.length)];
+      const ins = Object.keys(v.in || {}).map(k => k + '=' + v.in[k]).join(' ');
+      const outs = Object.keys(v.out || {}).map(k => k + '=' + v.out[k]).join(' ');
+      setIntel('vector ' + ins + ' → ' + outs);
+      push('probe vector: ' + ins + ' → ' + outs, 'good');
+    } else {
+      setIntel('next attack incoming');
+    }
+    AudioFX.compile();
+  };
+  const charge = () => {
+    if (!live0 || overRef.current || chargeRef.current) return;
+    chargeRef.current = true; setCharging(true);
+    chargeUntilRef.current = Date.now() + tuneRef.current.charge;
+    push('OVERCLOCK armed — next submit ×1.8, miss and you eat it', 'win');
+    AudioFX.telegraph();
+  };
+  const markHint = () => setHintsUsed(n => n + 1);
+  const consumePatch = () => setPendingPatch(null);
+
+  const retry = () => {
+    endedRef.current = false;
+    bestRef.current = 0;
+    bestPassRef.current = 0;
+    hitRef.current = false;
+    submitsRef.current = 0;
+    atkIdxRef.current = 0;
+    staggerRef.current = 0; setStagger(0);
+    critRef.current = false; setCritOpen(false);
+    chargeRef.current = false; setCharging(false);
+    hexRef.current = null; setHex(null);
+    jamRef.current = null; setJam(null);
+    clockRef.current = false; setClockStorm(false);
+    atkRef.current = null; setAtk(null);
+    setPendingPatch(null);
+    setHits([]);
+    setIntel(null);
+    setFeed([]);
+    setOver(null); overRef.current = null;
+    setPhp(statsRef.current.maxHp); phpRef.current = statsRef.current.maxHp;
+    setEhp(enemy.hp); ehpRef.current = enemy.hp;
+    setPhase(1); phaseRef.current = 1;
+    setTele(0);
+    nextAtkRef.current = Date.now() + tuneRef.current.grace;
+    nextRef.current = Date.now() + enemy.grace * 1000;
+    AudioFX.click();
   };
   const retreatDead = () => {
     if (endedRef.current) return 0;
@@ -6088,15 +6729,37 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     push('solder ration — +40 HP', 'good');
   };
   const flux = () => {
-    if (!live0 || overRef.current || fluxArmed) return;
+    if (!live0 || overRef.current) return;
     if ((saveRef.current.inv && saveRef.current.inv.flux || 0) <= 0) return;
+    if (!proto) {
+      if (fluxArmed) return;
+      onConsume('flux');
+      AudioFX.click();
+      setFluxArmed(true);
+      push('flux armed — next gain ×3 suppression', 'good');
+      return;
+    }
     onConsume('flux');
     AudioFX.click();
-    setFluxArmed(true);
-    push('flux armed — next gain ×3 suppression', 'good');
+    if (hexRef.current) { hexRef.current = null; setHex(null); push('flux — hex dissolved', 'good'); return; }
+    if (jamRef.current) { jamRef.current = null; setJam(null); push('flux — jam cleared', 'good'); return; }
+    if (clockRef.current) { clockRef.current = false; setClockStorm(false); push('flux — storm grounded', 'good'); return; }
+    if (staggerRef.current < 50) {
+      staggerRef.current = 50; setStagger(50);
+      push('flux — stagger restored to 50', 'good');
+      return;
+    }
+    setHintsUsed(n => Math.max(0, n - 1));
+    push('flux — a hint refunded', 'good');
   };
 
-  return { live: live0, stats, enemy, php, ehp, tele, feed, over, dead: over === 'dead', won: over === 'won', fluxArmed, onRun, onAnswer, victory, retreatDead, potion, flux, phase, phaseT };
+  return {
+    live: live0, stats, enemy, php, ehp, tele, feed, over, dead: over === 'dead', won: over === 'won',
+    fluxArmed, onRun, onAnswer, victory, retreatDead, potion, flux, phase, phaseT,
+    proto: !!proto, stagger, staggerMax: COMBAT_STAGGER_MAX, atk, jam, hex, clockStorm,
+    charging, critOpen, hits, intel, lesson, pendingPatch, consumePatch, fx, tune, mode,
+    probe, charge, parry, retry, markHint, hintsUsed,
+  };
 }
 
 function Bar({ pct, color, h }) {
@@ -6121,8 +6784,17 @@ function CombatHUD({ c, save }) {
   const ePct = c.ehp / c.enemy.hp * 100;
   const pots = (save.inv && save.inv.potions) || 0;
   const fluxN = (save.inv && save.inv.flux) || 0;
+  const tell = c.atk && ATK_TELL[c.atk.type];
+  const volley = c.atk && c.atk.type === 'probe' && c.atk.phase === 'active' && c.atk.data && c.atk.data.volley;
+  const proto = !!c.proto;
   return (
-    <div className="card" style={{ margin: '10px 0 4px', padding: '10px 14px', borderColor: c.enemy.boss ? '#7A6310' : undefined }}>
+    <div className={'card' + (c.critOpen ? ' critopen' : '')} style={{ margin: '10px 0 4px', padding: '10px 14px', borderColor: c.critOpen ? '#7A6310' : c.enemy.boss ? '#7A6310' : undefined, position: 'relative', overflow: 'hidden' }}>
+      {c.hits && c.hits.map(h => (
+        <div key={h.id} className="dmgnum" style={{ color: h.cls === 'crit' ? '#FFE27A' : h.cls === 'parry' ? '#7DEFFF' : h.cls === 'hurt' ? '#FF8B82' : '#7CE7A2', fontSize: h.cls === 'crit' ? 22 : 16 }}>
+          {h.n}
+          {h.sub ? <div style={{ fontSize: 10, fontWeight: 500, color: '#B9C6D6', letterSpacing: 0 }}>{h.sub}</div> : null}
+        </div>
+      ))}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px', minWidth: 180 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8FA3BC', alignItems: 'center', gap: 6 }}>
@@ -6130,24 +6802,44 @@ function CombatHUD({ c, save }) {
             <span>{c.php}/{c.stats.maxHp}</span>
           </div>
           <Bar pct={hpPct} color={hpPct > 50 ? '#2EA56A' : hpPct > 25 ? '#FFC76B' : '#FF6B62'} />
-          <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 7, flexWrap: 'wrap' }}>
             <button className="btn sm" disabled={pots <= 0} onClick={c.potion} title="restore 40 HP">
               <FlaskConical size={11} /> ration ×{pots}
             </button>
-            <button className="btn sm" disabled={fluxN <= 0 || c.fluxArmed} onClick={c.flux} title="next improving run ×3 suppression"
+            <button className="btn sm" disabled={fluxN <= 0 || (!proto && c.fluxArmed)} onClick={c.flux} title={proto ? 'clear hex/jam, restore stagger, or refund a hint' : 'next improving run ×3 suppression'}
               style={c.fluxArmed ? { borderColor: '#7DEFFF', color: '#7DEFFF' } : undefined}>
-              <Zap size={11} /> {c.fluxArmed ? 'flux armed' : 'flux ×' + fluxN}
+              <Zap size={11} /> flux ×{fluxN}
             </button>
+            {proto && (
+              <>
+                <button className="btn sm" onClick={c.probe} title="reveal a vector or the next attack — costs tempo">
+                  <Target size={11} /> PROBE
+                </button>
+                <button className="btn sm" disabled={c.charging} onClick={c.charge} title="next submit ×1.8 — miss and you take the hit"
+                  style={c.charging ? { borderColor: '#FF6B62', color: '#FF8B82' } : undefined}>
+                  <Gauge size={11} /> {c.charging ? 'OVERCLOCK' : 'CHARGE'}
+                </button>
+              </>
+            )}
           </div>
         </div>
         <div style={{ flex: '1 1 200px', minWidth: 180 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, alignItems: 'center', gap: 6 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: c.enemy.boss ? '#FFE27A' : '#FF8B82', letterSpacing: '.06em' }}>
-              <Skull size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : ''}
+              <Skull size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : proto ? ' · PROTO' : ''}
             </span>
             <span style={{ color: '#8FA3BC' }}>{c.ehp}/{c.enemy.hp}</span>
           </div>
           <Bar pct={ePct} color={c.enemy.boss ? '#FACC15' : '#C4453F'} />
+          {proto && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: c.critOpen ? '#FFE27A' : '#76849A' }}>
+                <span>STAGGER {c.critOpen ? '· OPENING' : ''}</span>
+                <span>{c.stagger}/{c.staggerMax}</span>
+              </div>
+              <Bar pct={(c.stagger / Math.max(1, c.staggerMax)) * 100} color={c.critOpen ? '#FACC15' : '#7DEFFF'} h={4} />
+            </div>
+          )}
           {c.enemy.boss && (
             <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
               {[1, 2, 3].map(p => (
@@ -6156,16 +6848,44 @@ function CombatHUD({ c, save }) {
               <span style={{ fontSize: 9, color: '#8FA3BC', letterSpacing: '.12em', marginLeft: 4 }}>PHASE {['I', 'II', 'III'][(c.phase || 1) - 1]}</span>
             </div>
           )}
-          <div style={{ fontSize: 10, color: '#76849A', marginTop: 7, display: 'flex', justifyContent: 'space-between' }}>
-            <span>winding up{c.tele > 0.85 ? ' — BRACE' : ''}</span>
+          <div style={{ fontSize: 10, color: tell ? tell.color : '#76849A', marginTop: 7, display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <span className={tell ? 'telebanner' : undefined}>
+              {tell ? ((c.atk.phase === 'wind' ? 'WIND-UP · ' : '') + tell.name) : (proto ? 'idle' : ('winding up' + (c.tele > 0.85 ? ' — BRACE' : '')))}
+            </span>
           </div>
-          <Bar pct={c.tele * 100} color={c.tele > 0.85 ? '#FF6B62' : '#3A4A63'} h={4} />
+          <Bar pct={c.tele * 100} color={tell ? tell.color : (c.tele > 0.85 ? '#FF6B62' : '#3A4A63')} h={4} />
         </div>
       </div>
+      {tell && (
+        <div style={{ marginTop: 8, fontSize: 11.5, color: tell.color, borderTop: '1px solid #161D29', paddingTop: 7 }}>
+          {tell.verb}
+        </div>
+      )}
+      {volley && (
+        <div style={{ marginTop: 8, padding: '10px 12px', border: '1px solid #155E6B', borderRadius: 8, background: '#0C2C33' }}>
+          <div className="eyebrow" style={{ color: '#7DEFFF', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}><Shield size={11} /> PARRY WINDOW</div>
+          <div style={{ fontSize: 13.5, color: '#E8F1FA', marginBottom: 8 }}>{volley.q}</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {volley.opts.map((o, i) => (
+              <button key={i} className="opt" onClick={() => c.parry(i)}>
+                <span style={{ color: '#5A6A80', marginRight: 8 }}>{String.fromCharCode(65 + i)}</span>{o}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {(c.hex || c.jam || c.clockStorm || c.intel) && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          {c.hex && <span style={{ fontSize: 10.5, border: '1px solid #7A6310', color: '#FFE27A', borderRadius: 4, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Hexagon size={10} /> HEX · {c.hex.label}</span>}
+          {c.jam && <span style={{ fontSize: 10.5, border: '1px solid #6D28D9', color: '#C4B5FD', borderRadius: 4, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Radio size={10} /> JAM · {c.jam}</span>}
+          {c.clockStorm && <span style={{ fontSize: 10.5, border: '1px solid #155E6B', color: '#22D3EE', borderRadius: 4, padding: '2px 7px', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={10} /> CLOCK STORM</span>}
+          {c.intel && <span style={{ fontSize: 10.5, color: '#7DEFFF' }}>probe: {c.intel}</span>}
+        </div>
+      )}
       {c.feed.length > 0 && (
         <div style={{ marginTop: 8, borderTop: '1px solid #161D29', paddingTop: 6 }}>
           {c.feed.map(f => (
-            <div key={f.id} style={{ fontSize: 11, color: f.cls === 'hit' ? '#FF8B82' : f.cls === 'win' ? '#FFE27A' : '#7CE7A2' }}>{f.txt}</div>
+            <div key={f.id} style={{ fontSize: 11, color: f.cls === 'hit' ? '#FF8B82' : f.cls === 'win' ? '#FFE27A' : f.cls === 'boss' ? '#FACC15' : '#7CE7A2' }}>{f.txt}</div>
           ))}
         </div>
       )}
@@ -6173,9 +6893,23 @@ function CombatHUD({ c, save }) {
   );
 }
 
-function FlatlineOverlay({ c, onRetreat }) {
+function FlatlineOverlay({ c, onRetry, onRetreat }) {
   const [loss, setLoss] = useState(null);
   useEffect(() => { setLoss(c.retreatDead()); AudioFX.bad(); }, []); // eslint-disable-line
+  useEffect(() => {
+    if (!onRetry) return;
+    const t0 = Date.now();
+    const h = (e) => {
+      if (e.key === 'Escape' && onRetreat) { onRetreat(); return; }
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'r' || e.key === 'R') {
+        if (Date.now() - t0 < 80) return;
+        e.preventDefault();
+        onRetry();
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onRetry, onRetreat]);
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(4,6,10,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div className="card popin" style={{ maxWidth: 440, padding: 26, textAlign: 'center', borderColor: '#B14A52' }}>
@@ -6183,11 +6917,22 @@ function FlatlineOverlay({ c, onRetreat }) {
         <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '.12em', color: '#FF8B82', margin: '12px 0 6px' }}>FLATLINED</div>
         <div style={{ fontSize: 13, color: '#B9C6D6', lineHeight: 1.6 }}>
           The {c.enemy.name.toLowerCase()} grinds you into the substrate.
-          {loss > 0 ? <> Scavengers strip <b style={{ color: '#FFC76B' }}>{loss} scrap</b> from your kit.</> : null} Your code draft survives — come back leveled, geared, or both.
+          {loss > 0 ? <> Scavengers strip <b style={{ color: '#FFC76B' }}>{loss} scrap</b> from your kit.</> : null}
+          {c.lesson ? <div style={{ marginTop: 10, color: '#FFC76B' }}>what you know now: {c.lesson}</div> : null}
+          {onRetry ? <div style={{ marginTop: 8, color: '#8FA3BC' }}>Draft survives. One key. No runback.</div> : ' Your code draft survives — come back leveled, geared, or both.'}
         </div>
-        <button className="btn primary" style={{ marginTop: 18 }} onClick={() => { AudioFX.click(); onRetreat(); }}>
-          crawl back <ChevronRight size={13} />
-        </button>
+        {onRetry ? (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+            <button className="btn primary" autoFocus onClick={() => { AudioFX.click(); onRetry(); }}>
+              retry ↵
+            </button>
+            {onRetreat && <button className="btn sm" onClick={() => { AudioFX.click(); onRetreat(); }}>flee</button>}
+          </div>
+        ) : (
+          <button className="btn primary" style={{ marginTop: 18 }} onClick={() => { AudioFX.click(); onRetreat(); }}>
+            crawl back <ChevronRight size={13} />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -8483,6 +9228,13 @@ function updateCreature(group, t, opts) {
   body.position.y = Math.sin(t * 1.6 * sp + ph) * by;
   body.rotation.z = Math.sin(t * 1.05 * sp + ph) * 0.04;
   body.rotation.x += ((aggro ? 0.16 : 0) - body.rotation.x) * Math.min(1, dt * 4);
+  if (u.broken) {
+    body.rotation.x += (0.55 - body.rotation.x) * Math.min(1, dt * 6);
+    body.rotation.z = Math.sin(t * 14 + ph) * 0.16;
+    body.position.y += (-0.15 * u.sc - 0) * 0.2;
+    if (u.hitT) { const _k = Math.max(0, 1 - (t - u.hitT) / 0.4); if (_k > 0) body.position.y -= _k * 0.2 * u.sc; }
+    return;
+  }
   if (u.hitT) { const _k = Math.max(0, 1 - (t - u.hitT) / 0.3); if (_k > 0) { body.rotation.x -= _k * 0.5; body.position.y -= _k * 0.3 * u.sc; } }
   if (a.float) body.position.y += 0.12 * u.sc + Math.sin(t * 0.9 + ph) * 0.06 * u.sc;
   if (a.ring) a.ring.rotation.y += dt * (aggro ? 1.6 : 0.7);
@@ -9500,15 +10252,17 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
             if (_prevE == null) _prevE = _cfx.ehp; if (_prevP == null) _prevP = _cfx.php;
             if (_cfx.ehp < _prevE - 0.001) { _punchT = now; _flashT = now; _cr.userData.hitT = now / 1000; _vmJabT = now; }
             if (_cfx.php < _prevP - 0.001) { _shakeT = now; _vigT = now; }
+            _cr.userData.broken = !!_cfx.broken;
+            if (_cfx.crit) _punchT = now;
             if (_cfx.phase != null) { if (_cfx.phase > _prevPhase) { _prevPhase = _cfx.phase; _punchT = now; _flashT = now; _shakeT = now; _vigT = now; if (_cr.userData) _cr.userData.enrage = _cfx.phase; spawnShatter(scene, _cr.position.x, _cr.position.y + 1.8, _cr.position.z, _cfx.phase >= 3 ? 0xFF3B2E : 0xFF7A33); AudioFX.bad(); } else if (_cfx.phase < _prevPhase) { _prevPhase = _cfx.phase; } }
             if (_cfx.over === 'won' && _prevOver !== 'won') { spawnShatter(scene, _cr.position.x, _cr.position.y + 1.6, _cr.position.z, 0xFFB066); AudioFX.win(); }
             _prevE = _cfx.ehp; _prevP = _cfx.php; _prevOver = _cfx.over;
           }
-          const pk = Math.max(0, 1 - (now - _punchT) / 220);
-          camera.fov = 74 - 7 * pk; camera.updateProjectionMatrix();
+          const pk = Math.max(0, 1 - (now - _punchT) / ((_cfx && _cfx.crit) ? 380 : 220));
+          camera.fov = 74 - (7 + ((_cfx && _cfx.crit) ? 5 : 0)) * pk; camera.updateProjectionMatrix();
           _flash.position.set(_cr.position.x, _cr.position.y + 2.2, _cr.position.z);
           _flash.intensity = 2.8 * Math.max(0, 1 - (now - _flashT) / 170);
-          const sk = Math.max(0, 1 - (now - _shakeT) / 320);
+          const sk = Math.max(0, 1 - (now - _shakeT) / 320) * ((_cfx && _cfx.shakeAmp) || 1);
           if (sk > 0) { camera.position.x += (Math.random() - 0.5) * 0.55 * sk; camera.position.y += (Math.random() - 0.5) * 0.45 * sk; }
           if (vignetteRef.current) vignetteRef.current.style.opacity = String(0.7 * Math.max(0, 1 - (now - _vigT) / 380));
         } else {
@@ -9521,7 +10275,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         lamp.position.set(player.x, 1.78, player.z);
         const fx2 = -Math.sin(player.yaw), fz2 = -Math.cos(player.yaw);
         lamp.target.position.set(player.x + fx2 * 7, 1.0 + player.pitch * 4, player.z + fz2 * 7);
-        if (api.creatures) { const _ct = now / 1000; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
+        if (api.creatures) { const _ct = now / 1000; const _dtC = (_cfx && _cfx.hitStopUntil && now < _cfx.hitStopUntil) ? 0 : dt; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt: _dtC, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
         const _stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         { const gw = (saveRefM.current.gear && saveRefM.current.gear.weapon) || 'w_iron'; if (gw !== _vmWeap) { if (_vm) camera.remove(_vm); _vm = makeViewModel(gw); camera.add(_vm); _vmWeap = gw; } if (_vm) updateViewModel(_vm, now, _moving, _vmJabT); }
@@ -9814,6 +10568,11 @@ function MainMenu({ save, go, onSettings, onNewGame }) {
         <button className="mm-btn" style={confirmNew ? { borderColor: '#B14A52' } : undefined} onClick={() => { if (confirmNew) { AudioFX.click(); onNewGame(); } else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); } }}>
           <span className="mm-ico" style={{ background: 'rgba(255,226,122,.12)' }}><Sparkles size={16} color={confirmNew ? '#FF8B82' : '#FFE27A'} /></span>
           <span><div style={{ fontSize: 14.5, fontWeight: 600, color: confirmNew ? '#FF8B82' : '#D7E0EA' }}>{confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}</div><div style={{ fontSize: 11, color: '#76849A' }}>{confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}</div></span>
+          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
+        </button>
+        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'combat_proto' }); }}>
+          <span className="mm-ico" style={{ background: 'rgba(255,107,98,.12)' }}><Swords size={16} color="#FF8B82" /></span>
+          <span><div style={{ fontSize: 14.5, fontWeight: 600, color: '#FF8B82' }}>COMBAT PROTO</div><div style={{ fontSize: 11, color: '#76849A' }}>First Contact · stagger, parry, four telegraphed attacks</div></span>
           <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
         </button>
         <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}>
@@ -10941,15 +11700,17 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
             if (_prevE == null) _prevE = _cfx.ehp; if (_prevP == null) _prevP = _cfx.php;
             if (_cfx.ehp < _prevE - 0.001) { _punchT = now; _flashT = now; _cr.userData.hitT = now / 1000; _vmJabT = now; }
             if (_cfx.php < _prevP - 0.001) { _shakeT = now; _vigT = now; }
+            _cr.userData.broken = !!_cfx.broken;
+            if (_cfx.crit) _punchT = now;
             if (_cfx.phase != null) { if (_cfx.phase > _prevPhase) { _prevPhase = _cfx.phase; _punchT = now; _flashT = now; _shakeT = now; _vigT = now; if (_cr.userData) _cr.userData.enrage = _cfx.phase; spawnShatter(scene, _cr.position.x, _cr.position.y + 1.8, _cr.position.z, _cfx.phase >= 3 ? 0xFF3B2E : 0xFF7A33); AudioFX.bad(); } else if (_cfx.phase < _prevPhase) { _prevPhase = _cfx.phase; } }
             if (_cfx.over === 'won' && _prevOver !== 'won') { spawnShatter(scene, _cr.position.x, _cr.position.y + 1.6, _cr.position.z, 0x9fe6ff); AudioFX.win(); }
             _prevE = _cfx.ehp; _prevP = _cfx.php; _prevOver = _cfx.over;
           }
-          const pk = Math.max(0, 1 - (now - _punchT) / 220);
-          camera.fov = 74 - 7 * pk; camera.updateProjectionMatrix();
+          const pk = Math.max(0, 1 - (now - _punchT) / ((_cfx && _cfx.crit) ? 380 : 220));
+          camera.fov = 74 - (7 + ((_cfx && _cfx.crit) ? 5 : 0)) * pk; camera.updateProjectionMatrix();
           _flash.position.set(_cr.position.x, _cr.position.y + 2.2, _cr.position.z);
           _flash.intensity = 2.8 * Math.max(0, 1 - (now - _flashT) / 170);
-          const sk = Math.max(0, 1 - (now - _shakeT) / 320);
+          const sk = Math.max(0, 1 - (now - _shakeT) / 320) * ((_cfx && _cfx.shakeAmp) || 1);
           if (sk > 0) { camera.position.x += (Math.random() - 0.5) * 0.55 * sk; camera.position.y += (Math.random() - 0.5) * 0.45 * sk; }
           if (vignetteRef.current) vignetteRef.current.style.opacity = String(0.7 * Math.max(0, 1 - (now - _vigT) / 380));
         } else {
@@ -10963,7 +11724,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         fillLight.position.set(player.x, 2.6, player.z);
         const fx2 = -Math.sin(player.yaw), fz2 = -Math.cos(player.yaw);
         lamp.target.position.set(player.x + fx2 * 7, 1.0 + player.pitch * 4, player.z + fz2 * 7);
-        if (api.creatures) { const _ct = now / 1000; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
+        if (api.creatures) { const _ct = now / 1000; const _dtC = (_cfx && _cfx.hitStopUntil && now < _cfx.hitStopUntil) ? 0 : dt; for (let _i = 0; _i < api.creatures.length; _i++) { const _c = api.creatures[_i]; const _dx = player.x - _c.it.x, _dz = player.z - _c.it.z; updateCreature(_c.grp, _ct, { dt: _dtC, dx: _dx, dz: _dz, dist: Math.hypot(_dx, _dz) }); } }
         const _stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         { const gw = (saveRefD.current.gear && saveRefD.current.gear.weapon) || 'w_iron'; if (gw !== _vmWeap) { if (_vm) camera.remove(_vm); _vm = makeViewModel(gw); camera.add(_vm); _vmWeap = gw; } if (_vm) updateViewModel(_vm, now, _moving, _vmJabT); }
