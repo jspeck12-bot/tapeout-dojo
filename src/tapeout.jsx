@@ -3395,7 +3395,9 @@ const CSS = `
 .critopen{animation:critglow .85s ease-in-out infinite}
 @keyframes vecfly{0%{transform:translate(0,0);opacity:1}100%{transform:translate(var(--dx,40px),var(--dy,-28px));opacity:0}}
 .vecchip{display:inline-block;animation:vecfly .7s ease-out forwards;font-size:10px;color:#7DEFFF;margin-right:4px}
-@media(prefers-reduced-motion:reduce){.cursorblink,.toast,.popin,.shake,.dmgnum,.telebanner,.critopen,.vecchip{animation:none !important}.confetti{display:none !important}}
+@keyframes hitflash{0%{filter:brightness(1.22) contrast(1.12)}100%{filter:none}}
+.hitstop{animation:hitflash .09s linear}
+@media(prefers-reduced-motion:reduce){.cursorblink,.toast,.popin,.shake,.dmgnum,.telebanner,.critopen,.vecchip,.hitstop{animation:none !important}.confetti{display:none !important}}
 .wavescroll{overflow-x:auto;border:1px solid #1D2632;border-radius:8px;background:#080B10;padding:10px 6px}
 `;
 
@@ -4843,12 +4845,15 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
     if (result.pass) {
       onStat(topic, true);
       lines.push({ cls: 'c-ok', text: `TESTBENCH PASSED — ${result.total}/${result.total} ${result.kind === 'comb' ? 'vectors' : 'cycles'} ✓` });
-      if (!passed && !already) {
+      const firstClear = !passed && !already;
+      if (proto || firstClear) {
+        combat.onRun(packHit(res.mod, { ok: true, frac: 1, passCount: result.total, total: result.total }));
+      }
+      if (firstClear) {
         let stars = solUsedRef.current ? 1 : (attemptsRef.current === 0 && hintsOpen === 0 ? 3 : 2);
         if (timeUpRef.current) stars = Math.min(stars, 1);
         lines.push({ cls: 'c-dim', text: `// synthesis-clean. logged as ${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}` });
         if (timeUpRef.current) lines.push({ cls: 'c-warn', text: '// boss timer expired — clean work, late tapeout. capped at 1★' });
-        combat.onRun(packHit(res.mod, { ok: true, frac: 1, passCount: result.total, total: result.total }));
         onComplete(ch.id, stars, ch.xp);
         if (ch.id === 'chip1') onBossWin(ng);
       } else {
@@ -4880,8 +4885,25 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
   const widths = {};
   ch.iface.ports.forEach(p => widths[p.n] = p.w);
 
+  const [cmbShake, setCmbShake] = useState(false);
+  const [cmbStop, setCmbStop] = useState(false);
+  useEffect(() => {
+    if (!proto || !combat.fx || !combat.fx.shakeAmp) return;
+    setCmbShake(true);
+    const t = setTimeout(() => setCmbShake(false), 280);
+    return () => clearTimeout(t);
+  }, [proto, combat.fx && combat.fx.flinch]); // eslint-disable-line
+  useEffect(() => {
+    if (!proto || !combat.fx || !combat.fx.hitStopUntil) return;
+    const left = combat.fx.hitStopUntil - (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (left <= 0) return;
+    setCmbStop(true);
+    const t = setTimeout(() => setCmbStop(false), left);
+    return () => clearTimeout(t);
+  }, [proto, combat.fx && combat.fx.hitStopUntil]); // eslint-disable-line
+
   return (
-    <div style={{ marginTop: 22 }}>
+    <div className={(cmbShake ? 'shake' : '') + (cmbStop ? ' hitstop' : '')} style={{ marginTop: 22 }}>
       {combat.dead && <FlatlineOverlay c={combat} onRetry={proto ? combat.retry : undefined} onRetreat={() => go(forceLive ? { name: 'menu' } : { name: 'world', w: ch.world })} />}
       <button className="lnk" onClick={() => go(forceLive ? { name: 'menu' } : { name: 'world', w: ch.world })}><ChevronLeft size={14} /> {forceLive ? 'menu' : world.name}</button>
       {proto && (
@@ -6293,9 +6315,9 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume, proto, ch, seq
       crit: kind === 'crit',
     });
   };
-  const floatHit = (n, cls, sub) => {
+  const floatHit = (n, cls, sub, extra) => {
     const id = ++hid.current;
-    setHits(h => [...h.slice(-4), { id, n, cls, sub }]);
+    setHits(h => [...h.slice(-4), { id, n, cls, sub, vecs: extra && extra.vecs ? extra.vecs : 0 }]);
     setTimeout(() => setHits(h => h.filter(x => x.id !== id)), 1100);
   };
   const hurt = (raw, why) => {
@@ -6516,7 +6538,8 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume, proto, ch, seq
     if (usedCrit) { critRef.current = false; setCritOpen(false); }
     fillStagger(tuneRef.current.staggerHit * (hit.latch ? 0.5 : 1) * (hit.full ? 1.15 : 1));
     pulseFx(usedCrit ? 'crit' : 'hit', hit.dmg > 40 ? 1.4 : 0.85);
-    floatHit('+' + hit.dmg, usedCrit ? 'crit' : 'good', hit.breakdown);
+    const vecN = (hit.parts && hit.parts[0] && hit.parts[0].k === 'vec') ? hit.parts[0].n : 0;
+    floatHit('+' + hit.dmg, usedCrit ? 'crit' : 'good', hit.breakdown, { vecs: vecN });
     push(hit.breakdown, 'good');
     if (extra) extra.forEach(t => push(t, 'good'));
     if (hit.latch && !statsRef.current.latchImmune) {
@@ -6793,12 +6816,19 @@ function CombatHUD({ c, save }) {
         <div key={h.id} className="dmgnum" style={{ color: h.cls === 'crit' ? '#FFE27A' : h.cls === 'parry' ? '#7DEFFF' : h.cls === 'hurt' ? '#FF8B82' : '#7CE7A2', fontSize: h.cls === 'crit' ? 22 : 16 }}>
           {h.n}
           {h.sub ? <div style={{ fontSize: 10, fontWeight: 500, color: '#B9C6D6', letterSpacing: 0 }}>{h.sub}</div> : null}
+          {h.vecs > 0 ? (
+            <div style={{ marginTop: 2 }}>
+              {Array.from({ length: Math.min(8, h.vecs) }, (_, i) => (
+                <span key={i} className="vecchip" style={{ '--dx': (18 + i * 11) + 'px', '--dy': (-16 - i * 7) + 'px' }}>VEC</span>
+              ))}
+            </div>
+          ) : null}
         </div>
       ))}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 200px', minWidth: 180 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8FA3BC', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Heart size={11} color="#7CE7A2" /> ENGINEER · Lv {c.stats.lvl}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Heart size={11} color="#7CE7A2" /> {(c.mode || 'engineer').toUpperCase()} · Lv {c.stats.lvl}</span>
             <span>{c.php}/{c.stats.maxHp}</span>
           </div>
           <Bar pct={hpPct} color={hpPct > 50 ? '#2EA56A' : hpPct > 25 ? '#FFC76B' : '#FF6B62'} />
@@ -6825,8 +6855,8 @@ function CombatHUD({ c, save }) {
         </div>
         <div style={{ flex: '1 1 200px', minWidth: 180 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: c.enemy.boss ? '#FFE27A' : '#FF8B82', letterSpacing: '.06em' }}>
-              <Skull size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : proto ? ' · PROTO' : ''}
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: c.critOpen || (c.fx && c.fx.broken) ? '#FFE27A' : (c.enemy.boss ? '#FFE27A' : '#FF8B82'), letterSpacing: '.06em' }}>
+              <Skull size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : proto ? ' · PROTO' : ''}{c.critOpen || (c.fx && c.fx.broken) ? ' · BROKEN' : ''}
             </span>
             <span style={{ color: '#8FA3BC' }}>{c.ehp}/{c.enemy.hp}</span>
           </div>
@@ -6895,12 +6925,23 @@ function CombatHUD({ c, save }) {
 
 function FlatlineOverlay({ c, onRetry, onRetreat }) {
   const [loss, setLoss] = useState(null);
-  useEffect(() => { setLoss(c.retreatDead()); AudioFX.bad(); }, []); // eslint-disable-line
+  const paid = useRef(false);
+  const pay = () => {
+    if (paid.current) return loss || 0;
+    paid.current = true;
+    const n = c.retreatDead();
+    setLoss(n);
+    return n;
+  };
+  useEffect(() => {
+    AudioFX.bad();
+    if (!onRetry) pay();
+  }, []); // eslint-disable-line
   useEffect(() => {
     if (!onRetry) return;
     const t0 = Date.now();
     const h = (e) => {
-      if (e.key === 'Escape' && onRetreat) { onRetreat(); return; }
+      if (e.key === 'Escape' && onRetreat) { pay(); onRetreat(); return; }
       if (e.key === 'Enter' || e.key === ' ' || e.key === 'r' || e.key === 'R') {
         if (Date.now() - t0 < 80) return;
         e.preventDefault();
@@ -6919,14 +6960,14 @@ function FlatlineOverlay({ c, onRetry, onRetreat }) {
           The {c.enemy.name.toLowerCase()} grinds you into the substrate.
           {loss > 0 ? <> Scavengers strip <b style={{ color: '#FFC76B' }}>{loss} scrap</b> from your kit.</> : null}
           {c.lesson ? <div style={{ marginTop: 10, color: '#FFC76B' }}>what you know now: {c.lesson}</div> : null}
-          {onRetry ? <div style={{ marginTop: 8, color: '#8FA3BC' }}>Draft survives. One key. No runback.</div> : ' Your code draft survives — come back leveled, geared, or both.'}
+          {onRetry ? <div style={{ marginTop: 8, color: '#8FA3BC' }}>Draft survives. One key. No runback. Scrap stays if you retry.</div> : ' Your code draft survives — come back leveled, geared, or both.'}
         </div>
         {onRetry ? (
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 18, flexWrap: 'wrap' }}>
             <button className="btn primary" autoFocus onClick={() => { AudioFX.click(); onRetry(); }}>
               retry ↵
             </button>
-            {onRetreat && <button className="btn sm" onClick={() => { AudioFX.click(); onRetreat(); }}>flee</button>}
+            {onRetreat && <button className="btn sm" onClick={() => { pay(); AudioFX.click(); onRetreat(); }}>flee</button>}
           </div>
         ) : (
           <button className="btn primary" style={{ marginTop: 18 }} onClick={() => { AudioFX.click(); onRetreat(); }}>

@@ -62,7 +62,7 @@ async function run() {
   act(() => { onProto(); });
   for (let i = 0; i < 6; i++) { await act(async () => { await Promise.resolve(); }); } // eslint-disable-line no-await-in-loop
   const protoText = textOf(root.toJSON());
-  for (const marker of ['STAGGER', 'COMPILE', 'PROBE', 'First Contact']) {
+  for (const marker of ['STAGGER', 'COMPILE', 'PROBE', 'CHARGE', 'First Contact']) {
     assert(protoText.includes(marker), `combat proto UI missing "${marker}"`);
     checks++;
   }
