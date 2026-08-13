@@ -79,7 +79,7 @@ const GOTHIC_DUNGEONS = {
     lampI: 1.85,
     lampAngle: 0.52,
     far: 420,
-    pitch: -0.12,
+    pitch: -0.16,
     ambience: 'canyon',
     bloom: 0.32,
     focus: 28,

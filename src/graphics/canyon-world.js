@@ -209,56 +209,67 @@ function buildColossus(scene, model, stone, brass, steel) {
   landmark.userData.landmark = true;
   landmark.position.set(dest.x, 0, dest.z);
 
-  const plinth = addMesh(landmark, roundedBoxGeometry(14, 3.2, 10, 0.22, 3), stone, 0, 1.6, 0);
+  const plinth = addMesh(landmark, roundedBoxGeometry(16, 4.2, 12, 0.22, 3), stone, 0, 2.1, 0);
   plinth.userData.cast = true;
-  const legs = addMesh(landmark, roundedBoxGeometry(9.4, 22, 6.2, 0.2, 3), steel, 0, 14.2, 0);
+  const legs = addMesh(landmark, roundedBoxGeometry(11, 28, 7.2, 0.2, 3), steel, 0, 18.2, 0);
   legs.userData.cast = true;
-  const torso = addMesh(landmark, roundedBoxGeometry(16, 20, 8.4, 0.22, 3), stone, 0, 34, 0);
+  const torso = addMesh(landmark, roundedBoxGeometry(20, 26, 10, 0.22, 3), stone, 0, 44, 0);
   torso.userData.cast = true;
   [-1, 1].forEach(side => {
-    const arm = addMesh(landmark, roundedBoxGeometry(4.2, 18, 4.2, 0.16, 3), steel, side * 10.4, 32, 1.4);
+    const arm = addMesh(landmark, roundedBoxGeometry(5.2, 24, 5.2, 0.16, 3), steel, side * 13.2, 42, 1.6);
     arm.userData.cast = true;
   });
-  const head = addMesh(landmark, roundedBoxGeometry(8.4, 10.6, 7.2, 0.2, 3), stone, 0, 49.2, 1.2);
+  const head = addMesh(landmark, roundedBoxGeometry(10.4, 14, 8.6, 0.2, 3), stone, 0, 64, 1.4);
   head.userData.cast = true;
   const visor = addMesh(
     landmark,
-    roundedBoxGeometry(6.2, 1.4, 0.3, 0.06, 2),
-    emissiveSurface('silicon', CANYON_PALETTE.ember, 1.7, 1),
+    roundedBoxGeometry(8.2, 2.2, 0.36, 0.06, 2),
+    emissiveSurface('silicon', CANYON_PALETTE.ember, 2.1, 1),
     0,
-    49.6,
-    4.9,
+    64.6,
+    5.9,
   );
   visor.userData.visor = true;
+  visor.material.fog = false;
   addMesh(
     landmark,
-    roundedBoxGeometry(10.4, 0.18, 0.18, 0.04, 2),
-    emissiveSurface('silicon', CANYON_PALETTE.amber, 1.35, 1),
+    roundedBoxGeometry(13.4, 0.22, 0.22, 0.04, 2),
+    emissiveSurface('silicon', CANYON_PALETTE.amber, 1.5, 1),
     0,
-    44.6,
-    4.4,
+    57.4,
+    5.2,
   );
   const halo = addMesh(
     landmark,
-    new THREE.TorusGeometry(7.4, 0.28, 8, 40),
-    emissiveSurface('silicon', CANYON_PALETTE.ember, 1.15, 1),
+    new THREE.TorusGeometry(9.4, 0.34, 8, 40),
+    emissiveSurface('silicon', CANYON_PALETTE.ember, 1.45, 1),
     0,
-    56.4,
+    74,
     0,
   );
   halo.rotation.x = Math.PI / 2;
-  const under = new THREE.PointLight(CANYON_PALETTE.ember, 1.8, 72, 2);
-  under.position.set(0, 28, 6);
+  halo.material.fog = false;
+  const pylon = addMesh(
+    landmark,
+    roundedBoxGeometry(2.4, 88, 2.4, 0.12, 2),
+    emissiveSurface('silicon', CANYON_PALETTE.ember, 1.15, 1),
+    0,
+    46,
+    -1.2,
+  );
+  pylon.material.fog = false;
+  const under = new THREE.PointLight(CANYON_PALETTE.ember, 2.1, 90, 2);
+  under.position.set(0, 36, 8);
   under.castShadow = false;
   under.userData.lightRole = 'monument';
   under.userData.baseIntensity = under.intensity;
   landmark.add(under);
-  landmark.add(fxCone(CANYON_PALETTE.ember, 5.2, 36, 0.045, 0, 0));
-  landmark.add(fxCone(CANYON_PALETTE.amber, 2.4, 24, 0.03, 0, 0));
-  const marquee = gothicLabel('THE ENCODER COLOSSUS', '#FB923C', 1.8);
-  marquee.position.set(0, 64, 2);
+  landmark.add(fxCone(CANYON_PALETTE.ember, 7.2, 52, 0.04, 0, 0));
+  landmark.add(fxCone(CANYON_PALETTE.amber, 3.2, 34, 0.028, 0, 0));
+  const marquee = gothicLabel('THE ENCODER COLOSSUS', '#FB923C', 2.1);
+  marquee.position.set(0, 82, 2.4);
   landmark.add(marquee);
-  addMesh(landmark, roundedBoxGeometry(6.2, 1.1, 3.4, 0.12, 3), brass, 0, 24.6, 4.2);
+  addMesh(landmark, roundedBoxGeometry(7.4, 1.3, 4.2, 0.12, 3), brass, 0, 31.2, 5.2);
   scene.add(landmark);
   return { landmark, halo, under, visor };
 }
@@ -274,8 +285,8 @@ function buildLightShaft(scene, model) {
     side: THREE.DoubleSide,
     fog: false,
   });
-  const shaft = new THREE.Mesh(new THREE.ConeGeometry(16, 56, 22, 1, true), material);
-  shaft.position.set(dest.x, 34, dest.z);
+  const shaft = new THREE.Mesh(new THREE.ConeGeometry(18, 72, 22, 1, true), material);
+  shaft.position.set(dest.x, 44, dest.z);
   shaft.rotation.z = 0.05;
   shaft.castShadow = false;
   shaft.renderOrder = 3;
@@ -308,6 +319,7 @@ function buildFloor(scene, model) {
 
 function buildCliffs(scene, model, stone) {
   const strata = emissiveSurface('silicon', CANYON_PALETTE.ember, 0.42, 2);
+  const bands = [];
   model.colliders.forEach(wall => {
     const sx = wall.maxX - wall.minX;
     const sz = wall.maxZ - wall.minZ;
@@ -318,16 +330,32 @@ function buildCliffs(scene, model, stone) {
     mesh.userData.cast = true;
     scene.add(mesh);
     if (length > 14) {
-      [0.28, 0.52, 0.76].forEach((frac, index) => {
-        const bar = new THREE.Mesh(
-          new THREE.BoxGeometry(Math.max(0.2, sx * 0.92), 0.12, Math.max(0.2, sz * 0.92)),
-          index === 1 ? strata : stone,
-        );
-        bar.position.set(mesh.position.x, height * frac, mesh.position.z);
-        scene.add(bar);
+      [0.28, 0.52, 0.76].forEach(frac => {
+        bands.push({
+          x: mesh.position.x,
+          y: height * frac,
+          z: mesh.position.z,
+          sx: Math.max(0.2, sx * 0.92),
+          sz: Math.max(0.2, sz * 0.92),
+        });
       });
     }
   });
+  if (bands.length) {
+    const bandMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.12, 1), strata, bands.length);
+    const matrix = new THREE.Matrix4();
+    const ident = new THREE.Quaternion();
+    bands.forEach((band, index) => {
+      matrix.compose(
+        new THREE.Vector3(band.x, band.y, band.z),
+        ident,
+        new THREE.Vector3(band.sx, 1, band.sz),
+      );
+      bandMesh.setMatrixAt(index, matrix);
+    });
+    bandMesh.instanceMatrix.needsUpdate = true;
+    scene.add(bandMesh);
+  }
 }
 
 function buildBridge(scene, model, stone, brass) {
@@ -505,8 +533,8 @@ function buildCanyonWorldScene(scene, model, theme, helpers) {
   const steel = pbrMaterial('wornSteel', CANYON_PALETTE.steel, { roughness: 0.46, metalness: 0.7, repeat: 2 });
 
   scene.background = new THREE.Color(CANYON_PALETTE.void);
-  scene.fog = new THREE.FogExp2(CANYON_PALETTE.fog, 0.0084);
-  scene.userData.baseFogDensity = 0.0084;
+  scene.fog = new THREE.FogExp2(CANYON_PALETTE.fog, 0.0072);
+  scene.userData.baseFogDensity = 0.0072;
 
   const lighting = buildCanyonLighting(scene, model, low);
   buildStars(scene, low);
