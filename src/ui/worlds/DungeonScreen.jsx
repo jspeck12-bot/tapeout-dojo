@@ -70,6 +70,21 @@ const GOTHIC_DUNGEONS = {
     focus: 16,
     exposure: 0.84,
   },
+  4: {
+    status: 'canyon',
+    label: 'COMBINATIONAL CANYON',
+    gfxTitle: 'quality · combinational canyon',
+    qualityAccent: '#fb923c',
+    lamp: 0xffe2c4,
+    lampI: 1.85,
+    lampAngle: 0.52,
+    far: 420,
+    pitch: -0.12,
+    ambience: 'canyon',
+    bloom: 0.32,
+    focus: 28,
+    exposure: 0.88,
+  },
 };
 
 function applyGothicGfx(ctx, gfx, quality) {
@@ -654,6 +669,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       className={gothic ? 'sg-world' : undefined}
       data-valley-status={w === 2 ? stage : undefined}
       data-foundry-status={w === 3 ? stage : undefined}
+      data-canyon-status={w === 4 ? stage : undefined}
       style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
     >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />

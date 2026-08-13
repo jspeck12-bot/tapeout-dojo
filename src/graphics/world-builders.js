@@ -24,6 +24,7 @@ import {
 } from './campus-world.js';
 import { buildValleyWorldScene } from './valley-world.js';
 import { buildFoundryWorldScene } from './foundry-world.js';
+import { buildCanyonWorldScene } from './canyon-world.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -302,40 +303,12 @@ function buildFoundry(scene, model, theme) {
 }
 
 function buildCanyon(scene, model, theme) {
-  const acc = theme.accent;
-  const b = model.bounds, cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  scene.background = new THREE.Color(0x24130a);
-  scene.fog = new THREE.FogExp2(0x2c1808, 0.016 / (model.worldScale || 1));
-  skyDome(scene, 0x140a04, 0x5a3416, cx, cz, 190);
-  scene.add(new THREE.HemisphereLight(0x6a4420, 0x140a04, 0.6));
-  scene.add(new THREE.AmbientLight(0x2e1c0c, theme.ambient * 0.7));
-
-  const fw = (b.maxX - b.minX) + 120, fd = (b.maxZ - b.minZ) + 120;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fd), matStd(theme.floorCol, { roughness: 1.0, metalness: 0.03 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0, cz); scene.add(floor);
-  buildPathTrail(scene, model.path, acc, true);
-
-  // sandstone mesa walls (reuse the cave-rock texture set for canyon stone)
-  const mesaMat = rockMaterial({ repeat: [3, 2], normal: 1.3, tint: 0xb0884e });
-  cliffRun(scene, model, mesaMat, 13, 3.2, 300 + model.world);
-
-  // rock spires perched on the mesa tops for a jagged skyline
-  const rng = mulberry32(77 + model.world);
-  model.colliders.forEach((wl, i) => {
-    if (i % 2 !== 0) return;
-    const mx = (wl.minX + wl.maxX) / 2, mz = (wl.minZ + wl.maxZ) / 2;
-    const h = 3 + rng() * 4;
-    const spire = new THREE.Mesh(new THREE.ConeGeometry(1.1 + rng() * 0.6, h, 6), mesaMat);
-    spire.position.set(mx + (rng() - 0.5) * 1.5, 12 + h / 2, mz + (rng() - 0.5) * 1.5);
-    spire.rotation.y = rng() * Math.PI;
-    scene.add(spire);
+  return buildCanyonWorldScene(scene, model, theme, {
+    makeNextBeacon,
+    buildFogGate,
+    buildExplorationProps,
+    buildDungeonNodes,
   });
-
-  const api = { totems: {}, books: {}, gateGrp: null, creatures: [] };
-  buildDungeonNodes(scene, model, theme, api);
-  lightScene(scene, model.bounds, { ceil: false, dust: acc, glowSize: 5.2, glowOpacity: 0.8, sky: 0x8a5a28, skyI: 1.0 });
-  api.worldArt = buildWorldArt(scene, model, model.world);
-  return api;
 }
 
 function buildMineWorld(scene, model) {
