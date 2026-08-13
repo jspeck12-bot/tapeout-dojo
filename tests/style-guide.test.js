@@ -81,37 +81,62 @@ describe('Silicon Gothic style guide', () => {
   });
 
   test('composes the review scene by hand around an unobstructed wafer landmark', () => {
-    const scene = new THREE.Scene();
-    const result = buildStyleGuideScene(scene);
-    const art = result.worldArt;
-    expect(result.model).toBe(STYLE_GUIDE_MODEL);
-    expect(scene.userData.worldArt).toBe(art);
-    expect(art.palette).toBe(PALETTE);
-    expect(art.landmark.userData.landmark).toBe(true);
-    expect(art.landmark.position.z).toBeLessThan(-45);
-    expect(art.frame.userData.foregroundFrame).toBe(true);
-    expect(art.pathLighting.userData.pathLighting).toBe(true);
-    expect(art.detail.isInstancedMesh).toBe(true);
-    expect(art.atmosphere.isPoints).toBe(true);
-    expect(art.shaft.castShadow).toBe(false);
-    expect(art.key.userData.lightRole).toBe('key');
-    expect(art.rim.userData.lightRole).toBe('rim');
-    expect(art.materialCoverage.complete).toBe(true);
-    expect(result.samples.map(sample => sample.userData.materialSample)).toEqual([
-      'wetRock',
-      'wornSteel',
-      'concrete',
-      'brass',
-      'silicon',
-    ]);
-    const shadowPointLights = [];
-    scene.traverse(object => {
-      if (object.isPointLight && object.castShadow) shadowPointLights.push(object);
-      for (const vector of [object.position, object.rotation, object.scale]) {
-        if (!vector) continue;
-        expect([vector.x, vector.y, vector.z].every(Number.isFinite)).toBe(true);
-      }
-    });
-    expect(shadowPointLights).toEqual([]);
+    const originalDocument = globalThis.document;
+    globalThis.document = {
+      createElement() {
+        const canvas = { width: 300, height: 150 };
+        const context = {
+          canvas,
+          font: '',
+          fillStyle: '',
+          strokeStyle: '',
+          globalAlpha: 1,
+          textAlign: '',
+          textBaseline: '',
+          measureText: text => ({ width: String(text).length * 18 }),
+          fillRect() {},
+          strokeRect() {},
+          fillText() {},
+        };
+        canvas.getContext = () => context;
+        return canvas;
+      },
+    };
+    try {
+      const scene = new THREE.Scene();
+      const result = buildStyleGuideScene(scene);
+      const art = result.worldArt;
+      expect(result.model).toBe(STYLE_GUIDE_MODEL);
+      expect(scene.userData.worldArt).toBe(art);
+      expect(art.palette).toBe(PALETTE);
+      expect(art.landmark.userData.landmark).toBe(true);
+      expect(art.landmark.position.z).toBeLessThan(-45);
+      expect(art.frame.userData.foregroundFrame).toBe(true);
+      expect(art.pathLighting.userData.pathLighting).toBe(true);
+      expect(art.detail.isInstancedMesh).toBe(true);
+      expect(art.atmosphere.isPoints).toBe(true);
+      expect(art.shaft.castShadow).toBe(false);
+      expect(art.key.userData.lightRole).toBe('key');
+      expect(art.rim.userData.lightRole).toBe('rim');
+      expect(art.materialCoverage.complete).toBe(true);
+      expect(result.samples.map(sample => sample.userData.materialSample)).toEqual([
+        'wetRock',
+        'wornSteel',
+        'concrete',
+        'brass',
+        'silicon',
+      ]);
+      const shadowPointLights = [];
+      scene.traverse(object => {
+        if (object.isPointLight && object.castShadow) shadowPointLights.push(object);
+        for (const vector of [object.position, object.rotation, object.scale]) {
+          if (!vector) continue;
+          expect([vector.x, vector.y, vector.z].every(Number.isFinite)).toBe(true);
+        }
+      });
+      expect(shadowPointLights).toEqual([]);
+    } finally {
+      globalThis.document = originalDocument;
+    }
   });
 });
