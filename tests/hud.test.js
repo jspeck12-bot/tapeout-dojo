@@ -68,7 +68,7 @@ describe('Silicon Gothic operator HUD', () => {
       }));
     });
     const html = JSON.stringify(root.toJSON());
-    expect(html).toContain('data-locked\":\"1\"');
+    expect(html).toContain('data-locked":"1"');
     expect(html).toContain('SEALED');
   });
 
