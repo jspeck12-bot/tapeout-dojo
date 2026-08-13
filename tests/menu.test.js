@@ -66,6 +66,7 @@ describe('Silicon Gothic main menu', () => {
     const text = JSON.stringify(json);
     expect(text).toContain('TAPEOUT');
     expect(text).toContain('CONTINUE');
+    expect(text).toContain('DIE FLOORPLAN');
     expect(text).toContain('NEW GAME');
     expect(text).toContain('CODEX & MASTERY DIE');
     expect(text).toContain('SETTINGS');

@@ -138,6 +138,26 @@ function ChevronMark({ size }) {
   );
 }
 
+function LockMark({ size }) {
+  return (
+    <FabMark size={size} label="sealed">
+      <rect x="4" y="7" width="8" height="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5.5 7V5.4a2.5 2.5 0 0 1 5 0V7" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="7.2" y="9.2" width="1.6" height="2.4" fill="currentColor" />
+    </FabMark>
+  );
+}
+
+function DieMark({ size }) {
+  return (
+    <FabMark size={size} label="die floorplan">
+      <rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M2 7h12M7 2v12M10 7v7M2 11h5" stroke="currentColor" strokeWidth="1.15" />
+      <rect x="3.2" y="3.2" width="2.6" height="2.6" fill="currentColor" opacity="0.55" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -150,4 +170,6 @@ export {
   ArcadeMark,
   CoinMark,
   ChevronMark,
+  LockMark,
+  DieMark,
 };

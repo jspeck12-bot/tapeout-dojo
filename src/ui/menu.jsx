@@ -19,7 +19,7 @@ import { TOKEN_CSS } from './tokens.js';
 import { Panel } from './components/Panel.jsx';
 import { MenuRow } from './components/MenuRow.jsx';
 import {
-  ArcadeMark, BookMark, ChipMark, CoinMark, GearMark, PlayMark,
+  ArcadeMark, BookMark, ChipMark, CoinMark, DieMark, GearMark, PlayMark,
   ReplayMark, SparkMark, SwordMark,
 } from './components/icons.jsx';
 
@@ -204,6 +204,12 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
               title="CONTINUE"
               hint={`resume · walk the fab · Lv ${lvl} · ⛁ ${save.scrap || 0}`}
               onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
+            />
+            <MenuRow
+              icon={<DieMark size={16} />}
+              title="DIE FLOORPLAN"
+              hint="pick a district pad · console or 3D trail"
+              onClick={() => { AudioFX.click(); go({ name: 'worlds' }); }}
             />
             <MenuRow
               variant={confirmNew ? 'danger' : 'default'}
