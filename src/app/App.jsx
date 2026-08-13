@@ -75,7 +75,7 @@ export function App() {
   const [levelModal, setLevelModal] = useState(null);
   const [confetti, setConfetti] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [gfx, setGfx] = useState({ exposure: 1.2, lights: 1.2, ambient: 1.0, fog: 0.032, normal: 0.95, glow: 0.82, bloom: 0.9 });
+  const [gfx, setGfx] = useState({ exposure: 1.08, lights: 1.1, ambient: 0.92, fog: 0.032, normal: 0.95, glow: 0.7, bloom: 0.58 });
   const [frNote, setFrNote] = useState(false);
   const [frText, setFrText] = useState('');
   const [frReport, setFrReport] = useState(false);

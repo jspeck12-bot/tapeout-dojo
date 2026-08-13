@@ -70,7 +70,7 @@ function makePostFX(renderer, cssW, cssH) {
   const rtB = new THREE.WebGLRenderTarget(W >> 1, H >> 1, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, stencilBuffer: false, depthBuffer: false });
   const quadScene = new THREE.Scene();
   const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const bright = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, thresh: { value: 0.5 } }, vertexShader: POST_VS, fragmentShader: POST_BRIGHT_FS, depthTest: false, depthWrite: false });
+  const bright = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, thresh: { value: 0.72 } }, vertexShader: POST_VS, fragmentShader: POST_BRIGHT_FS, depthTest: false, depthWrite: false });
   const blur = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) }, res: { value: new THREE.Vector2(W >> 1, H >> 1) } }, vertexShader: POST_VS, fragmentShader: POST_BLUR_FS, depthTest: false, depthWrite: false });
   const comp = new THREE.ShaderMaterial({ uniforms: {
     tex: { value: null }, bloomTex: { value: null }, strength: { value: 0.9 }, t: { value: 0 },

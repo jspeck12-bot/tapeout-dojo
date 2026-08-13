@@ -41,21 +41,21 @@ function buildExplorationProps(scene, model, accent) {
     group.position.set(feature.x, 0, feature.z);
     if (feature.kind === 'grace') {
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(1.35, 0.12, 8, 28),
-        new THREE.MeshBasicMaterial({ color: 0x7defff }),
+        new THREE.TorusGeometry(0.9, 0.09, 8, 28),
+        new THREE.MeshBasicMaterial({ color: 0x3199b2 }),
       );
       ring.rotation.x = Math.PI / 2;
       ring.position.y = 0.18;
       group.add(ring);
       const pillar = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.12, 0.22, 2.8, 8),
-        new THREE.MeshBasicMaterial({ color: 0x9beeff, transparent: true, opacity: 0.42 }),
+        new THREE.CylinderGeometry(0.1, 0.18, 2.2, 8),
+        new THREE.MeshBasicMaterial({ color: 0x42a9c0, transparent: true, opacity: 0.34 }),
       );
-      pillar.position.y = 1.4;
+      pillar.position.y = 1.1;
       group.add(pillar);
-      group.add(fxCone(0x7defff, 1.15, 3.6, 0.018, 0, 0));
-      const label = mineLabelSprite('TRACE GRACE', '#7DEFFF', 0.55);
-      label.position.y = 3.3;
+      group.add(fxCone(0x3199b2, 0.85, 2.8, 0.012, 0, 0));
+      const label = mineLabelSprite('TRACE GRACE', '#7DEFFF', 0.36);
+      label.position.y = 2.65;
       group.add(label);
       (scene.userData.anims = scene.userData.anims || []).push((time) => {
         ring.rotation.z = time * 0.8;
@@ -108,7 +108,7 @@ function applyExplorationProgress(api, save) {
         ? !!state.lore[feature.id]
         : !!state.caches[feature.id];
     if (feature.kind === 'cache') entry.group.visible = !complete;
-    else entry.material.color.setHex(complete ? 0x2ea56a : feature.kind === 'grace' ? 0x7defff : 0xffc76b);
+    else entry.material.color.setHex(complete ? 0x2ea56a : feature.kind === 'grace' ? 0x3199b2 : 0xffc76b);
   });
 }
 
