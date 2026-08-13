@@ -360,9 +360,9 @@ function buildShell(scene, model, steel, plate) {
 
 function buildCatwalks(scene, model, steel, brass, low) {
   const path = model.path || [];
-  const postGeo = roundedBoxGeometry(0.16, CATWALK_Y, 0.16, 0.03, 2);
-  const deckGeo = roundedBoxGeometry(1.9, 0.1, 3.2, 0.04, 2);
-  const railGeo = roundedBoxGeometry(0.07, 0.07, 3.2, 0.02, 2);
+  const postGeo = new THREE.BoxGeometry(0.16, CATWALK_Y, 0.16);
+  const deckGeo = new THREE.BoxGeometry(1.9, 0.1, 3.2);
+  const railGeo = new THREE.BoxGeometry(0.07, 0.07, 3.2);
   const posts = [];
   const decks = [];
   const rails = [];
@@ -378,7 +378,7 @@ function buildCatwalks(scene, model, steel, brass, low) {
     const uz = dz / len;
     const px = -uz;
     const pz = ux;
-    const step = low ? 8.4 : 6.2;
+    const step = low ? 10.4 : 8.8;
     for (let s = 4; s < len - 3; s += step) {
       const x = a.x + ux * s;
       const z = a.z + uz * s;
@@ -469,12 +469,25 @@ function buildPipeRuns(scene, model, steel, heat, low) {
   mesh.userData.cast = true;
   scene.add(mesh);
 
-  items.forEach((item, index) => {
-    if (index % 3 !== 0) return;
-    const band = new THREE.Mesh(roundedBoxGeometry(0.5, 0.12, 0.5, 0.04, 2), heat);
-    band.position.set(item.x, 11.4, item.z);
-    scene.add(band);
-  });
+  const bands = items.filter((_, index) => index % 3 === 0);
+  if (bands.length) {
+    const bandMesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(0.5, 0.12, 0.5),
+      heat,
+      bands.length,
+    );
+    const ident = new THREE.Quaternion();
+    bands.forEach((item, index) => {
+      matrix.compose(
+        new THREE.Vector3(item.x, 11.4, item.z),
+        ident,
+        new THREE.Vector3(1, 1, 1),
+      );
+      bandMesh.setMatrixAt(index, matrix);
+    });
+    bandMesh.instanceMatrix.needsUpdate = true;
+    scene.add(bandMesh);
+  }
   return mesh;
 }
 
@@ -507,9 +520,12 @@ function buildHallPosts(scene, model, steel, brass) {
   const nodes = (model.interactables || []).map(item => ({ x: item.x, z: item.z }));
   const cap = emissiveSurface('silicon', FOUNDRY_PALETTE.heat, 0.7, 1);
   const bounds = model.bounds;
+  const posts = [];
+  const tips = [];
+  const embers = [];
   let placed = 0;
   let tries = 0;
-  while (placed < 44 && tries < 640) {
+  while (placed < 36 && tries < 640) {
     tries++;
     const x = bounds.minX + 8 + random() * (bounds.maxX - bounds.minX - 16);
     const z = bounds.minZ + 8 + random() * (bounds.maxZ - bounds.minZ - 16);
@@ -518,24 +534,53 @@ function buildHallPosts(scene, model, steel, brass) {
     if (nodes.some(point => Math.hypot(point.x - x, point.z - z) < 5.5)) continue;
     if (Math.hypot(x - STACK.x, z - STACK.z) < 8) continue;
     const h = 4.6 + random() * 5.4;
-    const post = new THREE.Mesh(roundedBoxGeometry(0.38, h, 0.38, 0.05, 2), steel);
-    post.position.set(x, h / 2, z);
-    post.userData.cast = true;
-    scene.add(post);
-    const tip = new THREE.Mesh(roundedBoxGeometry(0.26, 0.14, 0.26, 0.04, 2), brass);
-    tip.position.set(x, h + 0.1, z);
-    scene.add(tip);
-    const ember = new THREE.Mesh(roundedBoxGeometry(0.18, 0.1, 0.18, 0.03, 2), cap);
-    ember.position.set(x, h + 0.28, z);
-    scene.add(ember);
+    posts.push({ x, y: h / 2, z, sy: h });
+    tips.push({ x, y: h + 0.1, z });
+    embers.push({ x, y: h + 0.28, z });
     placed++;
   }
+  const matrix = new THREE.Matrix4();
+  const ident = new THREE.Quaternion();
+  const postMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.38, 1, 0.38), steel, posts.length);
+  posts.forEach((item, index) => {
+    matrix.compose(
+      new THREE.Vector3(item.x, item.y, item.z),
+      ident,
+      new THREE.Vector3(1, item.sy, 1),
+    );
+    postMesh.setMatrixAt(index, matrix);
+  });
+  postMesh.instanceMatrix.needsUpdate = true;
+  postMesh.userData.cast = true;
+  scene.add(postMesh);
+  const tipMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.26, 0.14, 0.26), brass, tips.length);
+  tips.forEach((item, index) => {
+    matrix.compose(
+      new THREE.Vector3(item.x, item.y, item.z),
+      ident,
+      new THREE.Vector3(1, 1, 1),
+    );
+    tipMesh.setMatrixAt(index, matrix);
+  });
+  tipMesh.instanceMatrix.needsUpdate = true;
+  scene.add(tipMesh);
+  const emberMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.18, 0.1, 0.18), cap, embers.length);
+  embers.forEach((item, index) => {
+    matrix.compose(
+      new THREE.Vector3(item.x, item.y, item.z),
+      ident,
+      new THREE.Vector3(1, 1, 1),
+    );
+    emberMesh.setMatrixAt(index, matrix);
+  });
+  emberMesh.instanceMatrix.needsUpdate = true;
+  scene.add(emberMesh);
 }
 
 function buildBeams(scene, model, steel, low) {
   const bounds = model.bounds;
-  const count = low ? 18 : 28;
-  const geo = roundedBoxGeometry(0.36, 0.36, 18, 0.05, 2);
+  const count = low ? 14 : 20;
+  const geo = new THREE.BoxGeometry(0.36, 0.36, 18);
   const mesh = new THREE.InstancedMesh(geo, steel, count);
   const random = mulberry32(0x51b0);
   const matrix = new THREE.Matrix4();

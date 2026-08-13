@@ -9,7 +9,7 @@ module.exports = {
   arcade: { direct: 48, total: 49, rendered: 40, lights: 7 },
   'style-guide': { direct: 18, total: 70, rendered: 55, lights: 7 },
   'dungeon-2': { direct: 144, total: 234, rendered: 204, lights: 15 },
-  'dungeon-3': { direct: 210, total: 266, rendered: 229, lights: 16 },
+  'dungeon-3': { direct: 112, total: 266, rendered: 229, lights: 16 },
   'dungeon-4': { direct: 118, total: 229, rendered: 189, lights: 19 },
   'dungeon-5': { direct: 219, total: 278, rendered: 236, lights: 19 },
   'dungeon-6': { direct: 175, total: 217, rendered: 192, lights: 12 },
