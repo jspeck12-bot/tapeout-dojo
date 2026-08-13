@@ -16,6 +16,7 @@ import { levelFromXp } from '../game/rpg.js';
 import { rankIndex } from './foundations.jsx';
 import { ALL_CHALLENGES } from '../world/challenges.js';
 import { TOKEN_CSS } from './tokens.js';
+import { Panel } from './components/Panel.jsx';
 import { MenuRow } from './components/MenuRow.jsx';
 import {
   ArcadeMark, BookMark, ChipMark, CoinMark, GearMark, PlayMark,
@@ -60,12 +61,11 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
       <style>{`
         .mm-root{
           position:fixed;inset:0;z-index:30;overflow:auto;
-          display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
-          padding:clamp(28px,5vh,48px) 24px 36px;
+          display:flex;flex-direction:column;align-items:center;justify-content:center;
+          padding:clamp(20px,3.5vh,40px) clamp(16px,4vw,48px) 28px;
         }
-        @media(min-height:920px){.mm-root{justify-content:center}}
         .mm-grid{
-          position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;
+          position:absolute;left:-30%;right:-30%;bottom:-12%;height:62%;
           background-image:
             linear-gradient(color-mix(in srgb, var(--sg-brass) 12%, transparent) 1px, transparent 1px),
             linear-gradient(90deg, color-mix(in srgb, var(--sg-cyan) 10%, transparent) 1px, transparent 1px);
@@ -86,7 +86,7 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
           pointer-events:none;z-index:1;
         }
         @keyframes mm-fall{to{transform:translateY(116vh)}}
-        .mm-map{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.55;pointer-events:none}
+        .mm-map{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.42;pointer-events:none}
         .mm-trace{stroke-dasharray:9 13;animation:mm-flow 4s linear infinite;stroke:color-mix(in srgb, var(--sg-cyan) 32%, transparent)}
         @keyframes mm-flow{to{stroke-dashoffset:-44}}
         .mm-node{animation:mm-pulse 3.2s ease-in-out infinite}
@@ -97,11 +97,16 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
             0 0 60px color-mix(in srgb, var(--sg-cyan-deep) 16%, transparent);
         }
         .mm-shell{
-          position:relative;z-index:2;width:min(380px,92vw);
-          display:flex;flex-direction:column;align-items:center;gap:clamp(16px,2.4vh,26px);
+          position:relative;z-index:2;width:min(420px,94vw);
+          min-height:min(100%, calc(100vh - 56px));
+          display:grid;
+          grid-template-rows:auto 1fr auto;
+          gap:clamp(14px,2.2vh,22px);
+          align-content:center;
         }
-        .mm-actions{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%}
-        .mm-actions .sg-menu-row{width:100%;max-width:340px}
+        .mm-shell .sg-panel{width:100%}
+        .mm-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch;width:100%}
+        .mm-actions .sg-menu-row{width:100%;max-width:none}
         .mm-stats{
           display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;
           font-size:11.5px;color:var(--sg-ink-dim);
@@ -117,6 +122,15 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
         }
         .mm-pin{fill:none;stroke:color-mix(in srgb, var(--sg-cyan-deep) 14%, transparent);stroke-width:2}
         .mm-label{fill:color-mix(in srgb, var(--sg-ink-muted) 55%, transparent);font-size:13px;font-family:var(--sg-font-mono)}
+        .mm-veil{
+          position:absolute;inset:8% 28%;z-index:1;pointer-events:none;
+          background:radial-gradient(ellipse at 50% 45%,
+            color-mix(in srgb, var(--sg-bg) 72%, transparent) 0%,
+            transparent 72%);
+        }
+        @media (max-width:720px){
+          .mm-veil{inset:6% 4%}
+        }
         @media (prefers-reduced-motion:reduce){
           .mm-grid{animation:none;transform:none;opacity:.35}
           .mm-bit,.mm-trace,.mm-node{animation:none !important}
@@ -149,6 +163,7 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
           {b.ch}
         </span>
       ))}
+      <div className="mm-veil" aria-hidden="true" />
 
       <div className="mm-shell">
         <header style={{ textAlign: 'center' }}>
@@ -159,7 +174,7 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
             className="sg-display mm-brand"
             style={{
               margin: 0,
-              fontSize: 'clamp(44px, 11vw, 84px)',
+              fontSize: 'clamp(48px, 10vw, 88px)',
               fontWeight: 700,
               letterSpacing: '.12em',
               color: 'var(--sg-ink)',
@@ -181,74 +196,77 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
           </p>
         </header>
 
-        <nav className="mm-actions" aria-label="main menu">
-          <MenuRow
-            variant="primary"
-            icon={<PlayMark size={17} />}
-            title="CONTINUE"
-            hint={`resume · walk the fab · Lv ${lvl} · ⛁ ${save.scrap || 0}`}
-            onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
-          />
-          <MenuRow
-            variant={confirmNew ? 'danger' : 'default'}
-            icon={<SparkMark size={16} />}
-            title={confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}
-            hint={confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}
-            onClick={() => {
-              if (confirmNew) { AudioFX.click(); onNewGame(); }
-              else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); }
-            }}
-          />
-          <MenuRow
-            icon={<ReplayMark size={16} />}
-            title="REPLAY PROLOGUE"
-            hint="controls, first compile & Debug Bay"
-            onClick={() => { AudioFX.click(); onReplayTutorial(); }}
-          />
-          <MenuRow
-            icon={<BookMark size={16} />}
-            title="CODEX & MASTERY DIE"
-            hint="search recovered notes · inspect weak topics"
-            onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}
-          />
-          {save.tapeoutDone && (
+        <Panel title="Bay control" tight>
+          <nav className="mm-actions" aria-label="main menu">
             <MenuRow
-              icon={<SwordMark size={16} />}
-              title="BOSS RUSH"
-              hint="seven remembrances · no runback"
-              onClick={() => { AudioFX.bad(); go({ name: 'bossrush' }); }}
+              variant="primary"
+              icon={<PlayMark size={17} />}
+              title="CONTINUE"
+              hint={`resume · walk the fab · Lv ${lvl} · ⛁ ${save.scrap || 0}`}
+              onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
             />
-          )}
-          <MenuRow
-            icon={<ArcadeMark size={17} />}
-            title="ARCADE"
-            hint="training, blitz, bug bounty & the kit"
-            onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}
-          />
-          <MenuRow
-            icon={<ReplayMark size={16} />}
-            title="SPACED REVIEW"
-            hint={dueCount ? `${dueCount} concept${dueCount > 1 ? 's' : ''} due for recall` : 'keep cleared concepts sharp'}
-            onClick={() => { AudioFX.click(); go({ name: 'drill' }); }}
-          />
-          <MenuRow
-            icon={<ChipMark size={16} />}
-            title="TAPEOUT BAY"
-            hint={signedOff ? `export ${signedOff} signed-off module${signedOff > 1 ? 's' : ''} as RTL` : 'export your modules to real Verilog'}
-            onClick={() => { AudioFX.click(); go({ name: 'tapeout' }); }}
-          />
-          <MenuRow
-            icon={<CoinMark size={16} />}
-            title="SCRAP EXCHANGE"
-            hint="trade scrap for gear & boosts"
-            onClick={() => { AudioFX.click(); go({ name: 'shop' }); }}
-          />
-          <MenuRow
-            icon={<GearMark size={15} />}
-            title="SETTINGS"
-            onClick={() => { AudioFX.click(); onSettings(); }}
-          />
-        </nav>
+            <MenuRow
+              variant={confirmNew ? 'danger' : 'default'}
+              icon={<SparkMark size={16} />}
+              title={confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}
+              hint={confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}
+              onClick={() => {
+                if (confirmNew) { AudioFX.click(); onNewGame(); }
+                else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); }
+              }}
+            />
+            <MenuRow
+              icon={<ReplayMark size={16} />}
+              title="REPLAY PROLOGUE"
+              hint="controls, first compile & Debug Bay"
+              onClick={() => { AudioFX.click(); onReplayTutorial(); }}
+            />
+            <MenuRow
+              icon={<BookMark size={16} />}
+              title="CODEX & MASTERY DIE"
+              hint="search recovered notes · inspect weak topics"
+              onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}
+            />
+            {save.tapeoutDone && (
+              <MenuRow
+                icon={<SwordMark size={16} />}
+                title="BOSS RUSH"
+                hint="seven remembrances · no runback"
+                onClick={() => { AudioFX.bad(); go({ name: 'bossrush' }); }}
+              />
+            )}
+            <MenuRow
+              icon={<ArcadeMark size={17} />}
+              title="ARCADE"
+              hint="training, blitz, bug bounty & the kit"
+              onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}
+            />
+            <MenuRow
+              icon={<ReplayMark size={16} />}
+              title="SPACED REVIEW"
+              hint={dueCount ? `${dueCount} concept${dueCount > 1 ? 's' : ''} due for recall` : 'keep cleared concepts sharp'}
+              onClick={() => { AudioFX.click(); go({ name: 'drill' }); }}
+            />
+            <MenuRow
+              icon={<ChipMark size={16} />}
+              title="TAPEOUT BAY"
+              hint={signedOff ? `export ${signedOff} signed-off module${signedOff > 1 ? 's' : ''} as RTL` : 'export your modules to real Verilog'}
+              onClick={() => { AudioFX.click(); go({ name: 'tapeout' }); }}
+            />
+            <MenuRow
+              icon={<CoinMark size={16} />}
+              title="SCRAP EXCHANGE"
+              hint="trade scrap for gear & boosts"
+              onClick={() => { AudioFX.click(); go({ name: 'shop' }); }}
+            />
+            <MenuRow
+              icon={<GearMark size={15} />}
+              title="SETTINGS"
+              hint="audio · graphics · accessibility"
+              onClick={() => { AudioFX.click(); onSettings(); }}
+            />
+          </nav>
+        </Panel>
 
         <footer className="mm-stats">
           <span className="mm-rank">{RANKS[ri][0].toUpperCase()}</span>

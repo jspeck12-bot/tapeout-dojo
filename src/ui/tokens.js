@@ -326,15 +326,16 @@ const TOKEN_CSS = `
   cursor: not-allowed;
 }
 .sg-menu-row--primary {
-  --sg-row-border: var(--sg-brass-deep);
-  --sg-row-bg: linear-gradient(180deg, var(--sg-brass-top), color-mix(in srgb, var(--sg-bg-elevated) 70%, var(--sg-brass-bottom)));
+  --sg-row-border: var(--sg-brass);
+  --sg-row-bg: linear-gradient(180deg, var(--sg-brass-top), color-mix(in srgb, var(--sg-bg-elevated) 55%, var(--sg-brass-bottom)));
   --sg-row-title: var(--sg-cyan);
-  --sg-row-glow: color-mix(in srgb, var(--sg-brass) 18%, transparent);
-  --sg-row-ico-bg: color-mix(in srgb, var(--sg-cyan-deep) 18%, transparent);
+  --sg-row-glow: color-mix(in srgb, var(--sg-brass) 26%, transparent);
+  --sg-row-ico-bg: color-mix(in srgb, var(--sg-cyan-deep) 22%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 18px var(--sg-row-glow);
 }
 .sg-menu-row--primary:hover:not(:disabled) {
   --sg-row-border: var(--sg-brass);
-  --sg-row-glow: color-mix(in srgb, var(--sg-brass) 28%, transparent);
+  --sg-row-glow: color-mix(in srgb, var(--sg-brass) 36%, transparent);
 }
 .sg-menu-row--danger {
   --sg-row-border: var(--sg-danger-deep);
