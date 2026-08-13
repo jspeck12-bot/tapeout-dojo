@@ -116,7 +116,7 @@ function makeLandmark(world, config) {
 }
 
 function addInstancedDetail(scene, model, config, world, low) {
-  const count = low ? 18 : config.density;
+  const count = low ? 18 : Math.min(120, Math.round(config.density * (model.worldScale || 1)));
   const geometry = world === 3 || world === 6
     ? new THREE.BoxGeometry(0.7, 1.8, 0.7)
     : new THREE.IcosahedronGeometry(0.55, 0);
@@ -147,7 +147,7 @@ function addInstancedDetail(scene, model, config, world, low) {
 }
 
 function addAtmosphere(scene, model, config, world, low) {
-  const count = low ? 40 : 120;
+  const count = low ? 40 : Math.min(180, Math.round(120 * (model.worldScale || 1)));
   const positions = new Float32Array(count * 3);
   const random = seeded(0xa710 + world * 313);
   for (let index = 0; index < count; index++) {

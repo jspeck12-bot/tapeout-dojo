@@ -4,6 +4,7 @@ import { mineWalls } from './layout.js';
 import { sortByPathProgress, stationSequence } from './progression.js';
 import { withExploration } from './exploration.js';
 import { withBossEncounter } from './boss-encounter.js';
+import { scaleWorldModel } from './scale.js';
 
 function dungeonBossFight(fights) {
   return fights.find(f => f.boss) || fights[fights.length - 1];
@@ -31,7 +32,7 @@ function openModel(w, fights, lessonIds, layout) {
   interactables.push({ id: boss.id, kind: 'fight', boss: true, ord: seq.length + 1, x: layout.boss.x, z: layout.boss.z, r: 3.4, target: { name: boss.kind, id: boss.id }, xp: boss.xp, title: boss.title });
   interactables.push({ id: 'lift', kind: 'exit', x: layout.lift.x, z: layout.lift.z, r: 2.6, target: { name: 'surface' } });
 
-  return withExploration(withBossEncounter({
+  return withExploration(withBossEncounter(scaleWorldModel({
     world: w, rects: layout.rects, colliders: walls, gateCollider,
     collidersClosed: walls.concat([gateCollider]),
     interactables, bounds, path: layout.path,
@@ -40,7 +41,7 @@ function openModel(w, fights, lessonIds, layout) {
     theme: cfg.theme, zone: cfg.zone, bossZone: cfg.bossZone,
     regularIds: regular.map(f => f.id), bossId: boss.id,
     biome: layout.biome,
-  }, w), w);
+  }, w), w), w);
 }
 
 function valleyModel(w, fights, lessonIds) {

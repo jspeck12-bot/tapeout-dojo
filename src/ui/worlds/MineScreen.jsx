@@ -247,7 +247,8 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
           let mz = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) + inp.jy;
           const mag = Math.hypot(mx, mz);
           if (mag > 1) { mx /= mag; mz /= mag; }
-          const sp = (keys.ShiftLeft || keys.ShiftRight || inp.sprint ? 11.5 : 7.4) * dt;
+          const worldPace = Math.min(1.25, Math.sqrt(model.worldScale || 1));
+          const sp = (keys.ShiftLeft || keys.ShiftRight || inp.sprint ? 11.5 : 7.4) * worldPace * dt;
           const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
           const rx = Math.cos(player.yaw), rz = -Math.sin(player.yaw);
           const nx = player.x + (fx * mz + rx * mx) * sp;

@@ -72,7 +72,7 @@ function bfsReaches(m, model, colliders, target) {
 function checkModel(m, w, model) {
   let checks = 0;
   const b = model.bounds;
-  const cell = m.MINE_CELL;
+  const cell = model.cellSize || m.MINE_CELL;
   assert(Number.isFinite(cell) && cell > 0, 'MINE_CELL must be a positive number');
 
   // containment + no duplicate placement
@@ -89,8 +89,9 @@ function checkModel(m, w, model) {
   }
 
   // raster-safe dimensions
-  assert((b.maxX - b.minX) % cell === 0, `world ${w}: X span ${b.maxX - b.minX} is not a multiple of ${cell}`);
-  assert((b.maxZ - b.minZ) % cell === 0, `world ${w}: Z span ${b.maxZ - b.minZ} is not a multiple of ${cell}`);
+  const rasterAligned = (span) => Math.abs(span / cell - Math.round(span / cell)) < 1e-6;
+  assert(rasterAligned(b.maxX - b.minX), `world ${w}: X span ${b.maxX - b.minX} is not a multiple of ${cell}`);
+  assert(rasterAligned(b.maxZ - b.minZ), `world ${w}: Z span ${b.maxZ - b.minZ} is not a multiple of ${cell}`);
   checks += 2;
   // Individual gallery/spur edges may intentionally be odd. Full station BFS
   // below is the authoritative phantom-wall check.
