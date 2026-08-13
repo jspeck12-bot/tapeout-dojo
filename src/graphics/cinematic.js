@@ -38,7 +38,8 @@ const POST_BLUR_FS = [
 ].join('\n');
 
 const POST_COMP_FS = [
-  'uniform sampler2D tex; uniform sampler2D bloomTex; uniform float strength; uniform float t; varying vec2 vUv;',
+  'uniform sampler2D tex; uniform sampler2D bloomTex; uniform float strength; uniform float t;',
+  'uniform float saturation; uniform float contrast; uniform vec3 tint; varying vec2 vUv;',
   'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
   'void main(){',
   '  vec2 uv = vUv; vec2 cc = uv - 0.5; float r2 = dot(cc, cc);',
@@ -48,6 +49,10 @@ const POST_COMP_FS = [
   '  base.g = texture2D(tex, uv).g;',
   '  base.b = texture2D(tex, uv - cc * ca).b;',
   '  vec3 c = base + texture2D(bloomTex, uv).rgb * strength;',
+  '  float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));',
+  '  c = mix(vec3(lum), c, saturation);',
+  '  c = (c - 0.5) * contrast + 0.5;',
+  '  c *= tint;',
   '  float vig = 1.0 - smoothstep(0.32, 1.05, r2 * 1.9);',
   '  c *= mix(0.68, 1.0, vig);',
   '  c += vec3((hash(uv * vec2(1613.0, 1021.0) + vec2(mod(t, 10.0) * 61.0)) - 0.5) * 0.028);',
@@ -67,7 +72,10 @@ function makePostFX(renderer, cssW, cssH) {
   const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const bright = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, thresh: { value: 0.5 } }, vertexShader: POST_VS, fragmentShader: POST_BRIGHT_FS, depthTest: false, depthWrite: false });
   const blur = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) }, res: { value: new THREE.Vector2(W >> 1, H >> 1) } }, vertexShader: POST_VS, fragmentShader: POST_BLUR_FS, depthTest: false, depthWrite: false });
-  const comp = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, bloomTex: { value: null }, strength: { value: 0.9 }, t: { value: 0 } }, vertexShader: POST_VS, fragmentShader: POST_COMP_FS, depthTest: false, depthWrite: false });
+  const comp = new THREE.ShaderMaterial({ uniforms: {
+    tex: { value: null }, bloomTex: { value: null }, strength: { value: 0.9 }, t: { value: 0 },
+    saturation: { value: 1.06 }, contrast: { value: 1.04 }, tint: { value: new THREE.Color(0xffffff) },
+  }, vertexShader: POST_VS, fragmentShader: POST_COMP_FS, depthTest: false, depthWrite: false });
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bright);
   quad.frustumCulled = false;
   quadScene.add(quad);
@@ -90,6 +98,12 @@ function makePostFX(renderer, cssW, cssH) {
   }
   return {
     setStrength(v) { comp.uniforms.strength.value = v; },
+    setGrade(grade) {
+      if (!grade) return;
+      if (grade.saturation != null) comp.uniforms.saturation.value = grade.saturation;
+      if (grade.contrast != null) comp.uniforms.contrast.value = grade.contrast;
+      if (grade.tint != null) comp.uniforms.tint.value.set(grade.tint);
+    },
     render(scene, camera) {
       try {
         renderer.setRenderTarget(rtScene);

@@ -92,6 +92,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       const model = arcadeModel();
       const api = buildArcadeWorld(scene, model);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
       const playerLight = new THREE.PointLight(0xbfe0ff, 0.7, 22, 1.5);
       scene.add(playerLight);
       ambRef.current = createAmbience(scene, 'arcade');
@@ -183,6 +184,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         frame++;
         _moving = false; _sprint = false;
         if (api.spin) { api.spin.rotation.y += dt * 0.8; api.spin.rotation.x = 0.42; }
+        (scene.userData.anims || []).forEach(animate => animate(now / 1000, dt));
         if (!overlayRef.current) {
           const inp = inputRef.current;
           let mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) + inp.jx;

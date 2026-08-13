@@ -102,6 +102,7 @@ function CampusScreen({ save, go, cb }) {
       const model = campusModel();
       const api = buildCampusWorld(scene, model);
       try { buildFabUltra(scene, model, api); } catch (e) { }
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
 
       const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.04 };
       const keys = {};
@@ -253,6 +254,7 @@ function CampusScreen({ save, go, cb }) {
         camera.rotation.x = player.pitch;
 
         api.anims.forEach(f => f(t, dt));
+        (scene.userData.anims || []).forEach(f => f(t, dt));
         // billboard kiosk screens
         camVec.set(player.x, 0, player.z);
         Object.values(api.kioskScreens).forEach(k => {

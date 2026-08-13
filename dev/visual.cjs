@@ -202,8 +202,12 @@ function run() {
     const { scene, model, api } = result;
     assert(scene && scene.isScene, `scene "${name}" did not return a THREE.Scene`);
     assert(scene.visible !== false, `scene "${name}" is globally hidden`);
+    assert(api && api.worldArt && api.worldArt === scene.userData.worldArt,
+      `scene "${name}" is missing the shared cinematic art layer`);
+    assert(api.worldArt.landmark && api.worldArt.detail && api.worldArt.atmosphere && api.worldArt.shaft,
+      `scene "${name}" cinematic layer is incomplete`);
     assertSceneEnvelope(name, scene, THREE);
-    checks += 4;
+    checks += 6;
 
     if (result.kind === 'world') {
       assertWorldApi(name, model, api);

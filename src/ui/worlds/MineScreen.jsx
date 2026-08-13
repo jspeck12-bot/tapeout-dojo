@@ -101,6 +101,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       const model = mineModel(lessonIds);
       const api = buildMineWorld(scene, model);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
 
       // headlamp
       const lamp = new THREE.SpotLight(0xffe7c0, 2.3, 44, 0.52, 0.5, 1.3);

@@ -16,6 +16,7 @@ import {
   fieldNoteProp,
 } from './rock.js';
 import { creatureSpec, makeCreature } from './creatures.js';
+import { buildWorldArt } from './art-direction.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -456,6 +457,7 @@ function buildCampusWorld(scene, model) {
     }
   });
 
+  api.worldArt = buildWorldArt(scene, model, 0);
   return api;
 }
 
@@ -754,6 +756,7 @@ function buildValley(scene, model, theme) {
   const api = { totems: {}, books: {}, gateGrp: null, creatures: [] };
   buildDungeonNodes(scene, model, theme, api);
   lightScene(scene, model.bounds, { ceil: false, dust: acc, glowSize: 5.0, glowOpacity: 0.78, sky: 0x3a5a1e, skyI: 0.95 });
+  api.worldArt = buildWorldArt(scene, model, model.world);
   return api;
 }
 
@@ -790,6 +793,7 @@ function buildCanyon(scene, model, theme) {
   const api = { totems: {}, books: {}, gateGrp: null, creatures: [] };
   buildDungeonNodes(scene, model, theme, api);
   lightScene(scene, model.bounds, { ceil: false, dust: acc, glowSize: 5.2, glowOpacity: 0.8, sky: 0x8a5a28, skyI: 1.0 });
+  api.worldArt = buildWorldArt(scene, model, model.world);
   return api;
 }
 
@@ -938,6 +942,7 @@ function buildMineWorld(scene, model) {
   caveDressing(scene, model);
   lightScene(scene, model.bounds, { ceil: true, dust: 0x6a5030, glowSize: 4.8, glowOpacity: 0.8 });
   api.exploration = buildExplorationProps(scene, model, 0xf5b14c);
+  api.worldArt = buildWorldArt(scene, model, 1);
 
   return api;
 }
@@ -1024,6 +1029,7 @@ function buildArcadeWorld(scene, model) {
   ring.position.set(0, 3.6, 0); scene.add(ring);
   api.spin = ring;
   lightScene(scene, model.bounds, { ceil: true, dust: 0x9a6abf, glowSize: 4.0, glowOpacity: 0.9, shadowLights: 3 });
+  api.worldArt = buildWorldArt(scene, model, 0);
   return api;
 }
 
@@ -1211,6 +1217,7 @@ function buildDungeonWorld(scene, model, theme) {
   buildDungeonNodes(scene, model, theme, api);
 
   lightScene(scene, model.bounds, { ceil: theme.ceil, dust: theme.accent, glowSize: 4.4, glowOpacity: 0.8, sky: 0xcdbca0 });
+  api.worldArt = buildWorldArt(scene, model, model.world);
   return api;
 }
 

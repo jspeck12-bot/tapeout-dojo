@@ -33,6 +33,7 @@ describe('post-processing pipeline', () => {
     expect(POST_BRIGHT_FS).toMatch(/uniform sampler2D tex.*uniform float thresh/);
     expect(POST_BLUR_FS).toMatch(/uniform sampler2D tex.*uniform vec2 dir.*uniform vec2 res/);
     expect(POST_COMP_FS).toMatch(/uniform sampler2D tex.*uniform sampler2D bloomTex.*uniform float strength.*uniform float t/);
+    expect(POST_COMP_FS).toMatch(/uniform float saturation.*uniform float contrast.*uniform vec3 tint/);
   });
 
   test('constructs, renders, resizes, and disposes the complete pass graph', () => {
@@ -49,6 +50,7 @@ describe('post-processing pipeline', () => {
     const camera = new THREE.PerspectiveCamera();
 
     expect(() => post.setStrength(0.75)).not.toThrow();
+    expect(() => post.setGrade({ saturation: 1.1, contrast: 1.08, tint: 0xffe0c0 })).not.toThrow();
     expect(() => post.resize(640, 360)).not.toThrow();
     expect(() => post.render(scene, camera)).not.toThrow();
     expect(renderCalls).toBe(10);

@@ -104,6 +104,7 @@ function campusModel() {
   return {
     colliders, gates, interactables, anchors,
     districts: CAMPUS_DISTRICTS,
+    bounds: { minX: -CAMPUS_SIZE / 2, maxX: CAMPUS_SIZE / 2, minZ: -CAMPUS_SIZE / 2, maxZ: CAMPUS_SIZE / 2 },
     spawn: { x: 0, z: 96, yaw: 0 },
     padSpots: [{ w: 0, name: 'Central Plaza', x: 0, z: 44 }].concat(CAMPUS_DISTRICTS.map(d => ({ w: d.w, name: d.name, x: anchors[d.w].padPos.x, z: anchors[d.w].padPos.z }))),
   };

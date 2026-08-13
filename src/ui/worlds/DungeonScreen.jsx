@@ -117,6 +117,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
 
       const model = modelMemo;
       const api = buildDungeonWorld(scene, model, model.theme);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
       const lamp = new THREE.SpotLight(0xfff0d8, 1.9, 42, 0.56, 0.5, 1.3);
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 46; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
