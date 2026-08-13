@@ -275,7 +275,8 @@ function PrologueScreen({ save, replay, onProgress, onChooseMode, onComplete }) 
         <>
           {title('rtl workbench', 'Complete your first circuit', 'Replace one constant with the AND expression. Ctrl/Cmd + Enter also runs verification.')}
           <CodeEditor value={code} onChange={setCode} onRun={runCode}
-            errLines={new Set((codeState?.errors || []).map(error => error.line))} />
+            errLines={new Set((codeState?.errors || []).map(error => error.line))}
+            ports={AND_IFACE.ports} />
           <button className="btn primary" style={{ marginTop: 12 }} onClick={runCode}>
             run 4 vectors <Terminal size={13} />
           </button>

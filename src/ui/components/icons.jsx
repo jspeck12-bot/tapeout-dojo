@@ -236,6 +236,67 @@ function FailMark({ size }) {
   );
 }
 
+function HeartMark({ size }) {
+  return (
+    <FabMark size={size} label="integrity">
+      <path
+        d="M8 13.2L3.2 8.2A3.1 3.1 0 0 1 8 4.2a3.1 3.1 0 0 1 4.8 4L8 13.2z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+      />
+      <path d="M8 6.2v3.4M6.3 7.9h3.4" stroke="currentColor" strokeWidth="1.1" />
+    </FabMark>
+  );
+}
+
+function SkullMark({ size }) {
+  return (
+    <FabMark size={size} label="hostile">
+      <rect x="3.2" y="2.4" width="9.6" height="8.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="6.2" cy="6.2" r="1.1" fill="currentColor" />
+      <circle cx="9.8" cy="6.2" r="1.1" fill="currentColor" />
+      <path d="M6.4 11.2v2.2M8 11.2v2.4M9.6 11.2v2.2" stroke="currentColor" strokeWidth="1.2" />
+    </FabMark>
+  );
+}
+
+function FlaskMark({ size }) {
+  return (
+    <FabMark size={size} label="ration">
+      <path d="M6 2.2h4v3.2L12.4 12a2 2 0 0 1-1.9 2.6H5.5A2 2 0 0 1 3.6 12L6 5.4z" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M6.4 9.2h3.2" stroke="currentColor" strokeWidth="1.15" />
+    </FabMark>
+  );
+}
+
+function SearchMark({ size }) {
+  return (
+    <FabMark size={size} label="search">
+      <circle cx="7" cy="7" r="4.1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M10.2 10.2L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
+    </FabMark>
+  );
+}
+
+function SoundMark({ size }) {
+  return (
+    <FabMark size={size} label="audio on">
+      <path d="M2.4 6.2h2.4L8.2 3.6v8.8L4.8 9.8H2.4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="miter" />
+      <path d="M10.2 6.2c.8.7.8 2.9 0 3.6M12.2 4.8c1.6 1.4 1.6 5 0 6.4" fill="none" stroke="currentColor" strokeWidth="1.2" />
+    </FabMark>
+  );
+}
+
+function MuteMark({ size }) {
+  return (
+    <FabMark size={size} label="audio off">
+      <path d="M2.4 6.2h2.4L8.2 3.6v8.8L4.8 9.8H2.4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="miter" />
+      <path d="M10.4 6.2l3.2 3.6M13.6 6.2l-3.2 3.6" stroke="currentColor" strokeWidth="1.3" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -256,4 +317,10 @@ export {
   BackMark,
   YieldMark,
   FailMark,
+  HeartMark,
+  SkullMark,
+  FlaskMark,
+  SearchMark,
+  SoundMark,
+  MuteMark,
 };

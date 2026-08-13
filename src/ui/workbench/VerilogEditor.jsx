@@ -1,8 +1,19 @@
 import { useEffect, useRef } from 'react';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { autocompletion } from '@codemirror/autocomplete';
 import { canHostEditor } from './dom.js';
-import { buildEditorExtensions } from './extensions.js';
+import { buildEditorExtensions, combinedCompletions, errorExtensions } from './extensions.js';
+
+function portsKey(ports) {
+  return (ports || []).map((p) => `${p.n}:${p.d}:${p.w}`).join(',');
+}
+
+function errKey(errLines) {
+  if (!errLines) return '';
+  const arr = errLines instanceof Set ? [...errLines] : [...errLines];
+  return arr.sort((a, b) => a - b).join(',');
+}
 
 /**
  * CodeMirror 6 Verilog editor — gutters, Silicon Gothic theme, autocomplete.
@@ -15,6 +26,8 @@ function VerilogEditor({
   readOnly = false,
   minHeight = 280,
   className = '',
+  errLines,
+  ports,
   'aria-label': ariaLabel = 'Verilog workbench editor',
   onReady,
 }) {
@@ -22,6 +35,8 @@ function VerilogEditor({
   const viewRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const onRunRef = useRef(onRun);
+  const errCompRef = useRef(null);
+  const portsCompRef = useRef(null);
   onChangeRef.current = onChange;
   onRunRef.current = onRun;
 
@@ -32,8 +47,15 @@ function VerilogEditor({
       return undefined;
     }
 
+    errCompRef.current = new Compartment();
+    portsCompRef.current = new Compartment();
+
     const extensions = buildEditorExtensions({
       readOnly,
+      errLines,
+      ports,
+      errCompartment: errCompRef.current,
+      portsCompartment: portsCompRef.current,
       onChange: (doc) => {
         if (onChangeRef.current) onChangeRef.current(doc);
       },
@@ -54,7 +76,7 @@ function VerilogEditor({
       view.destroy();
       viewRef.current = null;
     };
-    // Mount once; doc sync handled below.
+    // Mount once; doc / markers sync handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly]);
 
@@ -69,12 +91,34 @@ function VerilogEditor({
     }
   }, [value]);
 
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !errCompRef.current) return;
+    view.dispatch({
+      effects: errCompRef.current.reconfigure(errorExtensions(errLines)),
+    });
+  }, [errLines, errKey(errLines)]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !portsCompRef.current) return;
+    view.dispatch({
+      effects: portsCompRef.current.reconfigure(
+        autocompletion({
+          override: [(ctx) => combinedCompletions(ctx, ports)],
+          activateOnTyping: true,
+        }),
+      ),
+    });
+  }, [ports, portsKey(ports)]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div
-      className={`sg-cm-host${className ? ` ${className}` : ''}`}
+      className={`sg-cm-host${className ? ` ${className}` : ''}${errLines && (errLines.size || errLines.length) ? ' is-errored' : ''}`}
       ref={hostRef}
       role="group"
       aria-label={ariaLabel}
+      data-err-lines={errKey(errLines) || undefined}
       style={{
         minHeight,
         borderRadius: 'var(--sg-radius-md)',

@@ -19,6 +19,8 @@ const siliconGothicTheme = EditorView.theme(
       fontFamily: TOKENS.font.mono,
       lineHeight: '1.55',
       padding: '10px 0',
+      fontVariantLigatures: 'contextual',
+      fontFeatureSettings: '"calt" 1, "liga" 1',
     },
     '.cm-cursor, .cm-dropCursor': {
       borderLeftColor: C.cyan,
@@ -65,6 +67,17 @@ const siliconGothicTheme = EditorView.theme(
     },
     '.cm-foldGutter .cm-gutterElement': {
       color: C.inkDim,
+    },
+    '.cm-errorGutter .cm-gutterElement': {
+      minWidth: '1.15em',
+      color: C.danger,
+    },
+    '.cm-err-mark': {
+      color: C.danger,
+      fontSize: '11px',
+    },
+    '.cm-errorLine': {
+      backgroundColor: 'color-mix(in srgb, ' + C.danger + ' 13%, transparent)',
     },
     '.cm-tooltip': {
       backgroundColor: C.bgPanel,

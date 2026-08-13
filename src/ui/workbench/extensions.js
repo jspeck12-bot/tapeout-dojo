@@ -4,7 +4,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { StreamLanguage, indentOnInput, bracketMatching, foldGutter, foldKeymap } from '@codemirror/language';
 import { verilog } from '@codemirror/legacy-modes/mode/verilog';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
-import { EditorState } from '@codemirror/state';
+import { EditorState, RangeSetBuilder } from '@codemirror/state';
 import {
   EditorView,
   keymap,
@@ -15,6 +15,9 @@ import {
   dropCursor,
   rectangularSelection,
   crosshairCursor,
+  gutter,
+  GutterMarker,
+  Decoration,
 } from '@codemirror/view';
 import { V_KEYWORDS } from '../../engine/verilog.js';
 import { siliconGothicHighlightExt, siliconGothicTheme } from './theme.js';
@@ -37,6 +40,55 @@ const VERILOG_SNIPPETS = [
   },
 ];
 
+function lineSet(errLines) {
+  if (!errLines) return new Set();
+  if (errLines instanceof Set) return errLines;
+  return new Set(errLines);
+}
+
+class ErrorGutterMarker extends GutterMarker {
+  eq() { return true; }
+  toDOM() {
+    const span = document.createElement('span');
+    span.className = 'cm-err-mark';
+    span.textContent = '◈';
+    span.setAttribute('aria-hidden', 'true');
+    return span;
+  }
+}
+
+const ERR_MARK = new ErrorGutterMarker();
+
+function errorGutter(errLines) {
+  const lines = lineSet(errLines);
+  return gutter({
+    class: 'cm-errorGutter',
+    lineMarker(view, line) {
+      const n = view.state.doc.lineAt(line.from).number;
+      return lines.has(n) ? ERR_MARK : null;
+    },
+  });
+}
+
+const ERROR_LINE = Decoration.line({ class: 'cm-errorLine' });
+
+function errorLineHighlight(errLines) {
+  const lines = lineSet(errLines);
+  return EditorView.decorations.of((view) => {
+    const builder = new RangeSetBuilder();
+    const nums = [...lines].filter((n) => n >= 1 && n <= view.state.doc.lines).sort((a, b) => a - b);
+    for (const n of nums) {
+      const line = view.state.doc.line(n);
+      builder.add(line.from, line.from, ERROR_LINE);
+    }
+    return builder.finish();
+  });
+}
+
+function errorExtensions(errLines) {
+  return [errorGutter(errLines), errorLineHighlight(errLines)];
+}
+
 function verilogCompletions(context) {
   const word = context.matchBefore(/[A-Za-z_][\w$]*/);
   if (!word || (word.from === word.to && !context.explicit)) return null;
@@ -51,6 +103,29 @@ function verilogCompletions(context) {
     from: word.from,
     options,
     validFor: /^[\w$]*$/,
+  };
+}
+
+function portCompletionItems(ports) {
+  return (ports || []).map((p) => ({
+    label: p.n,
+    type: 'variable',
+    detail: `${p.d === 'in' ? 'in' : 'out'} ${p.w > 1 ? `[${p.w - 1}:0]` : '1'}`,
+    boost: 6,
+  }));
+}
+
+function combinedCompletions(context, ports) {
+  const word = context.matchBefore(/[A-Za-z_][\w$]*/);
+  if (!word || (word.from === word.to && !context.explicit)) return null;
+  const base = verilogCompletions(context) || {
+    from: word.from,
+    options: [],
+    validFor: /^[\w$]*$/,
+  };
+  return {
+    ...base,
+    options: [...portCompletionItems(ports), ...base.options],
   };
 }
 
@@ -71,12 +146,27 @@ function runKeymap(onRun) {
   ];
 }
 
+function completionExt(ports) {
+  return autocompletion({
+    override: [(ctx) => combinedCompletions(ctx, ports)],
+    activateOnTyping: true,
+  });
+}
+
 /**
  * Build the editable workbench extensions.
- * @param {{ onRun?: () => void, onChange?: (doc: string) => void, readOnly?: boolean }} opts
+ * @param {{ onRun?: () => void, onChange?: (doc: string) => void, readOnly?: boolean, errLines?: Set<number>|number[], ports?: {n:string,d:string,w:number}[], errCompartment?: import('@codemirror/state').Compartment, portsCompartment?: import('@codemirror/state').Compartment }} opts
  */
 function buildEditorExtensions(opts = {}) {
-  const { onRun, onChange, readOnly = false } = opts;
+  const {
+    onRun,
+    onChange,
+    readOnly = false,
+    errLines,
+    ports,
+    errCompartment,
+    portsCompartment,
+  } = opts;
   const updateListener = onChange
     ? [
       EditorView.updateListener.of((update) => {
@@ -84,6 +174,9 @@ function buildEditorExtensions(opts = {}) {
       }),
     ]
     : [];
+
+  const errExt = errorExtensions(errLines);
+  const portExt = completionExt(ports);
 
   return [
     lineNumbers(),
@@ -101,7 +194,8 @@ function buildEditorExtensions(opts = {}) {
     verilogLanguage,
     siliconGothicTheme,
     siliconGothicHighlightExt,
-    autocompletion({ override: [verilogCompletions], activateOnTyping: true }),
+    errCompartment ? errCompartment.of(errExt) : errExt,
+    portsCompartment ? portsCompartment.of(portExt) : portExt,
     keymap.of([
       ...completionKeymap,
       ...foldKeymap,
@@ -121,5 +215,9 @@ export {
   buildEditorExtensions,
   verilogLanguage,
   verilogCompletions,
+  combinedCompletions,
+  portCompletionItems,
+  errorExtensions,
+  errorGutter,
   VERILOG_SNIPPETS,
 };

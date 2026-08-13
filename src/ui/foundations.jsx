@@ -1,18 +1,20 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import {
-  Star, Check, X, Trophy, Zap, Flame, Volume2, VolumeX, RotateCcw,
+  Star, Check, X, Flame, Volume2, VolumeX, RotateCcw,
 } from "lucide-react";
 import { V_KEYWORDS } from '../engine/verilog.js';
 import { formatValue as fmtVal } from '../engine/format.js';
 import { RANKS, modeOf } from '../game/content.js';
 import { levelFromXp } from '../game/rpg.js';
+import { VerilogEditor } from './workbench/VerilogEditor.jsx';
+import { ToastStack } from './components/Toast.jsx';
 
 // ============================================================
 // UI FOUNDATIONS — styles, shared components
 // ============================================================
 
 const CSS = `
-.tk-root{min-height:100vh;background:#05070b;color:#d5dee8;font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.tk-root{min-height:100vh;background:var(--sg-bg-deep,#05070b);color:var(--sg-ink,#d5dee8);font-family:var(--sg-font-body),sans-serif;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .tk-root *{box-sizing:border-box}
 .tk-root ::selection{background:rgba(255,179,95,.28)}
 .scanlines{position:fixed;inset:0;pointer-events:none;z-index:70;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 4px)}
@@ -78,7 +80,7 @@ const CSS = `
 .tbl td{padding:5px 12px;border-bottom:1px solid #161D29}
 .editor-wrap{position:relative;border:1px solid #273245;border-radius:8px;background:#0A0E14;overflow:hidden}
 .editor-wrap.errored{border-color:#5b2330}
-.code-common{margin:0;font-family:inherit;font-size:13.5px;line-height:1.6;tab-size:2;white-space:pre;word-wrap:normal}
+.code-common{margin:0;font-family:var(--sg-font-mono),monospace;font-size:13.5px;line-height:1.6;tab-size:2;white-space:pre;word-wrap:normal;font-variant-ligatures:contextual;font-feature-settings:"calt" 1,"liga" 1}
 .code-hl{position:absolute;inset:0;overflow:hidden;padding:12px 14px 12px 0;pointer-events:none;color:#C9D6E4}
 .code-ta{position:relative;width:100%;display:block;background:transparent;color:transparent;caret-color:#7DEFFF;border:none;resize:none;outline:none;padding:12px 14px 12px 0;overflow:auto}
 .lngut{display:inline-block;width:44px;padding-right:12px;text-align:right;color:#3A4759;user-select:none}
@@ -193,46 +195,19 @@ function highlightVerilog(src, errLines) {
 }
 
 // ---------- editor ----------
-function CodeEditor({ value, onChange, onRun, errLines }) {
-  const taRef = useRef(null);
-  const hlRef = useRef(null);
-  const sync = () => {
-    if (taRef.current && hlRef.current) {
-      hlRef.current.scrollTop = taRef.current.scrollTop;
-      hlRef.current.scrollLeft = taRef.current.scrollLeft;
-    }
-  };
-  const onKey = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const ta = e.target;
-      const s = ta.selectionStart, en = ta.selectionEnd;
-      const nv = value.slice(0, s) + '  ' + value.slice(en);
-      onChange(nv);
-      requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 2; });
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); onRun && onRun(); }
-  };
-  const html = useMemo(() => highlightVerilog(value, errLines), [value, errLines]);
-  const lineCount = value.split('\n').length;
+function CodeEditor({ value, onChange, onRun, errLines, ports }) {
+  const lineCount = String(value || '').split('\n').length;
   const h = Math.min(440, Math.max(190, lineCount * 21.6 + 28));
   return (
-    <div className={'editor-wrap' + (errLines && errLines.size ? ' errored' : '')} style={{ height: h }}>
-      <pre ref={hlRef} className="code-common code-hl" aria-hidden="true" dangerouslySetInnerHTML={{ __html: html + '\n' }} />
-      <textarea
-        ref={taRef}
-        className="code-common code-ta"
-        style={{ height: '100%', paddingLeft: 44 }}
-        value={value}
-        spellCheck={false}
-        autoCapitalize="off"
-        autoCorrect="off"
-        onChange={(e) => onChange(e.target.value)}
-        onScroll={sync}
-        onKeyDown={onKey}
-        aria-label="Verilog editor"
-      />
-    </div>
+    <VerilogEditor
+      value={value}
+      onChange={onChange}
+      onRun={onRun}
+      errLines={errLines}
+      ports={ports}
+      minHeight={h}
+      aria-label="Verilog editor"
+    />
   );
 }
 
@@ -371,19 +346,7 @@ function ConsoleOut({ state }) {
 
 // ---------- toasts ----------
 function Toasts({ items }) {
-  return (
-    <div style={{ position: 'fixed', top: 14, right: 14, zIndex: 95, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 320 }}>
-      {items.map(t => (
-        <div key={t.id} className="toast card" style={{ padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'center', borderColor: t.kind === 'ach' ? '#7A6310' : '#155E6B' }}>
-          {t.kind === 'ach' ? <Trophy size={16} color="#FACC15" /> : <Zap size={16} color="#7DEFFF" />}
-          <div>
-            <div style={{ fontSize: 12.5, color: t.kind === 'ach' ? '#FFE27A' : '#7DEFFF' }}>{t.title}</div>
-            {t.sub && <div style={{ fontSize: 11, color: '#76849A' }}>{t.sub}</div>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  return <ToastStack items={items} />;
 }
 
 // ---------- confetti ----------

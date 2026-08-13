@@ -134,7 +134,7 @@ function WorkbenchScreen({ go }) {
               TAPEOUT<span style={{ color: 'var(--sg-cyan)' }}>_</span>
             </h1>
             <p style={{ margin: 0, maxWidth: 640, color: 'var(--sg-ink-muted)', fontSize: 14.5 }}>
-              CodeMirror 6 · Verilog mode · gutters · autocomplete · unified diff. Challenge screens still use the legacy textarea until migrate.
+              CodeMirror 6 Verilog — line numbers, bracket match, error gutters, port-name autocomplete, unified diff vs starter. Live challenge and forge editors share this stack.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -155,6 +155,12 @@ function WorkbenchScreen({ go }) {
               onRun={onRun}
               minHeight={360}
               onReady={setEditorReady}
+              ports={[
+                { n: 'a', d: 'in', w: 1 },
+                { n: 'b', d: 'in', w: 1 },
+                { n: 'y', d: 'out', w: 1 },
+              ]}
+              errLines={code.includes("1'b0") ? new Set([6]) : new Set()}
             />
             <div className="sg-wb-toolbar">
               <Button variant="primary" icon={<PlayMark size={15} />} onClick={onRun}>
@@ -175,7 +181,7 @@ function WorkbenchScreen({ go }) {
             <div className="sg-wb-kpis" aria-label="workbench capabilities">
               <span className="sg-wb-kpi">mode<strong>verilog</strong></span>
               <span className="sg-wb-kpi">gutters<strong>on</strong></span>
-              <span className="sg-wb-kpi">complete<strong>keywords</strong></span>
+              <span className="sg-wb-kpi">complete<strong>ports</strong></span>
               <span className="sg-wb-kpi">theme<strong>gothic</strong></span>
             </div>
           </Panel>
@@ -197,7 +203,7 @@ function WorkbenchScreen({ go }) {
             <Panel title="Workbench notes" wide>
               <p style={{ margin: 0 }}>
                 Diff pane hidden. Re-enable to compare the live draft against the canonical solution.
-                Next migrate pass swaps the challenge CodeEditor textarea for this CM6 stack.
+                Live CodeScreen / Forge / Prologue editors share this CodeMirror 6 stack.
               </p>
             </Panel>
           )}

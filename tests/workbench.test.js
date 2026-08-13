@@ -3,7 +3,7 @@ import TestRenderer, { act } from 'react-test-renderer';
 import { describe, expect, test } from 'vitest';
 import { EditorState } from '@codemirror/state';
 import { WorkbenchScreen, STARTER, SOLUTION } from '../src/ui/WorkbenchScreen.jsx';
-import { buildEditorExtensions, verilogCompletions, VERILOG_SNIPPETS } from '../src/ui/workbench/extensions.js';
+import { buildEditorExtensions, verilogCompletions, combinedCompletions, errorGutter, VERILOG_SNIPPETS } from '../src/ui/workbench/extensions.js';
 import { siliconGothicTheme, THEME_COLORS } from '../src/ui/workbench/theme.js';
 
 const { createElement: h } = React;
@@ -33,6 +33,13 @@ describe('Silicon Gothic CodeMirror workbench', () => {
     expect(result.options.some(o => o.label === 'module')).toBe(true);
     expect(result.options.some(o => o.label === 'always')).toBe(true);
     expect(VERILOG_SNIPPETS.length).toBeGreaterThanOrEqual(3);
+    const withPorts = combinedCompletions(ctx, [
+      { n: 'clk', d: 'in', w: 1 },
+      { n: 'y', d: 'out', w: 8 },
+    ]);
+    expect(withPorts.options.some(o => o.label === 'clk' && o.detail.includes('in'))).toBe(true);
+    expect(withPorts.options.some(o => o.label === 'y' && o.detail.includes('[7:0]'))).toBe(true);
+    expect(errorGutter(new Set([3]))).toBeTruthy();
   });
 
   test('starter and solution differ so the merge pane has a real delta', () => {

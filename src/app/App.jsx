@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-  Cpu, Zap, Trophy,
-  RotateCcw,
+  Cpu, Trophy,
 } from "lucide-react";
 import {
   reviewUpdate, todayNum,
 } from '../game/recall.js';
 import {
   LESSONS,
-  ACHIEVEMENTS, RANKS, MODES, modeOf, TOPIC_OF,
+  ACHIEVEMENTS, RANKS, modeOf, TOPIC_OF,
 } from '../game/content.js';
 import { noteMeta } from '../game/codex.js';
 import { bossSpec, grantRemembrance } from '../game/bosses.js';
@@ -22,6 +21,7 @@ import {
 import {
   AudioFX,
 } from '../audio/index.js';
+import { TOKEN_CSS } from '../ui/tokens.js';
 import {
   CSS,
   Toasts, Confetti, Modal, rankIndex, Header,
@@ -31,9 +31,6 @@ import { PrologueScreen } from '../ui/PrologueScreen.jsx';
 import { CodexScreen } from '../ui/codex/CodexScreen.jsx';
 import { NotesScreen, NOTES_DEMO_SAVE } from '../ui/NotesScreen.jsx';
 import { BossRushScreen } from '../ui/BossRushScreen.jsx';
-import {
-  GfxPanel,
-} from '../ui/world-shared.jsx';
 import { CampusScreen } from '../ui/worlds/CampusScreen.jsx';
 import { MineScreen } from '../ui/worlds/MineScreen.jsx';
 import { ArcadeScreen } from '../ui/worlds/ArcadeScreen.jsx';
@@ -45,8 +42,12 @@ import { WorldSelectScreen } from '../ui/WorldSelectScreen.jsx';
 import { DebugBayScreen } from '../ui/DebugBayScreen.jsx';
 import { HudScreen } from '../ui/HudScreen.jsx';
 import { VictoryScreen } from '../ui/VictoryScreen.jsx';
+import { ShopScreen } from '../ui/ShopScreen.jsx';
+import { ShopBay } from '../ui/shop/ShopBay.jsx';
+import { SettingsScreen } from '../ui/SettingsScreen.jsx';
+import { SettingsPanel } from '../ui/settings/SettingsPanel.jsx';
 import {
-  ShopScreen, LevelUpModal,
+  LevelUpModal,
 } from '../ui/combat.jsx';
 import {
   WorldScreen, GauntletScreen, TruthScreen, draftStore, CodeScreen,
@@ -66,7 +67,7 @@ function devScreenFromUrl() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay', 'notes', 'hud', 'victory'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay', 'notes', 'hud', 'victory', 'shop', 'settings'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -519,6 +520,7 @@ export function App() {
   if (!loaded) {
     return (
       <div className="tk-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{TOKEN_CSS}</style>
         <style>{CSS}</style>
         <div style={{ color: '#5A6A80', fontSize: 13, letterSpacing: '.2em' }}>POWERING ON<span className="cursorblink">_</span></div>
       </div>
@@ -527,9 +529,10 @@ export function App() {
 
   return (
     <div className="tk-root" onPointerDown={() => AudioFX.ensure()}>
+      <style>{TOKEN_CSS}</style>
       <style>{CSS}</style>
       <div className="scanlines" />
-      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'hud', 'victory', 'codex'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
+      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'hud', 'victory', 'codex', 'shop', 'settings'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
@@ -561,7 +564,10 @@ export function App() {
         {screen.name === 'debugbay' && <DebugBayScreen go={go} />}
         {screen.name === 'hud' && <HudScreen go={go} />}
         {screen.name === 'victory' && <VictoryScreen go={go} />}
-        {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
+        {screen.name === 'shop' && (devScreen && devScreen.name === 'shop'
+          ? <ShopScreen go={go} />
+          : <ShopBay save={save} go={go} onBuy={onBuy} onEquip={onEquip} />)}
+        {screen.name === 'settings' && <SettingsScreen go={go} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}
         {screen.name === 'forge' && <ForgeScreen key={screen.key} ch0={screen.ch} daily={!!screen.daily} save={save} go={go} onTrainingClear={onTrainingClear} onStat={onStat} />}
@@ -635,68 +641,22 @@ export function App() {
         </Modal>
       )}
       {settingsOpen && (
-        <Modal onClose={() => { setSettingsOpen(false); setResetArmed(false); }} width={470}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>fab controls</div>
-
-          <div className="eyebrow" style={{ marginBottom: 8, color: '#7DEFFF' }}>controls</div>
-          <div className="card" style={{ padding: '11px 13px', marginBottom: 14, display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '5px 14px', fontSize: 12 }}>
-            <span style={{ color: '#E8F1FA' }}>WASD / arrows</span><span style={{ color: '#76849A' }}>move</span>
-            <span style={{ color: '#E8F1FA' }}>mouse / drag</span><span style={{ color: '#76849A' }}>look</span>
-            <span style={{ color: '#E8F1FA' }}>Shift</span><span style={{ color: '#76849A' }}>sprint</span>
-            <span style={{ color: '#E8F1FA' }}>E / Enter</span><span style={{ color: '#76849A' }}>interact</span>
-            <span style={{ color: '#E8F1FA' }}>M</span><span style={{ color: '#76849A' }}>cycle soundtrack</span>
-            <span style={{ color: '#E8F1FA' }}>`</span><span style={{ color: '#76849A' }}>flight note</span>
-          </div>
-
-          <div className="eyebrow" style={{ marginBottom: 8, color: '#7DEFFF' }}>flight recorder</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            <button className="btn sm" onClick={() => { AudioFX.click(); setSettingsOpen(false); setFrReport(true); }}>view flight report</button>
-            <button className="btn sm" onClick={() => { AudioFX.click(); setSettingsOpen(false); setFrText(''); setFrNote(true); }}>add note ( ` )</button>
-          </div>
-
-          <div className="eyebrow" style={{ marginBottom: 8, color: '#7DEFFF' }}>difficulty</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
-            {MODES.map(m => {
-              const sel = (save.ngplus ? 'architect' : save.mode) === m.id;
-              return (
-                <button key={m.id} className="card" onClick={() => setMode(m.id)} disabled={save.ngplus}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', font: 'inherit', color: 'inherit', cursor: save.ngplus ? 'not-allowed' : 'pointer', textAlign: 'left', borderColor: sel ? '#22D3EE' : '#1D2632', opacity: save.ngplus && m.id !== 'architect' ? .45 : 1 }}>
-                  <span style={{ fontWeight: 600, fontSize: 13.5, width: 92, flexShrink: 0, color: sel ? '#7DEFFF' : '#D7E0EA' }}>{m.label}</span>
-                  <span style={{ fontSize: 11.5, color: '#76849A' }}>{m.blurb}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 11, color: save.ngplus ? '#FFC76B' : '#3A4759', marginBottom: 14 }}>
-            {save.ngplus ? 'NG+ pins the fab to Architect rules.' : 'Switch any time — earned stars and XP are kept.'}
-          </div>
-
-          <div className="eyebrow" style={{ marginBottom: 8, color: '#FFE27A' }}>new game+</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-            <button className="btn sm" disabled={!save.tapeoutDone}
-              style={save.ngplus ? { borderColor: '#7A6310', color: '#FFE27A' } : null}
-              onClick={toggleNg}>
-              <Zap size={12} /> {save.ngplus ? 'NG+ engaged — disengage' : 'engage NG+'}
-            </button>
-            <span style={{ fontSize: 11.5, color: '#5A6A80' }}>
-              {save.tapeoutDone ? 'every spec remixed · architect rules · separate stars' : 'locked until CHIP-1 tapes out'}
-            </span>
-          </div>
-
-          <div className="eyebrow" style={{ marginBottom: 8, color: '#A3E635' }}>graphics</div>
-          <div style={{ marginBottom: 16 }}>
-            <GfxPanel gfx={gfx} setGfx={setGfx} accent="#A3E635" embedded />
-            <div style={{ fontSize: 11, color: '#5A6A80', marginTop: 2 }}>Applies across the mines &amp; die blocks — brightness, lights, fog &amp; glow.</div>
-          </div>
-          <div className="eyebrow" style={{ marginBottom: 8 }}>wafers</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn" onClick={() => { AudioFX.click(); setSettingsOpen(false); setResetArmed(false); go({ name: 'profiles' }); }}><Cpu size={13} /> profiles & save codes</button>
-            <button className="btn" style={{ borderColor: '#B14A52', color: '#FF8B82' }}
-              onClick={() => { if (resetArmed) resetAll(); else { AudioFX.bad(); setResetArmed(true); } }}>
-              <RotateCcw size={13} /> {resetArmed ? 'click again — no undo' : `scrap wafer (reset slot ${activeSlot})`}
-            </button>
-          </div>
-        </Modal>
+        <SettingsPanel
+          save={save}
+          gfx={gfx}
+          setGfx={setGfx}
+          setMode={setMode}
+          toggleNg={toggleNg}
+          toggleSound={toggleSound}
+          resetArmed={resetArmed}
+          setResetArmed={setResetArmed}
+          resetAll={resetAll}
+          activeSlot={activeSlot}
+          go={go}
+          onClose={() => { setSettingsOpen(false); setResetArmed(false); }}
+          onFlightReport={() => { AudioFX.click(); setSettingsOpen(false); setFrReport(true); }}
+          onFlightNote={() => { AudioFX.click(); setSettingsOpen(false); setFrText(''); setFrNote(true); }}
+        />
       )}
     </div>
   );

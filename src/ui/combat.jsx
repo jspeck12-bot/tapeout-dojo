@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ChevronLeft, ChevronRight, Coins, FlaskConical, Heart, Skull, Swords, Zap,
-} from "lucide-react";
 import { AudioFX } from '../audio/index.js';
 import { bossPhase } from '../engine/debug/diagnostics.js';
-import { ITEMS, derivedStats } from '../game/rpg.js';
+import { derivedStats } from '../game/rpg.js';
 import { FR } from '../telemetry/flight-recorder.js';
 import { VictoryReport } from './victory/VictoryReport.jsx';
+import { Button } from './components/Button.jsx';
+import { Badge } from './components/Badge.jsx';
+import { ProgressBar } from './components/ProgressBar.jsx';
+import { ShopBay } from './shop/ShopBay.jsx';
+import {
+  FlaskMark, HeartMark, SkullMark, SparkMark, SwordMark,
+} from './components/icons.jsx';
 
 // ============================================================
 // COMBAT SYSTEM — combat hook, HUD, flatline, shop, level-up
@@ -151,21 +155,17 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
   return { live: live0, stats, enemy, php, ehp, tele, feed, over, loot, dead: over === 'dead', won: over === 'won', fluxArmed, onRun, onAnswer, victory, retreatDead, potion, flux, phase, phaseT };
 }
 
-function Bar({ pct, color, h }) {
-  return (
-    <div style={{ height: h || 8, background: '#11161F', borderRadius: 99, overflow: 'hidden', marginTop: 3, border: '1px solid #1A2230' }}>
-      <div style={{ height: '100%', width: Math.max(0, Math.min(100, pct)) + '%', background: color, transition: 'width .25s ease' }} />
-    </div>
-  );
+function Bar({ pct, tone, size }) {
+  const t = tone || (pct > 50 ? 'ok' : pct > 25 ? 'brass' : 'danger');
+  return <ProgressBar value={pct} tone={t} size={size} />;
 }
 
 function CombatHUD({ c, save }) {
   if (!c) return null;
   if (!c.live) {
     return (
-      <div className="card" style={{ margin: '10px 0 4px', padding: '8px 14px', display: 'flex', gap: 9, alignItems: 'center' }}>
-        <Swords size={13} color="#5A6A80" />
-        <span className="eyebrow">sparring — already cleared, the {c.enemy.name.toLowerCase()} won't bite</span>
+      <div className="sg-combat" data-combat-hud="1" data-live="0">
+        <span className="sg-combat__name"><SwordMark size={13} /> sparring — already cleared, the {c.enemy.name.toLowerCase()} won't bite</span>
       </div>
     );
   }
@@ -173,61 +173,79 @@ function CombatHUD({ c, save }) {
   const ePct = c.ehp / c.enemy.hp * 100;
   const pots = (save.inv && save.inv.potions) || 0;
   const fluxN = (save.inv && save.inv.flux) || 0;
+  const hpTone = hpPct > 50 ? 'ok' : hpPct > 25 ? 'brass' : 'danger';
   return (
-    <div className="card" style={{ margin: '10px 0 4px', padding: '10px 14px', borderColor: c.enemy.boss ? '#7A6310' : undefined }}>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 200px', minWidth: 180 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#8FA3BC', alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Heart size={11} color="#7CE7A2" /> ENGINEER · Lv {c.stats.lvl}</span>
+    <div className="sg-combat" data-combat-hud="1" data-live="1" data-boss={c.enemy.boss ? '1' : '0'}>
+      <div className="sg-combat__row">
+        <div className="sg-combat__col">
+          <div className="sg-combat__label">
+            <span className="sg-combat__name"><HeartMark size={11} /> ENGINEER · Lv {c.stats.lvl}</span>
             <span>{c.php}/{c.stats.maxHp}</span>
           </div>
-          <Bar pct={hpPct} color={hpPct > 50 ? '#2EA56A' : hpPct > 25 ? '#FFC76B' : '#FF6B62'} />
-          <div style={{ display: 'flex', gap: 6, marginTop: 7 }}>
-            <button className="btn sm" disabled={pots <= 0} onClick={c.potion} title="restore 40 HP">
-              <FlaskConical size={11} /> ration ×{pots}
-            </button>
-            <button className="btn sm" disabled={fluxN <= 0 || c.fluxArmed} onClick={c.flux} title="next improving run ×3 suppression"
-              style={c.fluxArmed ? { borderColor: '#7DEFFF', color: '#7DEFFF' } : undefined}>
-              <Zap size={11} /> {c.fluxArmed ? 'flux armed' : 'flux ×' + fluxN}
-            </button>
+          <Bar pct={hpPct} tone={hpTone} />
+          <div className="sg-combat__acts">
+            <Button size="sm" disabled={pots <= 0} onClick={c.potion} title="restore 40 HP" icon={<FlaskMark size={11} />}>
+              ration ×{pots}
+            </Button>
+            <Button
+              size="sm"
+              variant={c.fluxArmed ? 'primary' : 'default'}
+              disabled={fluxN <= 0 || c.fluxArmed}
+              onClick={c.flux}
+              title="next improving run ×3 suppression"
+              icon={<SparkMark size={11} />}
+            >
+              {c.fluxArmed ? 'flux armed' : 'flux ×' + fluxN}
+            </Button>
           </div>
         </div>
-        <div style={{ flex: '1 1 200px', minWidth: 180 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, alignItems: 'center', gap: 6 }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: c.enemy.boss ? '#FFE27A' : '#FF8B82', letterSpacing: '.06em' }}>
-              <Skull size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : ''}
+        <div className="sg-combat__col">
+          <div className="sg-combat__label">
+            <span className={`sg-combat__name ${c.enemy.boss ? 'is-boss' : 'is-foe'}`}>
+              <SkullMark size={11} /> {c.enemy.name}{c.enemy.boss ? ' · BOSS' : ''}
             </span>
-            <span style={{ color: '#8FA3BC' }}>{c.ehp}/{c.enemy.hp}</span>
+            <span>{c.ehp}/{c.enemy.hp}</span>
           </div>
-          <Bar pct={ePct} color={c.enemy.boss ? '#FACC15' : '#C4453F'} />
+          <Bar pct={ePct} tone={c.enemy.boss ? 'brass' : 'danger'} />
           {c.enemy.boss && (
-            <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
-              {[1, 2, 3].map(p => (
-                <span key={p} style={{ flex: 1, height: 4, borderRadius: 2, transition: 'background .25s', background: p <= (c.phase || 1) ? ((c.phase || 1) >= 3 ? '#FF6B62' : '#FACC15') : '#2A3344' }} />
+            <div className="sg-combat__phases">
+              {[1, 2, 3].map((p) => (
+                <span
+                  key={p}
+                  className={`sg-combat__pip${p <= (c.phase || 1) ? ' is-on' : ''}${(c.phase || 1) >= 3 && p <= (c.phase || 1) ? ' is-last' : ''}`}
+                />
               ))}
-              <span style={{ fontSize: 9, color: '#8FA3BC', letterSpacing: '.12em', marginLeft: 4 }}>PHASE {['I', 'II', 'III'][(c.phase || 1) - 1]}</span>
+              <span className="sg-eyebrow">PHASE {['I', 'II', 'III'][(c.phase || 1) - 1]}</span>
             </div>
           )}
           {c.enemy.boss && c.enemy.bossSpec?.mechanic?.[Math.max(0, (c.phase || 1) - 1)] && (
-            <div style={{ marginTop: 6, fontSize: 10.5, color: '#FFC76B' }}>
+            <div className="sg-combat__mech">
               {c.enemy.bossSpec.mechanic[Math.max(0, (c.phase || 1) - 1)]}
             </div>
           )}
-          <div style={{ fontSize: 10, color: '#76849A', marginTop: 7, display: 'flex', justifyContent: 'space-between' }}>
+          <div className="sg-combat__tele">
             <span>winding up{c.tele > 0.85 ? ' — BRACE' : ''}</span>
           </div>
-          <Bar pct={c.tele * 100} color={c.tele > 0.85 ? '#FF6B62' : '#3A4A63'} h={4} />
+          <Bar pct={c.tele * 100} tone={c.tele > 0.85 ? 'danger' : 'cyan'} size="sm" />
         </div>
       </div>
       {c.feed.length > 0 && (
-        <div style={{ marginTop: 8, borderTop: '1px solid #161D29', paddingTop: 6 }}>
-          {c.feed.map(f => (
-            <div key={f.id} style={{ fontSize: 11, color: f.cls === 'hit' ? '#FF8B82' : f.cls === 'win' ? '#FFE27A' : '#7CE7A2' }}>{f.txt}</div>
+        <div className="sg-combat__feed">
+          {c.feed.map((f) => (
+            <div key={f.id} className={`sg-combat__feed-line${f.cls === 'hit' ? ' is-hit' : f.cls === 'win' ? ' is-win' : ''}`}>{f.txt}</div>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function StatChip({ label, val }) {
+  return <Badge>{label} {val}</Badge>;
+}
+
+function ShopScreen(props) {
+  return <ShopBay {...props} />;
 }
 
 function FlatlineOverlay({ c, onRetreat }) {
@@ -260,77 +278,6 @@ function FlatlineOverlay({ c, onRetreat }) {
       primary={{ label: 'crawl back', onClick: () => { AudioFX.click(); onRetreat(); } }}
       hint="ENTER · crawl back"
     />
-  );
-}
-
-function StatChip({ label, val }) {
-  return (
-    <span style={{ fontSize: 11.5, border: '1px solid #1D2632', borderRadius: 6, padding: '4px 9px', color: '#B9C6D6' }}>
-      <span style={{ color: '#76849A' }}>{label} </span>{val}
-    </span>
-  );
-}
-
-function ShopScreen({ save, go, onBuy, onEquip }) {
-  const st = derivedStats(save);
-  const groups = [['weapon', 'probes'], ['armor', 'suits'], ['tool', 'talismans'], ['consumable', 'rations']];
-  return (
-    <div style={{ marginTop: 22, maxWidth: 760 }}>
-      <button className="lnk" onClick={() => go({ name: 'home' })}><ChevronLeft size={14} /> the fab</button>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, margin: '8px 0 4px', flexWrap: 'wrap' }}>
-        <h2 style={{ margin: 0, fontSize: 19, fontWeight: 600, letterSpacing: '.06em' }}>SCRAP EXCHANGE</h2>
-        <span style={{ fontSize: 14, color: '#FFC76B', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <Coins size={14} /> {save.scrap || 0}
-        </span>
-      </div>
-      <div style={{ color: '#76849A', fontSize: 12.5, marginBottom: 12 }}>Scrap in, edge out. Kills pay; flawless kills pay half again.</div>
-
-      <div className="card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <span className="eyebrow" style={{ marginRight: 4 }}>loadout · Lv {st.lvl}</span>
-        <StatChip label="HP" val={st.maxHp} />
-        <StatChip label="ATK" val={st.atk} />
-        <StatChip label="DEF" val={Math.round(st.defPct * 100) + '%'} />
-        {st.lifesteal > 0 && <StatChip label="LEECH" val={'+' + st.lifesteal} />}
-        {st.scrapMult > 1 && <StatChip label="SALVAGE" val={'+' + Math.round((st.scrapMult - 1) * 100) + '%'} />}
-        {st.timerMult > 1 && <StatChip label="BOSS TIMER" val={'+' + Math.round((st.timerMult - 1) * 100) + '%'} />}
-        {st.slowMult > 1 && <StatChip label="ENEMY SLOW" val={Math.round((st.slowMult - 1) * 100) + '%'} />}
-        {st.hintBonus > 0 && <StatChip label="HINTS" val={'+' + st.hintBonus} />}
-      </div>
-
-      {groups.map(([slot, label]) => (
-        <div key={slot}>
-          <div className="eyebrow" style={{ margin: '14px 0 8px' }}>{label}</div>
-          <div className="twocol" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {ITEMS.filter(i => i.slot === slot && (!i.remembrance || (save.owned || []).includes(i.id))).map(it => {
-              const owned = (save.owned || []).includes(it.id);
-              const equipped = save.gear && save.gear[it.slot] === it.id;
-              const cnt = it.slot === 'consumable' ? ((save.inv && save.inv[it.inv]) || 0) : null;
-              const afford = (save.scrap || 0) >= it.cost;
-              return (
-                <div key={it.id} className="card" style={{ padding: '12px 14px', borderColor: equipped ? '#155E6B' : undefined }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 600 }}>{it.name}</span>
-                    {it.cost > 0 && <span style={{ fontSize: 11, color: '#FFC76B', marginLeft: 'auto' }}>{it.cost} ⛁</span>}
-                    {cnt !== null && <span style={{ fontSize: 11, color: '#76849A', marginLeft: it.cost > 0 ? 0 : 'auto' }}>held ×{cnt}</span>}
-                  </div>
-                  <div style={{ fontSize: 11.5, color: '#8A93A3', margin: '5px 0 9px', lineHeight: 1.5 }}>{it.blurb}</div>
-                  {it.slot === 'consumable' ? (
-                    <button className="btn sm" disabled={!afford || cnt >= 5} onClick={() => onBuy(it.id)}>buy · {it.name}</button>
-                  ) : equipped ? (
-                    <span style={{ fontSize: 11, letterSpacing: '.14em', color: '#7DEFFF' }}>EQUIPPED</span>
-                  ) : owned ? (
-                    <button className="btn sm" onClick={() => onEquip(it.id)}>equip {it.name}</button>
-                  ) : (
-                    <button className="btn sm" disabled={!afford} onClick={() => onBuy(it.id)}>buy · {it.name}</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-      <div style={{ fontSize: 11, color: '#5A6A80', marginTop: 14 }}>Stats come from level (XP) and gear. Defeats cost scrap — the work itself is never lost.</div>
-    </div>
   );
 }
 

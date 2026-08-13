@@ -139,7 +139,7 @@ function ForgeScreen({ ch0, daily, save, go, onTrainingClear, onStat }) {
           </div>
         </div>
         <div>
-          <CodeEditor value={code} onChange={setCode} onRun={run} errLines={errLines} />
+          <CodeEditor value={code} onChange={setCode} onRun={run} errLines={errLines} ports={ch.iface.ports} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0' }}>
             <button className={'btn ' + (daily ? 'gold' : 'primary')} onClick={run}><Play size={13} /> COMPILE & RUN</button>
             <span className="eyebrow hidesm">ctrl+enter</span>

@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { TOKEN_CSS, TOKENS } from './tokens.js';
 import { Button } from './components/Button.jsx';
 import { Panel } from './components/Panel.jsx';
+import { Badge } from './components/Badge.jsx';
+import { ProgressBar } from './components/ProgressBar.jsx';
+import { StatBlock } from './components/StatBlock.jsx';
+import { ListRow } from './components/ListRow.jsx';
+import { Tabs } from './components/Tabs.jsx';
+import { Tooltip } from './components/Tooltip.jsx';
+import { Toast } from './components/Toast.jsx';
 import { ChipMark, GearMark, PlayMark } from './components/icons.jsx';
 
 const SWATCHES = [
@@ -18,6 +25,7 @@ const SWATCHES = [
 function UiKitScreen({ go }) {
   const [stage, setStage] = useState('boot');
   const [armed, setArmed] = useState(false);
+  const [tab, setTab] = useState('probes');
 
   useEffect(() => {
     const id = setTimeout(() => setStage('ready'), 16);
@@ -89,7 +97,7 @@ function UiKitScreen({ go }) {
               TAPEOUT<span style={{ color: 'var(--sg-cyan)' }}>_</span>
             </h1>
             <p style={{ margin: 0, maxWidth: 640, color: 'var(--sg-ink-muted)', fontSize: 14.5 }}>
-              Control surface tokens — Button, Panel, brass brackets. Screens stay on legacy chrome until the migrate pass.
+              Self-hosted Oxanium / IBM Plex Sans / JetBrains Mono. Button, Panel, Modal, Tabs, Toast, Tooltip, ProgressBar, StatBlock, ListRow, Badge.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -147,11 +155,39 @@ function UiKitScreen({ go }) {
 
           <Panel title="Panel anatomy">
             <p style={{ margin: '0 0 14px' }}>
-              Brass corner brackets mark equipment frames. Titles: Oxanium. Body: IBM Plex Mono.
+              Brass corner brackets mark equipment frames. Titles: Oxanium. Body: IBM Plex Sans. Code: JetBrains Mono with ligatures.
             </p>
             <Button variant="primary" size="lg" style={{ width: '100%' }}>
               commit to wafer
             </Button>
+          </Panel>
+
+          <Panel title="Kit pieces" style={{ gridColumn: '1 / -1' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14, alignItems: 'center' }}>
+              <Badge tone="cyan">cyan</Badge>
+              <Badge tone="brass">brass</Badge>
+              <Badge tone="ok">ok</Badge>
+              <Badge tone="danger">danger</Badge>
+              <Tooltip label="token tooltip">
+                <Badge>hover me</Badge>
+              </Tooltip>
+            </div>
+            <Tabs
+              value={tab}
+              onChange={setTab}
+              tabs={[{ id: 'probes', label: 'probes' }, { id: 'suits', label: 'suits' }]}
+            />
+            <div style={{ margin: '12px 0' }}>
+              <ProgressBar value={armed ? 100 : 67} tone="cyan" label="yield" />
+            </div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+              <StatBlock label="HP" value={156} tone="ok" delta="+20" />
+              <StatBlock label="ATK" value={45} tone="cyan" />
+            </div>
+            <ListRow title="Copper Probe" hint="low resistance" meta="120 ⛁" active={tab === 'probes'} onClick={() => setTab('probes')} />
+            <div style={{ marginTop: 12, maxWidth: 280 }}>
+              <Toast title="WAFER SYNCED" sub="settings saved to this slot" />
+            </div>
           </Panel>
 
           <Panel title="Type & motion" style={{ gridColumn: '1 / -1' }}>
@@ -160,8 +196,11 @@ function UiKitScreen({ go }) {
                 <div className="sg-display" style={{ fontSize: 28, color: 'var(--sg-brass)' }}>
                   Display · Oxanium
                 </div>
+                <div style={{ fontFamily: 'var(--sg-font-body)', color: 'var(--sg-ink)', fontSize: 15 }}>
+                  Body · IBM Plex Sans — the fab keeps the work.
+                </div>
                 <div style={{ fontFamily: 'var(--sg-font-mono)', color: 'var(--sg-ink)', fontSize: 15 }}>
-                  Mono · IBM Plex Mono — module and_gate (a, b, y);
+                  Mono · JetBrains Mono — module and_gate (a, b, y);
                 </div>
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--sg-ink-dim)', lineHeight: 1.7 }}>
@@ -174,7 +213,7 @@ function UiKitScreen({ go }) {
         </div>
 
         <footer className="sg-eyebrow" style={{ textAlign: 'center' }}>
-          UI KIT · data-uikit-status={stage} · screens still on legacy .btn until migrated
+          UI KIT · data-uikit-status={stage} · self-hosted faces · full kit
         </footer>
       </div>
     </div>
