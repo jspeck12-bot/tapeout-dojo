@@ -22,7 +22,7 @@ const FORTRESS_PALETTE = {
 };
 
 const HALL_H = 18.4;
-const KEEP = { x: 0, z: -68 };
+const KEEP = { x: 0, z: -48 };
 
 function gothicLabel(text, color, scale) {
   const label = mineLabelSprite(text, color, scale);
@@ -316,21 +316,30 @@ function buildStateKeep(scene, concrete, steel, brass) {
   under.userData.baseIntensity = under.intensity;
   landmark.add(under);
 
-  // Unfogged heat pylon above the keep so the landmark survives FogExp2.
+  // Unfogged heat pylon + beacon so the keep crown survives FogExp2 from spawn.
   const pylon = addMesh(
     landmark,
-    roundedBoxGeometry(1.1, 8.4, 1.1, 0.08, 2),
-    emissiveSurface('silicon', FORTRESS_PALETTE.ember, 1.9, 1),
+    roundedBoxGeometry(1.4, 11.2, 1.4, 0.08, 2),
+    emissiveSurface('silicon', FORTRESS_PALETTE.ember, 2.2, 1),
     0,
-    32.4,
+    34.2,
     0,
   );
   pylon.material.fog = false;
   pylon.userData.cast = true;
+  const beacon = addMesh(
+    landmark,
+    roundedBoxGeometry(2.8, 0.35, 2.8, 0.06, 2),
+    emissiveSurface('silicon', FORTRESS_PALETTE.rose, 2.4, 1),
+    0,
+    40.2,
+    0,
+  );
+  beacon.material.fog = false;
 
   landmark.add(fxCone(FORTRESS_PALETTE.rose, 5.2, 26, 0.055, 0, 1.4));
-  const marquee = gothicLabel('THE STATE KEEP', '#FB7185', 1.45);
-  marquee.position.set(0, 30.2, 2.6);
+  const marquee = gothicLabel('THE STATE KEEP', '#FB7185', 1.55);
+  marquee.position.set(0, 29.4, 4.2);
   landmark.add(marquee);
 
   scene.add(landmark);
