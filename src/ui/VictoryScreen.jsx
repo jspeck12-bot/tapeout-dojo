@@ -25,6 +25,12 @@ const SCENES = {
     primary: { label: 'back to Gate Valley' },
     secondary: { label: 'inspect hardware' },
     hint: 'ENTER · continue',
+    meta: [
+      { label: 'station', value: '#3 NAND ARRAY' },
+      { label: 'hostile', value: 'NAND Golem' },
+      { label: 'fab', value: 'Gate Valley' },
+    ],
+    meter: { label: 'yield', value: 67, suffix: '%' },
   },
   flawless: {
     id: 'flawless',
@@ -42,6 +48,12 @@ const SCENES = {
     primary: { label: 'onward' },
     secondary: { label: 'run it again', hotkey: 'r' },
     hint: 'ENTER · onward   ·   R · reprobe',
+    meta: [
+      { label: 'station', value: '#1 BIT MATH' },
+      { label: 'hostile', value: 'Carry Beetle' },
+      { label: 'fab', value: 'The Bit Mines' },
+    ],
+    meter: { label: 'yield', value: 100, suffix: '%' },
   },
   boss: {
     id: 'boss',
@@ -59,6 +71,12 @@ const SCENES = {
     primary: { label: 'claim remembrance' },
     secondary: { label: 'back to the floor' },
     hint: 'ENTER · claim',
+    meta: [
+      { label: 'station', value: 'BOSS LOT' },
+      { label: 'hostile', value: 'THE HIERARCH' },
+      { label: 'fab', value: 'Module Foundry' },
+    ],
+    meter: { label: 'phases', value: 100, suffix: '%' },
   },
   flatline: {
     id: 'flatline',
@@ -75,13 +93,19 @@ const SCENES = {
     primary: { label: 'crawl back' },
     secondary: null,
     hint: 'ENTER · crawl back',
+    meta: [
+      { label: 'station', value: '#3 NAND ARRAY' },
+      { label: 'hostile', value: 'NAND Golem' },
+      { label: 'draft', value: 'kept' },
+    ],
+    meter: { label: 'integrity', value: 0, suffix: '%' },
   },
   levelup: {
     id: 'levelup',
     label: 'PROMOTE',
     tone: 'ok',
     kicker: 'promotion · process credit',
-    title: 'Lv 4 → 5',
+    title: 'LEVEL 4 → 5',
     body: '+14 max HP · +4 ATK per level. The fab expects more of you now.',
     stars: null,
     stats: [
@@ -92,6 +116,12 @@ const SCENES = {
     primary: { label: 'onward' },
     secondary: null,
     hint: 'ENTER · onward',
+    meta: [
+      { label: 'from', value: 'Lv 4' },
+      { label: 'to', value: 'Lv 5' },
+      { label: 'delta', value: '+14 HP · +4 ATK' },
+    ],
+    meter: { label: 'rank', value: 100, suffix: '%' },
   },
 };
 
@@ -155,24 +185,24 @@ function VictoryScreen({ go }) {
               var(--sg-bg-deep) 100%);
         }
         .vs-wafer{
-          position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);
-          width:min(58vw,640px);aspect-ratio:1;pointer-events:none;
+          position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);
+          width:min(72vw,920px);aspect-ratio:1;pointer-events:none;
           border-radius:50%;
           background:
             repeating-linear-gradient(90deg,
-              color-mix(in srgb, var(--sg-line) 55%, transparent) 0 1px,
-              transparent 1px 42px),
+              color-mix(in srgb, var(--sg-brass) 28%, var(--sg-line)) 0 1px,
+              transparent 1px 48px),
             repeating-linear-gradient(180deg,
-              color-mix(in srgb, var(--sg-line) 55%, transparent) 0 1px,
-              transparent 1px 42px),
+              color-mix(in srgb, var(--sg-cyan) 18%, var(--sg-line)) 0 1px,
+              transparent 1px 48px),
             radial-gradient(circle at 50% 50%,
-              color-mix(in srgb, var(--sg-bg-panel) 70%, transparent) 0%,
+              color-mix(in srgb, var(--sg-bg-panel) 80%, var(--sg-brass)) 0%,
               var(--sg-bg-deep) 72%);
-          border:1px solid color-mix(in srgb, var(--sg-brass) 28%, var(--sg-line));
+          border:1px solid color-mix(in srgb, var(--sg-brass) 40%, var(--sg-line));
           box-shadow:
-            0 0 80px color-mix(in srgb, var(--sg-brass) 12%, transparent),
-            inset 0 0 60px color-mix(in srgb, var(--sg-bg) 50%, transparent);
-          opacity:.55;
+            0 0 120px color-mix(in srgb, var(--sg-brass) 18%, transparent),
+            inset 0 0 80px color-mix(in srgb, var(--sg-bg) 40%, transparent);
+          opacity:.78;
         }
         .vs-dock{
           position:absolute;left:12px;top:52px;z-index:70;
@@ -211,6 +241,9 @@ function VictoryScreen({ go }) {
         body={scene.body}
         stars={scene.stars}
         stats={scene.stats}
+        meta={scene.meta}
+        meter={scene.meter}
+        banner={scene.kicker}
         primary={{
           ...scene.primary,
           onClick: () => { AudioFX.click(); go({ name: 'menu' }); },

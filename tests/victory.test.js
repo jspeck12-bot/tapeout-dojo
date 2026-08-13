@@ -15,7 +15,7 @@ describe('Silicon Gothic yield report', () => {
     expect(SCENES.flawless.stars).toBe(3);
     expect(SCENES.boss.kicker).toContain('boss');
     expect(SCENES.flatline.tone).toBe('danger');
-    expect(SCENES.levelup.title).toContain('Lv');
+    expect(SCENES.levelup.title).toContain('LEVEL');
   });
 
   test('YieldMark / FailMark stay geometric', () => {
@@ -75,7 +75,8 @@ describe('Silicon Gothic yield report', () => {
     expect(text).toContain('SIGNED OFF');
     expect(text).toContain('ZERO DEFECT');
     expect(text).toContain('FLATLINE');
-    expect(text).toContain('data-victory-overlay');
+    expect(text).toContain('lot ticket');
+    expect(text).toContain('fab checkout');
     expect(json.props['data-victory-scene']).toBe('signoff');
     expect(json.props['data-victory-still']).toBe('0');
   });
@@ -113,6 +114,7 @@ describe('Silicon Gothic yield report', () => {
     });
     const text = JSON.stringify(root.toJSON());
     expect(text).toContain('Lv 4 → 5');
+    expect(text).toContain('lot ticket');
     expect(text).toContain('onward');
     expect(text).toContain('process credit');
   });

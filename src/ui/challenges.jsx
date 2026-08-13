@@ -251,6 +251,12 @@ function GauntletScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsu
             { id: 'xp', label: 'process credit', value: run.firstClear ? g.xp : 0, prefix: '+', accent: 'ok' },
             { id: 'hit', label: 'first tries', value: `${TOTAL - run.wrongs}/${TOTAL}`, accent: 'cyan' },
           ]}
+          meta={[
+            { label: 'station', value: g.title },
+            { label: 'fab', value: world.name },
+            { label: 'hostile', value: combat.enemy.name },
+          ]}
+          meter={{ label: 'yield', value: Math.round((run.stars / 3) * 100), suffix: '%' }}
           primary={{
             label: `back to ${world.name}`,
             onClick: () => { AudioFX.click(); go({ name: 'world', w: g.world }); },
@@ -426,6 +432,12 @@ function TruthScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsume,
               { id: 'xp', label: 'process credit', value: (doneMeta && doneMeta.firstClear) ? tc.xp : 0, prefix: '+', accent: 'ok' },
               { id: 'tries', label: 'submits', value: subs === 0 ? 1 : subs, accent: 'cyan' },
             ]}
+            meta={[
+              { label: 'station', value: tc.title },
+              { label: 'fab', value: world.name },
+              { label: 'hostile', value: combat.enemy.name },
+            ]}
+            meter={{ label: 'yield', value: Math.round(((doneMeta ? doneMeta.stars : 0) / 3) * 100), suffix: '%' }}
             primary={{
               label: `back to ${world.name}`,
               onClick: () => { AudioFX.click(); go({ name: 'world', w: tc.world }); },
@@ -768,6 +780,12 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
                 { id: 'scrap', label: 'reclaimed', value: (combat.loot && combat.loot.scrap) || 0, prefix: '+', accent: 'brass' },
                 { id: 'xp', label: 'process credit', value: (passMeta && passMeta.firstClear) ? ch.xp : 0, prefix: '+', accent: 'ok' },
               ]}
+              meta={[
+                { label: 'station', value: ch.title },
+                { label: 'fab', value: world.name },
+                { label: 'hostile', value: combat.enemy.name },
+              ]}
+              meter={{ label: 'yield', value: Math.round(((passMeta ? passMeta.stars : 0) / 3) * 100), suffix: '%' }}
               primary={{
                 label: `back to ${world.name}`,
                 onClick: () => { AudioFX.click(); go({ name: 'world', w: ch.world }); },

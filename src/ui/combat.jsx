@@ -251,6 +251,12 @@ function FlatlineOverlay({ c, onRetreat }) {
         { id: 'loss', label: 'stripped', value: stripped, prefix: '−', accent: 'danger' },
         { id: 'draft', label: 'code draft', value: 'kept', accent: 'cyan' },
       ]}
+      meta={[
+        { label: 'hostile', value: c.enemy.name },
+        { label: 'result', value: 'probe fail' },
+        { label: 'draft', value: 'kept' },
+      ]}
+      meter={{ label: 'integrity', value: 0, suffix: '%' }}
       primary={{ label: 'crawl back', onClick: () => { AudioFX.click(); onRetreat(); } }}
       hint="ENTER · crawl back"
     />
@@ -342,6 +348,12 @@ function LevelUpModal({ info, save, onClose }) {
         { id: 'atk', label: 'ATK', value: st.atk, accent: 'cyan' },
         { id: 'def', label: 'DEF', value: `${Math.round(st.defPct * 100)}%`, accent: 'brass' },
       ]}
+      meta={[
+        { label: 'from', value: `Lv ${info.from}` },
+        { label: 'to', value: `Lv ${info.to}` },
+        { label: 'delta', value: '+14 HP · +4 ATK' },
+      ]}
+      meter={{ label: 'rank', value: 100, suffix: '%' }}
       primary={{ label: 'onward', onClick: () => { AudioFX.click(); onClose(); } }}
       hint="ENTER · onward"
     />
