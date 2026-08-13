@@ -124,11 +124,11 @@ const GOTHIC_DUNGEONS = {
     lampI: 1.45,
     lampAngle: 0.46,
     far: 300,
-    pitch: -0.18,
+    pitch: -0.26,
     ambience: 'cave',
-    bloom: 0.28,
-    focus: 20,
-    exposure: 0.82,
+    bloom: 0.26,
+    focus: 18,
+    exposure: 0.8,
   },
 };
 

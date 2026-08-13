@@ -23,7 +23,7 @@ const TAPEOUT_PALETTE = {
 
 const HALL_H = 17.2;
 // Landmark sits in the first nave sightline from spawn (layout unchanged).
-const ALTAR = { x: 0, z: -48 };
+const ALTAR = { x: 0, z: -42 };
 
 function gothicLabel(text, color, scale) {
   const label = mineLabelSprite(text, color, scale);
@@ -166,8 +166,8 @@ function buildSpawnNave(scene, model, stone, brass) {
 function buildPathLighting(scene, model, low) {
   const group = new THREE.Group();
   group.userData.pathLighting = true;
-  const strip = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 0.55, 4);
-  const stud = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 0.95, 1);
+  const strip = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 0.38, 4);
+  const stud = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 0.7, 1);
   const path = model.path || [];
   for (let index = 0; index < path.length - 1; index++) {
     const a = path[index];
@@ -190,7 +190,7 @@ function buildPathLighting(scene, model, low) {
     pavement.rotation.y = Math.atan2(dx, dz);
     pavement.receiveShadow = true;
     group.add(pavement);
-    const ribbon = new THREE.Mesh(roundedBoxGeometry(0.55, 0.04, len, 0.02, 2), strip);
+    const ribbon = new THREE.Mesh(roundedBoxGeometry(0.42, 0.04, len, 0.02, 2), strip);
     ribbon.position.set((a.x + b.x) / 2, 0.035, (a.z + b.z) / 2);
     ribbon.rotation.y = Math.atan2(dx, dz);
     ribbon.receiveShadow = true;
@@ -277,40 +277,59 @@ function buildWaferAltar(scene, stone, steel, brass) {
   );
   arch.userData.cast = true;
 
-  // Silicon wafer — the silhouette that must read from spawn.
+  // Silicon wafer — tilted toward spawn so the disk face reads (flat wafers collapse to a line).
   const wafer = addMesh(
     landmark,
-    new THREE.CylinderGeometry(3.6, 3.6, 0.18, 48),
+    new THREE.CylinderGeometry(4.6, 4.6, 0.16, 56),
     pbrMaterial('silicon', TAPEOUT_PALETTE.silicon, {
-      roughness: 0.18,
-      metalness: 0.72,
+      roughness: 0.16,
+      metalness: 0.74,
       emissive: TAPEOUT_PALETTE.gold,
-      emissiveIntensity: 0.55,
+      emissiveIntensity: 1.15,
       repeat: 2,
+      toneMapped: false,
     }),
     0,
-    3.0,
-    1.1,
+    5.4,
+    2.4,
   );
+  wafer.rotation.x = -0.72;
+  wafer.material.fog = false;
   wafer.userData.cast = true;
   wafer.userData.wafer = true;
 
+  const rim = addMesh(
+    landmark,
+    new THREE.TorusGeometry(4.75, 0.1, 8, 56),
+    emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.9, 1),
+    0,
+    5.4,
+    2.4,
+  );
+  rim.rotation.x = Math.PI / 2 - 0.72;
+  rim.material.fog = false;
+
   const notch = addMesh(
     landmark,
-    roundedBoxGeometry(0.55, 0.22, 0.9, 0.04, 2),
-    emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.35, 1),
+    roundedBoxGeometry(0.7, 0.2, 1.0, 0.04, 2),
+    emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.55, 1),
     0,
-    3.05,
-    4.55,
+    3.55,
+    6.1,
   );
   notch.userData.glow = true;
 
-  // Die grid — thin gold traces on the wafer face.
-  const dieMat = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 0.85, 1);
+  // Die grid — thin gold traces on the wafer face (follow the tilt).
+  const dieMat = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.15, 1);
+  dieMat.fog = false;
+  const die = new THREE.Group();
+  die.position.set(0, 5.55, 2.4);
+  die.rotation.x = -0.72;
   for (let i = -2; i <= 2; i++) {
-    addMesh(landmark, roundedBoxGeometry(6.2, 0.02, 0.04, 0.01, 1), dieMat, 0, 3.12, 1.1 + i * 0.85);
-    addMesh(landmark, roundedBoxGeometry(0.04, 0.02, 6.2, 0.01, 1), dieMat, i * 0.85, 3.12, 1.1);
+    addMesh(die, roundedBoxGeometry(7.6, 0.02, 0.05, 0.01, 1), dieMat, 0, 0.02, i * 1.05);
+    addMesh(die, roundedBoxGeometry(0.05, 0.02, 7.6, 0.01, 1), dieMat, i * 1.05, 0.02, 0);
   }
+  landmark.add(die);
 
   // Unfogged crown beacon so FogExp2 does not erase the altar from spawn.
   const spire = addMesh(
@@ -341,9 +360,9 @@ function buildWaferAltar(scene, stone, steel, brass) {
   hero.userData.baseIntensity = hero.intensity;
   landmark.add(hero);
 
-  landmark.add(fxCone(TAPEOUT_PALETTE.gold, 4.2, 22, 0.04, 0, 1.6));
-  const marquee = gothicLabel('THE WAFER ALTAR', '#FACC15', 1.45);
-  marquee.position.set(0, 17.4, 1.8);
+  landmark.add(fxCone(TAPEOUT_PALETTE.gold, 5.0, 24, 0.045, 0, 2.2));
+  const marquee = gothicLabel('THE WAFER ALTAR', '#FACC15', 1.55);
+  marquee.position.set(0, 16.8, 3.2);
   landmark.add(marquee);
 
   scene.add(landmark);
@@ -604,8 +623,8 @@ function buildTapeoutWorldScene(scene, model, theme, helpers) {
 
   scene.background = new THREE.Color(TAPEOUT_PALETTE.void);
   // Light fog — quiet depth without eating the wafer silhouette.
-  scene.fog = new THREE.FogExp2(TAPEOUT_PALETTE.fog, 0.0088);
-  scene.userData.baseFogDensity = 0.0088;
+  scene.fog = new THREE.FogExp2(TAPEOUT_PALETTE.fog, 0.0076);
+  scene.userData.baseFogDensity = 0.0076;
 
   const lighting = buildTapeoutLighting(scene, low);
   buildShell(scene, model, stone, plate);
@@ -636,7 +655,7 @@ function buildTapeoutWorldScene(scene, model, theme, helpers) {
 
   (scene.userData.anims = scene.userData.anims || []).push((time) => {
     monument.hero.intensity = 2.4 + Math.sin(time * 0.9) * 0.22;
-    monument.wafer.material.emissiveIntensity = 0.48 + Math.sin(time * 1.1) * 0.12;
+    monument.wafer.material.emissiveIntensity = 1.05 + Math.sin(time * 1.1) * 0.18;
     monument.beacon.material.emissiveIntensity = 2.0 + Math.sin(time * 1.6) * 0.25;
     shaft.material.opacity = 0.016 + Math.sin(time * 0.55) * 0.007;
     atmosphere.rotation.y = time * 0.0025;
