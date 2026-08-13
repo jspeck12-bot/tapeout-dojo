@@ -52,6 +52,15 @@ function emissivePbr(surface, color, intensity = 3) {
   });
 }
 
+function styleLabel(text, color, scale) {
+  const label = mineLabelSprite(text, color, scale);
+  label.material.toneMapped = false;
+  label.material.depthTest = false;
+  label.material.opacity = 1;
+  label.renderOrder = 24;
+  return label;
+}
+
 function buildArchitecture(scene) {
   const frame = new THREE.Group();
   frame.userData.foregroundFrame = true;
@@ -345,12 +354,12 @@ function buildMaterialGallery(scene) {
     );
     sample.castShadow = sample.receiveShadow = true;
     sample.userData.materialSample = spec.surface;
-    const label = mineLabelSprite(
+    const label = styleLabel(
       spec.label,
-      index % 2 ? '#78E7FF' : '#FFC475',
-      0.46,
+      index % 2 ? '#A8F1FF' : '#FFE0A3',
+      0.56,
     );
-    label.position.set(spec.x, 5.55, spec.z);
+    label.position.set(spec.x, 5.65, spec.z);
     gallery.add(label);
     return sample;
   });
@@ -391,7 +400,7 @@ function buildFieldTerminal(scene) {
     0,
   );
   base.receiveShadow = true;
-  const label = mineLabelSprite('FIELD NOTE // MATERIAL DOCTRINE', '#7DEFFF', 0.34);
+  const label = styleLabel('FIELD NOTE // MATERIAL DOCTRINE', '#A8F1FF', 0.34);
   label.position.set(0, 6.2, 0);
   terminal.add(label);
   terminal.position.set(-11, 0, -21);
@@ -425,7 +434,7 @@ function buildStationMarker(scene) {
   );
   ring.rotation.x = Math.PI / 2;
   ring.userData.stationRing = true;
-  const label = mineLabelSprite('01 // SIGNAL STATION', '#FFC475', 0.36);
+  const label = styleLabel('01 // SIGNAL STATION', '#FFE0A3', 0.36);
   label.position.set(0, 8.2, 0);
   station.add(label);
   station.position.set(11, 0, -22);
