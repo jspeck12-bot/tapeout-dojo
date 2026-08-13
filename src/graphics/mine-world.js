@@ -96,8 +96,8 @@ function buildMineCeilings(scene, model, material, zSplit, pad) {
     return mesh;
   };
   return {
-    shaft: makeCeiling(zSplit, bounds.maxZ + pad, SHAFT_H, 0.82, 48),
-    vault: makeCeiling(bounds.minZ - pad, zSplit, VAULT_H, 2.2, 36),
+    shaft: makeCeiling(zSplit, bounds.maxZ + pad, SHAFT_H, 0.82, 24),
+    vault: makeCeiling(bounds.minZ - pad, zSplit, VAULT_H, 2.2, 18),
   };
 }
 
@@ -175,8 +175,8 @@ function buildPathLighting(scene, model, scale) {
     group.add(marker);
     const pool = new THREE.PointLight(
       MINE_PALETTE.lantern,
-      index === path.length - 1 ? 1.35 : 0.62,
-      (index === path.length - 1 ? 22 : 11) * scale,
+      index === path.length - 1 ? 0.85 : 0.48,
+      (index === path.length - 1 ? 16 : 10) * scale,
       1.8,
     );
     pool.position.set(point.x, index === path.length - 1 ? 4.2 : 2.4, point.z);
@@ -378,7 +378,7 @@ function buildCavernMonument(scene, brass, crystal, steel) {
     spike.scale.y = 3.4;
     spike.castShadow = true;
   });
-  const light = new THREE.PointLight(MINE_PALETTE.spill, 1.55, 34, 1.6);
+  const light = new THREE.PointLight(MINE_PALETTE.spill, 1.15, 28, 1.6);
   light.position.set(0, 12.2, 0);
   light.castShadow = false;
   light.userData.lightRole = 'monument';
@@ -423,7 +423,7 @@ function buildMineLighting(scene, model, scale, low) {
   key.position.set(6, 24, -70);
   key.target.position.set(0, 1, -84);
   key.castShadow = !low;
-  key.shadow.mapSize.set(1536, 1536);
+  key.shadow.mapSize.set(1024, 1024);
   key.shadow.bias = -0.00045;
   key.shadow.normalBias = 0.55;
   const camera = key.shadow.camera;
@@ -451,12 +451,7 @@ function buildMineLighting(scene, model, scale, low) {
   const rim = new THREE.SpotLight(MINE_PALETTE.vein, 1.35, 54 * scale, 0.55, 0.4, 1.4);
   rim.position.set(0, 9.5, -104);
   rim.target.position.set(0, 2.2, -48);
-  rim.castShadow = !low;
-  if (rim.castShadow) {
-    rim.shadow.mapSize.set(1024, 1024);
-    rim.shadow.bias = -0.002;
-    rim.shadow.normalBias = 0.4;
-  }
+  rim.castShadow = false;
   rim.userData.lightRole = 'rim';
   rim.userData.baseIntensity = rim.intensity;
   scene.add(rim);
@@ -589,7 +584,7 @@ function buildMineWorldScene(scene, model, helpers) {
       {
         scale,
         spot: index === 0 || index === 3,
-        shadow: !low && index === 0,
+        shadow: false,
         intensity: 1.05,
         distance: 16,
       },
