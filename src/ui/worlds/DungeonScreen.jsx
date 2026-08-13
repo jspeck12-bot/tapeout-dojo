@@ -85,6 +85,21 @@ const GOTHIC_DUNGEONS = {
     focus: 28,
     exposure: 0.88,
   },
+  5: {
+    status: 'clock',
+    label: 'CLOCK TOWER',
+    gfxTitle: 'quality · clock tower',
+    qualityAccent: '#a78bfa',
+    lamp: 0xe8d8ff,
+    lampI: 1.7,
+    lampAngle: 0.5,
+    far: 280,
+    pitch: -0.14,
+    ambience: 'cave',
+    bloom: 0.34,
+    focus: 14,
+    exposure: 0.86,
+  },
 };
 
 function applyGothicGfx(ctx, gfx, quality) {
@@ -670,6 +685,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       data-valley-status={w === 2 ? stage : undefined}
       data-foundry-status={w === 3 ? stage : undefined}
       data-canyon-status={w === 4 ? stage : undefined}
+      data-clock-status={w === 5 ? stage : undefined}
       style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
     >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
