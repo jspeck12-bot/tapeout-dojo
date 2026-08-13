@@ -41,6 +41,7 @@ import { StyleGuideScreen } from '../ui/worlds/StyleGuideScreen.jsx';
 import { UiKitScreen } from '../ui/UiKitScreen.jsx';
 import { WorkbenchScreen } from '../ui/WorkbenchScreen.jsx';
 import { WorldSelectScreen } from '../ui/WorldSelectScreen.jsx';
+import { DebugBayScreen } from '../ui/DebugBayScreen.jsx';
 import {
   ShopScreen, LevelUpModal,
 } from '../ui/combat.jsx';
@@ -62,7 +63,7 @@ function devScreenFromUrl() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -547,6 +548,7 @@ export function App() {
         {screen.name === 'uikit' && <UiKitScreen go={go} />}
         {screen.name === 'workbench' && <WorkbenchScreen go={go} />}
         {screen.name === 'worlds' && <WorldSelectScreen save={save} go={go} />}
+        {screen.name === 'debugbay' && <DebugBayScreen go={go} />}
         {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}

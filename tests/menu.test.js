@@ -67,6 +67,7 @@ describe('Silicon Gothic main menu', () => {
     expect(text).toContain('TAPEOUT');
     expect(text).toContain('CONTINUE');
     expect(text).toContain('DIE FLOORPLAN');
+    expect(text).toContain('DEBUG BAY');
     expect(text).toContain('NEW GAME');
     expect(text).toContain('CODEX & MASTERY DIE');
     expect(text).toContain('SETTINGS');

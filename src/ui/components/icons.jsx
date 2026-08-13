@@ -158,6 +158,24 @@ function DieMark({ size }) {
   );
 }
 
+function ScopeMark({ size }) {
+  return (
+    <FabMark size={size} label="debug bay">
+      <rect x="1.5" y="3" width="13" height="10" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="3" y="4.5" width="7.5" height="5.5" fill="none" stroke="currentColor" strokeWidth="1.15" />
+      <path
+        d="M3.4 8.2h1.2l.7-2 1 4 1.1-3.2.6 1.4H10"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.15"
+        strokeLinejoin="miter"
+      />
+      <circle cx="12.2" cy="6.2" r="0.9" fill="currentColor" />
+      <circle cx="12.2" cy="9.4" r="0.9" fill="currentColor" opacity="0.55" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -172,4 +190,5 @@ export {
   ChevronMark,
   LockMark,
   DieMark,
+  ScopeMark,
 };
