@@ -50,11 +50,24 @@ import {
   ALL_CHALLENGES, worldDone,
 } from '../world/challenges.js';
 
+function devScreenFromUrl() {
+  if (typeof window === 'undefined' || window.location?.hostname !== 'localhost') return null;
+  const params = new URLSearchParams(window.location.search);
+  const name = params.get('screen');
+  if (!['campus', 'mine', 'arcade', 'dungeon'].includes(name)) return null;
+  if (name === 'dungeon') {
+    const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
+    return { name, w: world };
+  }
+  return { name };
+}
+
 export function App() {
+  const devScreen = useRef(devScreenFromUrl()).current;
   const [save, setSave] = useState(() => normalizeSave(null));
   const [activeSlot, setActiveSlot] = useState(1);
   const [loaded, setLoaded] = useState(false);
-  const [screen, setScreen] = useState({ name: 'menu' });
+  const [screen, setScreen] = useState(devScreen || { name: 'menu' });
   const drillReturnRef = useRef(false);
   const [toasts, setToasts] = useState([]);
   const [rankModal, setRankModal] = useState(null);
@@ -116,7 +129,7 @@ export function App() {
       AudioFX.enabled = s.sound;
       setActiveSlot(slot);
       setSave(s);
-      if (!s.tutorial.completed) setScreen({ name: 'prologue', replay: false });
+      if (!s.tutorial.completed && !devScreen) setScreen({ name: 'prologue', replay: false });
       setLoaded(true);
     })();
   }, []);
