@@ -33,7 +33,7 @@ function caveTextures() {
     const img = ctx.createImageData(N, N); drawer(img.data); ctx.putImageData(img, 0, 0);
     const t = new THREE.CanvasTexture(cv);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.encoding = sRGB ? THREE.sRGBEncoding : THREE.LinearEncoding;
+    t.colorSpace = sRGB ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.userData = { ...(t.userData || {}), shared: true };
     return t;
   }

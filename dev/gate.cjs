@@ -7,7 +7,7 @@
 // gate that exercises the real game internals; its check counts are its own
 // and it does NOT claim to reproduce the original 309-check content suite.
 //
-// Stages (fail-fast): build · artifact-compat · layout · content · visual · smoke
+// Stages (fail-fast): build · compatibility · unit · layout · content · visual · smoke
 // Prints "GATE GREEN" only if every stage passes.
 // ============================================================
 const fs = require('fs');
@@ -86,6 +86,10 @@ function stageArtifactCompat() {
   const files = sourceModules(srcDir);
   const gameFiles = files.filter((file) => file !== mainFile);
   const allowed = new Set(['react', 'react-dom', 'three', 'lucide-react']);
+  const packageJson = JSON.parse(fs.readFileSync(path.join(shared.ROOT, 'package.json'), 'utf8'));
+  if (packageJson.dependencies.three !== '0.185.1') {
+    throw new Error(`expected three 0.185.1, found ${packageJson.dependencies.three}`);
+  }
   let defaults = 0;
   let importCount = 0;
 
@@ -97,9 +101,6 @@ function stageArtifactCompat() {
     if (gameFiles.includes(file)) defaults += (code.match(/\bexport\s+default\b/g) || []).length;
     for (const spec of importSpecs(code)) {
       importCount++;
-      if (/^three\/examples(?:\/|$)|\/jsm(?:\/|$)/.test(spec)) {
-        throw new Error(`${path.relative(shared.ROOT, file)} imports three/examples or jsm (core three r128 only)`);
-      }
       if (spec.startsWith('.') || spec.startsWith('/')) continue;
       const pkg = spec.split('/').slice(0, spec.startsWith('@') ? 2 : 1).join('/');
       if (!allowed.has(pkg)) throw new Error(`disallowed import in ${path.relative(shared.ROOT, file)}: ${spec}`);
@@ -107,7 +108,7 @@ function stageArtifactCompat() {
   }
 
   if (defaults !== 1) throw new Error(`expected exactly one \`export default\` across game modules, found ${defaults}`);
-  return `1 default export · no localStorage · ${importCount} imports across ${files.length} source modules`;
+  return `three r185 · 1 default export · no localStorage · ${importCount} imports across ${files.length} source modules`;
 }
 
 function stageUnit() {
@@ -147,7 +148,7 @@ function stageUnit() {
 async function main() {
   const stages = [
     ['build', () => stageBuild()],
-    ['artifact', () => stageArtifactCompat()],
+    ['compat', () => stageArtifactCompat()],
     ['unit', () => stageUnit()],
     ['layout', () => `${require('./validate.cjs').run()} checks`],
     ['content', () => `${require('./test_content.cjs').run()} checks`],

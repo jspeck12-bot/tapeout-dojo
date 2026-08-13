@@ -701,7 +701,7 @@ function skyDome(scene, topHex, horHex, cx, cz, radius) {
   const grad = g.createLinearGradient(0, 0, 0, 256);
   grad.addColorStop(0, top); grad.addColorStop(0.5, top); grad.addColorStop(0.84, hor); grad.addColorStop(1, hor);
   g.fillStyle = grad; g.fillRect(0, 0, 8, 256);
-  const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
   const dome = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 16),
     new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false }));
   dome.position.set(cx, 0, cz); scene.add(dome);

@@ -166,8 +166,8 @@ a monolithic scope.
 
 The retired Claude-artifact constraint no longer requires a monolith.
 
-- **three.js remains r128** — the custom bloom, chromatic aberration, vignette,
-  and grain pipeline self-checks and falls back cleanly.
+- **three.js is pinned to r185** — modern color management and `three/addons`
+  are available to the shared rendering pipeline.
 - **Save compatibility is stable** — game code uses async `window.storage`;
   local persistence remains isolated to the `main.jsx` shim.
 - **All audio is synthesized** — 10 procedural Web Audio tracks.

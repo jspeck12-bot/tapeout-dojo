@@ -4,7 +4,7 @@ function tuneRenderer(renderer, low) {
   try {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
   } catch (e) { }
@@ -155,7 +155,7 @@ function glowTexture() {
   g.addColorStop(0.55, 'rgba(255,255,255,0.14)');
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, 128, 128);
-  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding;
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace;
   t.userData = { ...(t.userData || {}), shared: true };
   glowTexture._t = t; return t;
 }

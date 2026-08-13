@@ -98,7 +98,7 @@ function mineLabelSprite(text, color, scale) {
   c2.fillStyle = color; c2.textAlign = 'center'; c2.textBaseline = 'middle';
   c2.fillText(text, w / 2, 34);
   const tex = new THREE.CanvasTexture(cv);
-  tex.encoding = THREE.sRGBEncoding;
+  tex.colorSpace = THREE.SRGBColorSpace;
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
   const s = scale || 1;
   sp.scale.set((w / 64) * 1.6 * s, 1.6 * s, 1);

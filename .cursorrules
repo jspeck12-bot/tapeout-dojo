@@ -8,9 +8,8 @@ under `src/`, with `src/tapeout.jsx` retained as the stable default-export entry
 
 1. **Pedagogy is canonical.** Do not casually rewrite challenge specifications,
    test vectors, field-note content, or station learning order.
-2. **three.js remains pinned to r128.** Do not upgrade it as a side effect.
-   `THREE.CapsuleGeometry` does not exist in r128. Rendering migrations require
-   a standalone proposal and review.
+2. **three.js is pinned to r185.** `three/addons/*` is allowed. Future rendering
+   upgrades remain standalone migrations with their own gate and visual review.
 3. **Save compatibility is permanent.** Game modules use the async
    `window.storage` API. Browser `localStorage` belongs only in the local shim
    in `src/main.jsx`; do not redesign the save schema during unrelated work.
