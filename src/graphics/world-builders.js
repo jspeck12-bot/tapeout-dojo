@@ -23,6 +23,7 @@ import {
   applyCampusProgress,
 } from './campus-world.js';
 import { buildValleyWorldScene } from './valley-world.js';
+import { buildFoundryWorldScene } from './foundry-world.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -284,6 +285,15 @@ function buildPathTrail(scene, path, acc, openSky) {
 
 function buildValley(scene, model, theme) {
   return buildValleyWorldScene(scene, model, theme, {
+    makeNextBeacon,
+    buildFogGate,
+    buildExplorationProps,
+    buildDungeonNodes,
+  });
+}
+
+function buildFoundry(scene, model, theme) {
+  return buildFoundryWorldScene(scene, model, theme, {
     makeNextBeacon,
     buildFogGate,
     buildExplorationProps,
@@ -567,6 +577,7 @@ function trailProps(scene, model, theme) {
 
 function buildDungeonWorld(scene, model, theme) {
   if (model.biome === 'valley') return buildValley(scene, model, theme);
+  if (model.world === 3) return buildFoundry(scene, model, theme);
   if (model.biome === 'canyon') return buildCanyon(scene, model, theme);
   const acc = theme.accent;
   scene.background = new THREE.Color(theme.bg);
@@ -638,7 +649,7 @@ export {
   buildExplorationProps, applyExplorationProgress, buildFogGate, applyFogProgress,
   buildFabUltra, buildCampusWorld, applyCampusProgress, makeNextBeacon,
   skyDome, cliffRun, valleyMountains, buildPathTrail,
-  buildValley, buildCanyon, buildMineWorld, applyMineProgress,
+  buildValley, buildFoundry, buildCanyon, buildMineWorld, applyMineProgress,
   buildArcadeWorld, buildDungeonNodes, scatterStructures, trailProps,
   buildDungeonWorld, applyDungeonProgress,
 };

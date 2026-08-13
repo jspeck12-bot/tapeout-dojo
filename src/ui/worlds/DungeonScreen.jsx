@@ -39,11 +39,44 @@ import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shar
 import { WorldMap } from './WorldMap.jsx';
 import { BossIntro } from '../BossIntro.jsx';
 
-function applyValleyGfx(ctx, gfx, quality) {
+const GOTHIC_DUNGEONS = {
+  2: {
+    status: 'valley',
+    label: 'GATE VALLEY',
+    gfxTitle: 'quality · gate valley',
+    qualityAccent: '#a3e635',
+    lamp: 0xe8ffd4,
+    lampI: 1.95,
+    lampAngle: 0.5,
+    far: 500,
+    pitch: -0.08,
+    ambience: 'canyon',
+    bloom: 0.3,
+    focus: 22,
+    exposure: 0.9,
+  },
+  3: {
+    status: 'foundry',
+    label: 'MODULE FOUNDRY',
+    gfxTitle: 'quality · module foundry',
+    qualityAccent: '#ff8c3a',
+    lamp: 0xffe0c4,
+    lampI: 1.75,
+    lampAngle: 0.5,
+    far: 320,
+    pitch: -0.06,
+    ambience: 'cave',
+    bloom: 0.36,
+    focus: 16,
+    exposure: 0.84,
+  },
+};
+
+function applyGothicGfx(ctx, gfx, quality) {
   if (!ctx) return;
   const { renderer, scene, post } = ctx;
   try {
-    renderer.toneMappingExposure = 0.9 * (gfx.exposure ?? 1.08);
+    renderer.toneMappingExposure = (scene.userData.baseExposure || 0.9) * (gfx.exposure ?? 1.08);
     post?.setBloom?.(Math.min(0.5, 0.18 + (gfx.bloom ?? 0.58) * 0.22));
     post?.setQuality?.(quality);
     if (scene.fog?.isFogExp2) {
@@ -91,7 +124,8 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   const [showHelp, setShowHelp] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [bossIntro, setBossIntro] = useState(null);
-  const gothic = w === 2;
+  const gothicSpec = GOTHIC_DUNGEONS[w];
+  const gothic = !!gothicSpec;
   const [quality, setQuality] = useState(() => (
     typeof window !== 'undefined' && 'ontouchstart' in window ? 'low' : 'high'
   ));
@@ -167,7 +201,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(74, (width || 1) / (height || 1), 0.1, gothic ? 500 : 300);
+      const camera = new THREE.PerspectiveCamera(74, (width || 1) / (height || 1), 0.1, gothicSpec ? gothicSpec.far : 300);
       scene.add(camera);
       let _vm = null, _vmWeap = null, _vmJabT = -9e9;
       camera.rotation.order = 'YXZ';
@@ -194,9 +228,9 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
           if (!isTouch) {
             post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
               preset: qualityRef.current,
-              bloom: 0.3,
+              bloom: gothicSpec.bloom,
               grade: api.worldArt?.grade,
-              focus: 22,
+              focus: gothicSpec.focus,
               dof: false,
             });
           }
@@ -204,20 +238,28 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
           post = null;
         }
         ctxRef.current.post = post;
-        applyValleyGfx(ctxRef.current, gfx, qualityRef.current);
+        scene.userData.baseExposure = gothicSpec.exposure;
+        applyGothicGfx(ctxRef.current, gfx, qualityRef.current);
       } else {
         try { if (!isTouch) post = makePostFX(renderer, width, height); } catch (e) { post = null; }
         ctxRef.current.post = post;
         if (post && api.worldArt) post.setGrade(api.worldArt.grade);
       }
-      const lamp = new THREE.SpotLight(gothic ? 0xe8ffd4 : 0xfff0d8, gothic ? 1.95 : 2.2, 42 * (model.worldScale || 1), gothic ? 0.5 : 0.56, 0.5, 1.3);
+      const lamp = new THREE.SpotLight(
+        gothicSpec ? gothicSpec.lamp : 0xfff0d8,
+        gothicSpec ? gothicSpec.lampI : 2.2,
+        42 * (model.worldScale || 1),
+        gothicSpec ? gothicSpec.lampAngle : 0.56,
+        0.5,
+        1.3,
+      );
       lamp.userData.lightRole = 'headlamp';
       lamp.userData.baseIntensity = lamp.intensity;
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 46; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
       const fillLight = gothic ? null : new THREE.PointLight(model.theme.accent, 0.45, 26, 1.6);
       if (fillLight) scene.add(fillLight);
-      ambRef.current = createAmbience(scene, gothic ? 'canyon' : 'cave');
+      ambRef.current = createAmbience(scene, gothicSpec ? gothicSpec.ambience : 'cave');
       cleanup.push(() => { try { ambRef.current && ambRef.current.dispose(); } catch (e) { } });
 
       const grace = model.exploration?.features.find(feature =>
@@ -229,7 +271,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         x: grace ? grace.x + (model.spawn.x - grace.x) / graceDistance * 3.2 : model.spawn.x,
         z: grace ? grace.z + (model.spawn.z - grace.z) / graceDistance * 3.2 : model.spawn.z,
         yaw: model.spawn.yaw,
-        pitch: gothic ? -0.08 : -0.03,
+        pitch: gothicSpec ? gothicSpec.pitch : -0.03,
       };
       const keys = {};
       let dragging = false, lastTX = 0, lastTY = 0, promptKey = '', zoneNow = cfg.zone, frame = 0;
@@ -464,7 +506,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   }, []); // eslint-disable-line
 
   useEffect(() => {
-    if (gothic) applyValleyGfx(ctxRef.current, gfx, quality);
+    if (gothic) applyGothicGfx(ctxRef.current, gfx, quality);
     else applyGfx(ctxRef.current, gfx);
   }, [gfx, quality, gothic]);
 
@@ -610,7 +652,8 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
   return (
     <div
       className={gothic ? 'sg-world' : undefined}
-      data-valley-status={gothic ? stage : undefined}
+      data-valley-status={w === 2 ? stage : undefined}
+      data-foundry-status={w === 3 ? stage : undefined}
       style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#' + cfg.theme.bg.toString(16).padStart(6, '0') }}
     >
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
@@ -628,7 +671,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
             padding: '12px 16px', color: '#d7e4d8', background: 'rgba(5,7,11,.84)',
             border: '1px solid #2a3340', letterSpacing: '.16em',
           }}>
-            GATE VALLEY · {stage.toUpperCase()}
+            {gothicSpec.label} · {stage.toUpperCase()}
           </div>
         </div>
       )}
@@ -649,7 +692,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
               position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
               padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
             }}>
-              <div className="eyebrow" style={{ color: '#a3e635', marginBottom: 10 }}>quality · gate valley</div>
+              <div className="eyebrow" style={{ color: gothicSpec.qualityAccent, marginBottom: 10 }}>{gothicSpec.gfxTitle}</div>
               <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
                 {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
                   <button
@@ -660,8 +703,8 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
                       flex: 1,
                       padding: '4px 0',
                       color: quality === name ? '#061017' : '#cbb79a',
-                      background: quality === name ? '#a3e635' : 'rgba(20,16,12,.7)',
-                      borderColor: quality === name ? '#a3e635' : '#2a3340',
+                      background: quality === name ? gothicSpec.qualityAccent : 'rgba(20,16,12,.7)',
+                      borderColor: quality === name ? gothicSpec.qualityAccent : '#2a3340',
                     }}
                   >
                     {name}
