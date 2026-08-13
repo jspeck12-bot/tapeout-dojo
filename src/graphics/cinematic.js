@@ -1,62 +1,12 @@
 import * as THREE from "three";
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { LUTPass } from 'three/addons/postprocessing/LUTPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-const QUALITY_PRESETS = {
-  low: {
-    label: 'LOW', renderScale: 0.66, dpr: 1, aoScale: 0.42, aoSamples: 6,
-    aoDenoise: 4, bloom: 0.42, bloomRadius: 0.18, dof: false, shadow: 768,
-  },
-  medium: {
-    label: 'MEDIUM', renderScale: 0.8, dpr: 1.25, aoScale: 0.5, aoSamples: 8,
-    aoDenoise: 6, bloom: 0.52, bloomRadius: 0.24, dof: false, shadow: 1024,
-  },
-  high: {
-    label: 'HIGH', renderScale: 1, dpr: 1.5, aoScale: 0.5, aoSamples: 12,
-    aoDenoise: 8, bloom: 0.58, bloomRadius: 0.3, dof: true, shadow: 2048,
-  },
-  ultra: {
-    label: 'ULTRA', renderScale: 1, dpr: 2, aoScale: 0.62, aoSamples: 16,
-    aoDenoise: 10, bloom: 0.62, bloomRadius: 0.34, dof: true, shadow: 2048,
-  },
-};
-
-const POST_PROCESS_ORDER = [
-  'RenderPass',
-  'GTAOPass',
-  'UnrealBloomPass',
-  'BokehPass',
-  'LUTPass',
-  'GrainVignettePass',
-  'SMAAPass',
-  'OutputPass',
-];
-
-function qualityPreset(value) {
-  if (typeof value === 'string' && QUALITY_PRESETS[value]) return QUALITY_PRESETS[value];
-  if (value && typeof value === 'object' && QUALITY_PRESETS[value.preset]) return QUALITY_PRESETS[value.preset];
-  if (value === true) return QUALITY_PRESETS.low;
-  return QUALITY_PRESETS.high;
-}
-
-function tuneRenderer(renderer, quality = 'high') {
-  const preset = qualityPreset(quality);
+function tuneRenderer(renderer, low) {
   try {
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = quality === 'low' || quality === true ? THREE.PCFSoftShadowMap : THREE.VSMShadowMap;
+    renderer.shadowMap.type = low ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
-    renderer.setPixelRatio(Math.min((typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1), preset.dpr) * preset.renderScale);
-    renderer.shadowMap.autoUpdate = true;
   } catch (e) { }
 }
 
@@ -68,221 +18,129 @@ function fxCone(hex, r, h, op, x, z) {
   return m;
 }
 
-const POST_VS = [
-  'varying vec2 vUv;',
-  'void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+const POST_VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+
+const POST_BRIGHT_FS = [
+  'uniform sampler2D tex; uniform float thresh; varying vec2 vUv;',
+  'void main(){ vec4 c = texture2D(tex, vUv);',
+  '  float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));',
+  '  float k = smoothstep(thresh, thresh + 0.34, l);',
+  '  gl_FragColor = vec4(c.rgb * k, 1.0); }',
+].join('\n');
+
+const POST_BLUR_FS = [
+  'uniform sampler2D tex; uniform vec2 dir; uniform vec2 res; varying vec2 vUv;',
+  'void main(){ vec2 px = dir / res;',
+  '  vec3 s = texture2D(tex, vUv).rgb * 0.227027;',
+  '  s += (texture2D(tex, vUv + px * 1.3846).rgb + texture2D(tex, vUv - px * 1.3846).rgb) * 0.3162162;',
+  '  s += (texture2D(tex, vUv + px * 3.2308).rgb + texture2D(tex, vUv - px * 3.2308).rgb) * 0.0702703;',
+  '  gl_FragColor = vec4(s, 1.0); }',
 ].join('\n');
 
 const POST_COMP_FS = [
-  'uniform sampler2D tDiffuse; uniform float time; uniform float grain;',
-  'uniform float vignette; uniform float movement; varying vec2 vUv;',
-  'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453123);}',
+  'uniform sampler2D tex; uniform sampler2D bloomTex; uniform float strength; uniform float t;',
+  'uniform float saturation; uniform float contrast; uniform vec3 tint; varying vec2 vUv;',
+  'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
   'void main(){',
-  '  vec2 uv=vUv; vec2 centered=uv-0.5; float radius2=dot(centered,centered);',
-  '  vec3 color=texture2D(tDiffuse,uv).rgb;',
-  '  float edge=smoothstep(0.18,0.72,radius2);',
-  '  color*=1.0-edge*vignette;',
-  '  float noise=hash(uv*vec2(1733.0,977.0)+vec2(mod(time,13.0)*41.0));',
-  '  color+=(noise-0.5)*grain*(1.0+movement*0.35);',
-  '  gl_FragColor=vec4(max(color,vec3(0.0)),1.0);',
-  '}',
+  '  vec2 uv = vUv; vec2 cc = uv - 0.5; float r2 = dot(cc, cc);',
+  '  float ca = 0.0014 + r2 * 0.0042;',
+  '  vec3 base;',
+  '  base.r = texture2D(tex, uv + cc * ca).r;',
+  '  base.g = texture2D(tex, uv).g;',
+  '  base.b = texture2D(tex, uv - cc * ca).b;',
+  '  vec3 c = base + texture2D(bloomTex, uv).rgb * strength;',
+  '  float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));',
+  '  c = mix(vec3(lum), c, saturation);',
+  '  c = (c - 0.5) * contrast + 0.5;',
+  '  c *= tint;',
+  '  float vig = 1.0 - smoothstep(0.32, 1.05, r2 * 1.9);',
+  '  c *= mix(0.68, 1.0, vig);',
+  '  c += vec3((hash(uv * vec2(1613.0, 1021.0) + vec2(mod(t, 10.0) * 61.0)) - 0.5) * 0.028);',
+  '  c = pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));',
+  '  gl_FragColor = vec4(c, 1.0); }',
 ].join('\n');
 
-const GRAIN_VIGNETTE_SHADER = {
-  uniforms: {
-    tDiffuse: { value: null },
-    time: { value: 0 },
-    grain: { value: 0.022 },
-    vignette: { value: 0.38 },
-    movement: { value: 0 },
-  },
-  vertexShader: POST_VS,
-  fragmentShader: POST_COMP_FS,
-};
-
-function createGradeLUT(grade = {}, size = 16) {
-  const data = new Uint8Array(size * size * size * 4);
-  const tint = new THREE.Color(grade.tint == null ? 0xffffff : grade.tint);
-  const saturation = grade.saturation ?? 1;
-  const contrast = grade.contrast ?? 1;
-  const lift = grade.lift ?? 0;
-  const gamma = Math.max(0.25, grade.gamma ?? 1);
-  const gain = grade.gain ?? 1;
-  let offset = 0;
-  for (let blue = 0; blue < size; blue++) {
-    for (let green = 0; green < size; green++) {
-      for (let red = 0; red < size; red++) {
-        let r = red / (size - 1);
-        let g = green / (size - 1);
-        let b = blue / (size - 1);
-        const luminance = r * 0.2126 + g * 0.7152 + b * 0.0722;
-        r = luminance + (r - luminance) * saturation;
-        g = luminance + (g - luminance) * saturation;
-        b = luminance + (b - luminance) * saturation;
-        r = Math.pow(Math.max(0, ((r - 0.5) * contrast + 0.5 + lift) * gain), 1 / gamma) * tint.r;
-        g = Math.pow(Math.max(0, ((g - 0.5) * contrast + 0.5 + lift) * gain), 1 / gamma) * tint.g;
-        b = Math.pow(Math.max(0, ((b - 0.5) * contrast + 0.5 + lift) * gain), 1 / gamma) * tint.b;
-        data[offset++] = Math.round(Math.min(1, r) * 255);
-        data[offset++] = Math.round(Math.min(1, g) * 255);
-        data[offset++] = Math.round(Math.min(1, b) * 255);
-        data[offset++] = 255;
-      }
-    }
+function makePostFX(renderer, cssW, cssH) {
+  const pr = renderer.getPixelRatio ? renderer.getPixelRatio() : 1;
+  const dims = (w, h) => ({ W: Math.max(2, Math.floor(w * pr)), H: Math.max(2, Math.floor(h * pr)) });
+  let { W, H } = dims(cssW, cssH);
+  const pars = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, stencilBuffer: false };
+  const rtScene = new THREE.WebGLRenderTarget(W, H, pars);
+  const rtA = new THREE.WebGLRenderTarget(W >> 1, H >> 1, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, stencilBuffer: false, depthBuffer: false });
+  const rtB = new THREE.WebGLRenderTarget(W >> 1, H >> 1, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, stencilBuffer: false, depthBuffer: false });
+  const quadScene = new THREE.Scene();
+  const quadCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const bright = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, thresh: { value: 0.72 } }, vertexShader: POST_VS, fragmentShader: POST_BRIGHT_FS, depthTest: false, depthWrite: false });
+  const blur = new THREE.ShaderMaterial({ uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) }, res: { value: new THREE.Vector2(W >> 1, H >> 1) } }, vertexShader: POST_VS, fragmentShader: POST_BLUR_FS, depthTest: false, depthWrite: false });
+  const comp = new THREE.ShaderMaterial({ uniforms: {
+    tex: { value: null }, bloomTex: { value: null }, strength: { value: 0.9 }, t: { value: 0 },
+    saturation: { value: 1.06 }, contrast: { value: 1.04 }, tint: { value: new THREE.Color(0xffffff) },
+  }, vertexShader: POST_VS, fragmentShader: POST_COMP_FS, depthTest: false, depthWrite: false });
+  const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), bright);
+  quad.frustumCulled = false;
+  quadScene.add(quad);
+  const pass = (mat, target) => {
+    quad.material = mat;
+    renderer.setRenderTarget(target);
+    renderer.render(quadScene, quadCam);
+  };
+  let sceneStats = { calls: 0, triangles: 0 };
+  // Warm-up: force-compile all three programs NOW and verify they built.
+  // If any shader fails on this GPU, throw — callers fall back to plain
+  // rendering instead of a black screen.
+  try {
+    [bright, blur, comp].forEach(m => pass(m, rtA));
+    renderer.setRenderTarget(null);
+    const progs = (renderer.info && renderer.info.programs) || [];
+    if (progs.some(p => p && p.diagnostics)) throw new Error('post shader failed to compile');
+  } catch (e) {
+    try { rtScene.dispose(); rtA.dispose(); rtB.dispose(); } catch (e2) { }
+    throw e;
   }
-  const texture = new THREE.Data3DTexture(data, size, size, size);
-  texture.format = THREE.RGBAFormat;
-  texture.type = THREE.UnsignedByteType;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = texture.wrapT = texture.wrapR = THREE.ClampToEdgeWrapping;
-  texture.generateMipmaps = false;
-  texture.unpackAlignment = 1;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function installEnvironment(renderer, scene, world = 0, quality = 'high') {
-  if (!renderer || !scene || scene.userData.environment) return scene?.userData?.environment || null;
-  const preset = qualityPreset(quality);
-  const environmentScene = new RoomEnvironment();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const target = pmrem.fromScene(environmentScene, world === 1 ? 0.02 : 0.04);
-  scene.environment = target.texture;
-  scene.environmentIntensity = world === 1 ? 0.48
-    : world === 6 || world === 7 ? 0.62
-      : world === 2 || world === 4 ? 0.82 : 0.72;
-  const state = {
-    kind: 'PMREM RoomEnvironment',
-    quality: preset.label.toLowerCase(),
-    texture: target.texture,
-    dispose() {
-      if (scene.environment === target.texture) scene.environment = null;
-      target.dispose();
-      environmentScene.dispose();
-      pmrem.dispose();
-    },
-  };
-  scene.userData.environment = state;
-  (scene.userData.disposers = scene.userData.disposers || []).push(() => state.dispose());
-  return state;
-}
-
-function makePostFX(renderer, scene, camera, cssW, cssH, options = {}) {
-  if (!renderer || !scene || !camera) throw new Error('post-processing requires renderer, scene, and camera');
-  let qualityName = QUALITY_PRESETS[options.preset] ? options.preset : 'high';
-  let preset = QUALITY_PRESETS[qualityName];
-  let width = Math.max(2, cssW || 2);
-  let height = Math.max(2, cssH || 2);
-  const composer = new EffectComposer(renderer);
-  const renderPass = new RenderPass(scene, camera);
-  const gtao = new GTAOPass(scene, camera, Math.max(2, width * preset.aoScale), Math.max(2, height * preset.aoScale));
-  const gtaoSetSize = gtao.setSize.bind(gtao);
-  gtao.setSize = (nextWidth, nextHeight) =>
-    gtaoSetSize(Math.max(2, Math.floor(nextWidth * preset.aoScale)), Math.max(2, Math.floor(nextHeight * preset.aoScale)));
-  gtao.blendIntensity = 0.92;
-  gtao.updateGtaoMaterial({
-    radius: 0.24,
-    distanceExponent: 1.6,
-    thickness: 1.2,
-    distanceFallOff: 0.9,
-    scale: 1.05,
-    samples: preset.aoSamples,
-    screenSpaceRadius: true,
-  });
-  gtao.updatePdMaterial({
-    lumaPhi: 8,
-    depthPhi: 2,
-    normalPhi: 3,
-    radius: 7,
-    radiusExponent: 1.8,
-    rings: 2,
-    samples: preset.aoDenoise,
-  });
-  const bloom = new UnrealBloomPass(new THREE.Vector2(width, height), preset.bloom, preset.bloomRadius, 0.82);
-  bloom.threshold = 0.86;
-  bloom.strength = options.bloom ?? preset.bloom;
-  bloom.radius = preset.bloomRadius;
-  const bokeh = new BokehPass(scene, camera, {
-    focus: options.focus || 22,
-    aperture: 0.000012,
-    maxblur: 0.0022,
-  });
-  bokeh.enabled = preset.dof;
-  let lutTexture = createGradeLUT(options.grade);
-  const lut = new LUTPass({ lut: lutTexture, intensity: 0.88 });
-  const finish = new ShaderPass(GRAIN_VIGNETTE_SHADER);
-  const smaa = new SMAAPass();
-  const output = new OutputPass();
-
-  [renderPass, gtao, bloom, bokeh, lut, finish, smaa, output].forEach(pass => composer.addPass(pass));
-  let sceneStats = { calls: 0, triangles: 0, quality: qualityName, renderScale: preset.renderScale };
-  let moving = false;
-  let lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
-
-  const updateResolution = () => {
-    const dpr = Math.min((typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1), preset.dpr) * preset.renderScale;
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(width, height, false);
-    composer.setPixelRatio(dpr);
-    composer.setSize(width, height);
-  };
-  updateResolution();
-
   return {
-    kind: 'EffectComposer',
-    passes: POST_PROCESS_ORDER.slice(),
-    setStrength(value) {
-      bloom.strength = Number.isFinite(value) ? value : preset.bloom;
-    },
+    setStrength(v) { comp.uniforms.strength.value = v; },
     setGrade(grade) {
       if (!grade) return;
-      const replacement = createGradeLUT(grade);
-      lut.lut = replacement;
-      lutTexture.dispose();
-      lutTexture = replacement;
-      if (grade.exposure != null) renderer.toneMappingExposure = grade.exposure;
-    },
-    setMoving(value) {
-      moving = !!value;
-      finish.uniforms.movement.value = moving ? 1 : 0;
-      if (bokeh.enabled) bokeh.uniforms.maxblur.value = moving ? 0.00065 : 0.0022;
-    },
-    setQuality(name) {
-      if (!QUALITY_PRESETS[name] || name === qualityName) return;
-      qualityName = name;
-      preset = QUALITY_PRESETS[name];
-      gtao.updateGtaoMaterial({ samples: preset.aoSamples });
-      gtao.updatePdMaterial({ samples: preset.aoDenoise });
-      bloom.radius = preset.bloomRadius;
-      bokeh.enabled = preset.dof;
-      updateResolution();
+      if (grade.saturation != null) comp.uniforms.saturation.value = grade.saturation;
+      if (grade.contrast != null) comp.uniforms.contrast.value = grade.contrast;
+      if (grade.tint != null) comp.uniforms.tint.value.set(grade.tint);
     },
     getStats() { return sceneStats; },
-    render(_scene, _camera, delta) {
-      const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-      const dt = Number.isFinite(delta) ? delta : Math.min(0.05, Math.max(0, (now - lastTime) / 1000));
-      lastTime = now;
-      finish.uniforms.time.value = now / 1000;
-      composer.render(dt);
-      sceneStats = {
-        calls: renderer.info?.render?.calls || 0,
-        triangles: renderer.info?.render?.triangles || 0,
-        quality: qualityName,
-        renderScale: preset.renderScale,
-        moving,
-      };
+    render(scene, camera) {
+      try {
+        renderer.setRenderTarget(rtScene);
+        renderer.render(scene, camera);
+        sceneStats = {
+          calls: renderer.info?.render?.calls || 0,
+          triangles: renderer.info?.render?.triangles || 0,
+        };
+        bright.uniforms.tex.value = rtScene.texture; pass(bright, rtA);
+        blur.uniforms.tex.value = rtA.texture; blur.uniforms.dir.value.set(1, 0); pass(blur, rtB);
+        blur.uniforms.tex.value = rtB.texture; blur.uniforms.dir.value.set(0, 1); pass(blur, rtA);
+        blur.uniforms.tex.value = rtA.texture; blur.uniforms.dir.value.set(2.4, 0); pass(blur, rtB);
+        blur.uniforms.tex.value = rtB.texture; blur.uniforms.dir.value.set(0, 2.4); pass(blur, rtA);
+        comp.uniforms.tex.value = rtScene.texture;
+        comp.uniforms.bloomTex.value = rtA.texture;
+        comp.uniforms.t.value = (Date.now() % 100000) / 1000;
+        pass(comp, null);
+      } catch (e) {
+        try { renderer.setRenderTarget(null); } catch (e2) { }
+        renderer.render(scene, camera);
+      }
     },
-    resize(nextWidth, nextHeight) {
-      width = Math.max(2, nextWidth || 2);
-      height = Math.max(2, nextHeight || 2);
-      updateResolution();
+    resize(w, h) {
+      const d = dims(w, h);
+      rtScene.setSize(d.W, d.H);
+      rtA.setSize(d.W >> 1, d.H >> 1);
+      rtB.setSize(d.W >> 1, d.H >> 1);
+      blur.uniforms.res.value.set(d.W >> 1, d.H >> 1);
     },
     dispose() {
-      lutTexture.dispose();
-      [renderPass, gtao, bloom, bokeh, lut, finish, smaa, output].forEach(pass => {
-        try { pass.dispose?.(); } catch (error) { }
-      });
-      composer.dispose();
+      try {
+        rtScene.dispose(); rtA.dispose(); rtB.dispose();
+        bright.dispose(); blur.dispose(); comp.dispose();
+        quad.geometry.dispose();
+      } catch (e) { }
     },
   };
 }
@@ -360,7 +218,7 @@ function lightScene(scene, bounds, opts) {
   if (opts.ceil === false) {
     keyLight(scene, opts.sky || 0xbfd0ff, bounds, low ? 0.45 : (opts.skyI == null ? 0.85 : opts.skyI));
   } else if (!low) {
-    pls.slice().sort((a, b) => b.intensity - a.intensity).slice(0, opts.shadowLights || 1).forEach(L => {
+    pls.slice().sort((a, b) => b.intensity - a.intensity).slice(0, opts.shadowLights || 3).forEach(L => {
       L.castShadow = true;
       L.shadow.mapSize.set(1024, 1024);
       L.shadow.bias = -0.004;
@@ -375,37 +233,22 @@ function applyGfx(ctx, g) {
   if (!ctx) return;
   const { renderer, scene } = ctx;
   try {
-    if (Number.isFinite(g.exposure)) renderer.toneMappingExposure = g.exposure;
+    renderer.toneMappingExposure = g.exposure;
     if (ctx.post && ctx.post.setStrength) ctx.post.setStrength(g.bloom == null ? 0.9 : g.bloom);
-    if (ctx.post && ctx.post.setQuality && g.preset) ctx.post.setQuality(g.preset);
-    if (scene.fog && scene.fog.isFogExp2) {
-      if (scene.userData.baseFogDensity == null) scene.userData.baseFogDensity = scene.fog.density;
-      scene.fog.density = scene.userData.baseFogDensity * (Number.isFinite(g.fog) ? g.fog : 1);
-    }
-    const preset = qualityPreset(g.preset || 'high');
+    if (scene.fog) scene.fog.density = g.fog;
     scene.traverse(o => {
       if (o.isAmbientLight || o.isHemisphereLight) {
         if (o.userData.base == null) o.userData.base = o.intensity;
-        o.intensity = o.userData.base * (Number.isFinite(g.ambient) ? g.ambient : 1);
+        o.intensity = o.userData.base * g.ambient;
       } else if (o.isPointLight || o.isSpotLight || o.isDirectionalLight) {
         if (o.userData.base == null) o.userData.base = o.intensity;
-        o.userData.gfxIntensity = o.userData.base * (Number.isFinite(g.lights) ? g.lights : 1);
+        o.userData.gfxIntensity = o.userData.base * g.lights;
         o.intensity = o.userData.gfxIntensity;
-        if (o.castShadow && o.shadow?.mapSize) {
-          const size = o.isPointLight ? Math.min(1024, preset.shadow) : preset.shadow;
-          if (o.shadow.mapSize.width !== size) {
-            o.shadow.mapSize.set(size, size);
-            if (o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; }
-          }
-        }
       } else if (o.isSprite && o.material && o.material.blending === THREE.AdditiveBlending) {
-        o.material.opacity = Number.isFinite(g.glow) ? g.glow : 0.7;
+        o.material.opacity = g.glow;
       } else if (o.isMesh && o.material) {
         const ms = Array.isArray(o.material) ? o.material : [o.material];
-        ms.forEach(m => {
-          if (m.normalScale && Number.isFinite(g.normal)) m.normalScale.set(g.normal, g.normal);
-          if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial) m.envMapIntensity = (m.userData.surface === 'wetRock' ? 1.3 : 0.9) * (g.ambient || 1);
-        });
+        ms.forEach(m => { if (m.normalScale) m.normalScale.set(g.normal, g.normal); });
       }
     });
   } catch (e) { }
@@ -421,7 +264,7 @@ function disposeScene(scene) {
   const disposedMaterials = new Set();
   const disposedTextures = new Set();
   scene.traverse((object) => {
-    if (object.geometry && !object.geometry.userData?.shared && !disposedGeometries.has(object.geometry)) {
+    if (object.geometry && !disposedGeometries.has(object.geometry)) {
       disposedGeometries.add(object.geometry);
       try { object.geometry.dispose(); } catch (error) { }
     }
@@ -440,9 +283,8 @@ function disposeScene(scene) {
 }
 
 export {
-  QUALITY_PRESETS, POST_PROCESS_ORDER, POST_VS, POST_COMP_FS, GRAIN_VIGNETTE_SHADER,
-  qualityPreset, tuneRenderer, createGradeLUT, installEnvironment,
-  fxCone, makePostFX, glowTexture,
+  POST_VS, POST_BRIGHT_FS, POST_BLUR_FS, POST_COMP_FS,
+  tuneRenderer, fxCone, makePostFX, glowTexture,
   glowSprite, dustField, keyLight, lightScene,
   applyGfx, disposeScene,
 };

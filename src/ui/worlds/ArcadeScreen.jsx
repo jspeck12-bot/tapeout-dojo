@@ -7,9 +7,7 @@ import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,
 } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import {
-  disposeScene, tuneRenderer, makePostFX, installEnvironment, applyGfx,
-} from '../../graphics/cinematic.js';
+import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
 import { buildArcadeWorld } from '../../graphics/world-builders.js';
 import { resolveCollisions, nearestInteractable } from '../../world/collision.js';
@@ -79,31 +77,22 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch ? 'low' : (gfx?.preset || 'high'));
+      tuneRenderer(renderer, isTouch);
+      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
       renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
+      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
+      ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
       camera.rotation.order = 'YXZ';
 
       const model = arcadeModel();
       const api = buildArcadeWorld(scene, model);
-      try { installEnvironment(renderer, scene, 8, isTouch ? 'low' : (gfx?.preset || 'high')); } catch (e) { }
-      try {
-        post = makePostFX(
-          renderer,
-          scene,
-          camera,
-          mount.clientWidth || window.innerWidth,
-          mount.clientHeight || window.innerHeight,
-          { preset: isTouch ? 'low' : (gfx?.preset || 'high'), bloom: gfx?.bloom, grade: api.worldArt?.grade },
-        );
-      } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, camera, post, world: 8 };
-      applyGfx(ctxRef.current, gfx);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
       const playerLight = new THREE.PointLight(0xbfe0ff, 0.7, 22, 1.5);
       scene.add(playerLight);
       ambRef.current = createAmbience(scene, 'arcade');
@@ -229,7 +218,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         const _stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         FR.tick(post ? 1 : 0);
-        if (post) { post.setMoving(_moving); post.render(scene, camera, dt); } else renderer.render(scene, camera);
+        if (post) post.render(scene, camera); else renderer.render(scene, camera);
       };
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));

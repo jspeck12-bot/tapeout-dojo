@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { CAMPUS_SIZE, COURT_HALF } from '../world/campus.js';
-import { pbrMaterial, roundedBoxGeometry } from './materials.js';
 
 const WALL_H = 5;
 
@@ -76,16 +75,10 @@ function groundTexture(model) {
   return tx;
 }
 
-function matStd(color, opts) {
-  const options = { ...(opts || {}) };
-  const surface = options.surface || (options.metalness > 0.62 ? 'wornSteel' : options.metalness > 0.28 ? 'paintedMetal' : 'concrete');
-  delete options.surface;
-  return pbrMaterial(surface, color, { roughness: 0.85, metalness: 0.15, ...options });
-}
+function matStd(color, opts) { return new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.85, metalness: 0.15 }, opts || {})); }
 
 function addBoxMesh(scene, cx, cy, cz, sx, sy, sz, mat) {
-  const radius = Math.min(0.18, Math.min(sx, sy, sz) * 0.2);
-  const m = new THREE.Mesh(roundedBoxGeometry(sx, sy, sz, radius, Math.max(sx, sy, sz) > 80 ? 1 : 2), mat);
+  const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat);
   m.position.set(cx, cy, cz);
   scene.add(m);
   return m;

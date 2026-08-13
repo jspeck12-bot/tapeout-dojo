@@ -11,9 +11,7 @@ import { FR } from '../../telemetry/flight-recorder.js';
 import { WORLDS, LESSONS, LESSON_DEPTH } from '../../game/content.js';
 import { enemyFor } from '../../game/rpg.js';
 import { bossSpec } from '../../game/bosses.js';
-import {
-  disposeScene, tuneRenderer, makePostFX, installEnvironment, applyGfx,
-} from '../../graphics/cinematic.js';
+import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
 import { spawnShatter } from '../../graphics/rock.js';
 import { updateCreature, makeViewModel, updateViewModel } from '../../graphics/creatures.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
@@ -105,13 +103,16 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch ? 'low' : (gfx?.preset || 'high'));
+      tuneRenderer(renderer, isTouch);
+      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
       renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
+      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
+      ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
       scene.add(camera);
       let _vm = null, _vmWeap = null, _vmJabT = -9e9;
@@ -119,19 +120,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
 
       const model = modelMemo;
       const api = buildDungeonWorld(scene, model, model.theme);
-      try { installEnvironment(renderer, scene, w, isTouch ? 'low' : (gfx?.preset || 'high')); } catch (e) { }
-      try {
-        post = makePostFX(
-          renderer,
-          scene,
-          camera,
-          mount.clientWidth || window.innerWidth,
-          mount.clientHeight || window.innerHeight,
-          { preset: isTouch ? 'low' : (gfx?.preset || 'high'), bloom: gfx?.bloom, grade: api.worldArt?.grade },
-        );
-      } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, camera, post, world: w };
-      applyGfx(ctxRef.current, gfx);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
       const lamp = new THREE.SpotLight(0xfff0d8, 2.2, 42 * (model.worldScale || 1), 0.56, 0.5, 1.3);
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 46; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
@@ -364,7 +353,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         { const gw = (saveRefD.current.gear && saveRefD.current.gear.weapon) || 'w_iron'; if (gw !== _vmWeap) { if (_vm) camera.remove(_vm); _vm = makeViewModel(gw); camera.add(_vm); _vmWeap = gw; } if (_vm) updateViewModel(_vm, now, _moving, _vmJabT); }
         FR.tick(post ? 1 : 0);
-        if (post) { post.setMoving(_moving); post.render(scene, camera, dt); } else renderer.render(scene, camera);
+        if (post) post.render(scene, camera); else renderer.render(scene, camera);
       };
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));

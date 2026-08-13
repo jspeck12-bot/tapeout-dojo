@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, Settings, Terminal, X, Zap,
+  ChevronLeft, ChevronRight, Terminal, X, Zap,
 } from "lucide-react";
 import * as THREE from "three";
 import { AudioFX } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import {
-  applyGfx, disposeScene, installEnvironment, makePostFX, tuneRenderer,
-} from '../../graphics/cinematic.js';
-import { finalizeWorldMaterials } from '../../graphics/materials.js';
+import { disposeScene, makePostFX } from '../../graphics/cinematic.js';
 import {
   buildFabUltra, buildCampusWorld, applyCampusProgress,
 } from '../../graphics/world-builders.js';
@@ -28,7 +25,7 @@ import {
 import { ShopScreen } from '../combat.jsx';
 import { TouchControls, DevPerfHUD } from '../world-shared.jsx';
 
-function CampusScreen({ save, go, cb, gfx, onSettings }) {
+function CampusScreen({ save, go, cb }) {
   const mountRef = useRef(null);
   const minimapRef = useRef(null);
   const ctxRef = useRef(null);
@@ -90,33 +87,22 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch ? 'low' : (gfx?.preset || 'high'));
+      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
       renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
+      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
+      ctxRef.current = { renderer, scene, post };
       const camera = new THREE.PerspectiveCamera(72, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 600);
       camera.rotation.order = 'YXZ';
 
       const model = campusModel();
       const api = buildCampusWorld(scene, model);
       try { buildFabUltra(scene, model, api); } catch (e) { }
-      api.worldArt.materialCoverage = finalizeWorldMaterials(scene, 0);
-      try { installEnvironment(renderer, scene, 0, isTouch ? 'low' : (gfx?.preset || 'high')); } catch (e) { }
-      try {
-        post = makePostFX(
-          renderer,
-          scene,
-          camera,
-          mount.clientWidth || window.innerWidth,
-          mount.clientHeight || window.innerHeight,
-          { preset: isTouch ? 'low' : (gfx?.preset || 'high'), bloom: gfx?.bloom, grade: api.worldArt?.grade },
-        );
-      } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, camera, post, world: 0 };
-      applyGfx(ctxRef.current, gfx);
+      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
 
       const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.04 };
       const keys = {};
@@ -227,7 +213,6 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
         const dt = Math.min(0.05, clock.getDelta());
         const t = clock.elapsedTime;
         const paused = !!overlayRef.current;
-        let moving = false;
 
         if (!paused) {
           const inp = inputRef.current;
@@ -236,7 +221,6 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
           let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + inp.jx;
           let mz = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0) + inp.jy;
           const len = Math.hypot(mx, mz);
-          moving = len > 0.01;
           if (len > 1) { mx /= len; mz /= len; }
           if (len > 0.01) {
             if (!helpDismissed) { helpDismissed = true; setShowHelp(false); }
@@ -285,7 +269,7 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
         }
 
         FR.tick(post ? 1 : 0);
-        if (post) { post.setMoving(moving); post.render(scene, camera, dt); } else renderer.render(scene, camera);
+        if (post) post.render(scene, camera); else renderer.render(scene, camera);
       };
       loop();
       cleanup.push(() => cancelAnimationFrame(raf));
@@ -300,7 +284,6 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
   useEffect(() => {
     if (engineRef.current) engineRef.current.applyProgress(campusProgress(save));
   }, [save]);
-  useEffect(() => { applyGfx(ctxRef.current, gfx); }, [gfx]);
 
   // ---------- overlay router (mirrors App routes) ----------
   const renderOverlay = () => {
@@ -408,10 +391,6 @@ function CampusScreen({ save, go, cb, gfx, onSettings }) {
       <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
         <ChevronLeft size={12} /> menu
-      </button>
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: 25 }}
-        onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } onSettings?.(); }}>
-        <Settings size={12} /> graphics
       </button>
 
       {/* crosshair */}

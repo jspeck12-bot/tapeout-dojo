@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { QUALITY_PRESETS } from '../graphics/cinematic.js';
 
 function TouchControls({ inputRef, onInteract }) {
   const baseRef = useRef(null);
@@ -46,24 +45,9 @@ function CinematicFX({ accent }) {
 function GfxPanel({ gfx, setGfx, accent, embedded }) {
   const [open, setOpen] = useState(false);
   const rows = [
-    ['exposure', 0.7, 1.4, 0.01], ['lights', 0.45, 1.6, 0.05], ['ambient', 0.45, 1.5, 0.05],
-    ['fog', 0.35, 1.8, 0.05], ['normal', 0.25, 1.6, 0.05], ['glow', 0.2, 1.1, 0.05], ['bloom', 0.2, 1.1, 0.05],
+    ['exposure', 0.5, 2.2, 0.01], ['lights', 0.2, 3, 0.05], ['ambient', 0, 2.5, 0.05],
+    ['fog', 0, 0.08, 0.002], ['normal', 0, 2.5, 0.05], ['glow', 0, 1.5, 0.05], ['bloom', 0, 2, 0.05],
   ];
-  const presets = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 5, marginBottom: 11 }}>
-      {Object.entries(QUALITY_PRESETS).map(([key, value]) => (
-        <button key={key} className="btn sm" onClick={() => setGfx(current => ({ ...current, preset: key }))}
-          style={{
-            padding: '6px 3px',
-            borderColor: gfx.preset === key ? (accent || '#7DEFFF') : '#273245',
-            color: gfx.preset === key ? (accent || '#7DEFFF') : '#76849A',
-            fontSize: 9,
-          }}>
-          {value.label}
-        </button>
-      ))}
-    </div>
-  );
   const sliders = rows.map(([k, mn, mx, st]) => (
     <div key={k} style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#9FB4C8', marginBottom: 2 }}><span>{k}</span><span style={{ color: '#D7E0EA' }}>{(+gfx[k]).toFixed(3)}</span></div>
@@ -71,7 +55,7 @@ function GfxPanel({ gfx, setGfx, accent, embedded }) {
         onChange={e => setGfx(g => ({ ...g, [k]: +e.target.value }))} />
     </div>
   ));
-  if (embedded) return <div>{presets}{sliders}</div>;
+  if (embedded) return <div>{sliders}</div>;
   if (!open) return (
     <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => setOpen(true)}>graphics</button>
   );
@@ -81,7 +65,6 @@ function GfxPanel({ gfx, setGfx, accent, embedded }) {
         <span className="eyebrow" style={{ color: accent || '#7DEFFF' }}>graphics · tune live</span>
         <button className="lnk" style={{ marginLeft: 'auto' }} onClick={() => setOpen(false)}>close</button>
       </div>
-      {presets}
       {sliders}
       <button className="btn sm" style={{ width: '100%', marginTop: 4 }}
         onClick={() => { try { navigator.clipboard && navigator.clipboard.writeText(JSON.stringify(gfx)); } catch (e) { } }}>
@@ -127,8 +110,6 @@ function DevPerfHUD({ ctxRef }) {
         fps: Math.round(frames * 1000 / elapsed),
         calls: postStats?.calls ?? renderer?.info?.render?.calls ?? 0,
         triangles: postStats?.triangles ?? renderer?.info?.render?.triangles ?? 0,
-        quality: postStats?.quality || 'fallback',
-        renderScale: postStats?.renderScale ?? 1,
       });
       frames = 0;
       last = now;
@@ -142,7 +123,7 @@ function DevPerfHUD({ ctxRef }) {
   if (!enabled || !stats) return null;
   return (
     <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 27, padding: '5px 9px', borderRadius: 6, background: 'rgba(3,6,10,.82)', border: '1px solid #273245', color: '#7defff', fontSize: 10.5, pointerEvents: 'none' }}>
-      {stats.fps} FPS · {stats.calls} calls · {stats.triangles.toLocaleString()} tris · {stats.quality} @{stats.renderScale}
+      {stats.fps} FPS · {stats.calls} calls · {stats.triangles.toLocaleString()} tris
     </div>
   );
 }
