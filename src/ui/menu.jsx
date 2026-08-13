@@ -20,7 +20,7 @@ import { Panel } from './components/Panel.jsx';
 import { MenuRow } from './components/MenuRow.jsx';
 import {
   ArcadeMark, BookMark, ChipMark, CoinMark, DieMark, GearMark, HudMark, PlayMark,
-  ReplayMark, ScopeMark, SparkMark, SwordMark,
+  ReplayMark, ScopeMark, SparkMark, SwordMark, YieldMark,
 } from './components/icons.jsx';
 
 // ============================================================
@@ -222,6 +222,12 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
               title="OPERATOR HUD"
               hint="exploration chrome · vitals, reticle, engage plate"
               onClick={() => { AudioFX.click(); go({ name: 'hud' }); }}
+            />
+            <MenuRow
+              icon={<YieldMark size={16} />}
+              title="YIELD REPORT"
+              hint="sign-off · zero-defect · flatline · promotion"
+              onClick={() => { AudioFX.click(); go({ name: 'victory' }); }}
             />
             <MenuRow
               variant={confirmNew ? 'danger' : 'default'}

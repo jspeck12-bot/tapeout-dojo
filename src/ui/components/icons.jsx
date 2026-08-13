@@ -214,6 +214,28 @@ function BackMark({ size }) {
   );
 }
 
+function YieldMark({ size }) {
+  return (
+    <FabMark size={size} label="yield report">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 5.2h6v5.6H5z" fill="none" stroke="currentColor" strokeWidth="1.15" />
+      <path d="M5 7h6M7 5.2v5.6" stroke="currentColor" strokeWidth="1.05" />
+      <path d="M3.6 11.4l2.2 2 4.8-5.4" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="miter" />
+    </FabMark>
+  );
+}
+
+function FailMark({ size }) {
+  return (
+    <FabMark size={size} label="probe fail">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" stroke="currentColor" strokeWidth="1.35" strokeLinecap="square" />
+      <rect x="1.4" y="1.4" width="2.2" height="2.2" fill="currentColor" opacity="0.45" />
+      <rect x="12.4" y="12.4" width="2.2" height="2.2" fill="currentColor" opacity="0.45" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -232,4 +254,6 @@ export {
   HudMark,
   MapMark,
   BackMark,
+  YieldMark,
+  FailMark,
 };

@@ -56,7 +56,9 @@ const TOKENS = {
   motion: {
     fast: '120ms',
     med: '220ms',
+    enter: '320ms',
     ease: 'cubic-bezier(.22,1,.36,1)',
+    spring: 'cubic-bezier(.22,1.4,.36,1)',
   },
 };
 
@@ -102,7 +104,9 @@ const TOKEN_CSS = `
   --sg-radius-md: ${TOKENS.radius.md};
   --sg-motion-fast: ${TOKENS.motion.fast};
   --sg-motion-med: ${TOKENS.motion.med};
+  --sg-motion-enter: ${TOKENS.motion.enter};
   --sg-ease: ${TOKENS.motion.ease};
+  --sg-spring: ${TOKENS.motion.spring};
 }
 
 .sg-ui {

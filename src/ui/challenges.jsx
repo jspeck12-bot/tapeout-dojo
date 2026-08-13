@@ -21,6 +21,7 @@ import {
   highlightVerilog, CodeEditor, Waveform, CombResults, ConsoleOut, rankIndex,
 } from './foundations.jsx';
 import { useCombat, CombatHUD, FlatlineOverlay } from './combat.jsx';
+import { VictoryReport } from './victory/VictoryReport.jsx';
 import { NoteTerminal } from './codex/NoteTerminal.jsx';
 import { FR } from '../telemetry/flight-recorder.js';
 import { ALL_CHALLENGES, challengesOf, activeDone } from '../world/challenges.js';
@@ -228,22 +229,39 @@ function GauntletScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsu
   const already = !!save.done[g.id];
 
   if (run.finished) {
+    const lootScrap = (combat.loot && combat.loot.scrap) || 0;
+    const flawless = !!(combat.loot && combat.loot.flawless) || run.wrongs === 0;
     return (
       <div style={{ marginTop: 22, maxWidth: 560 }}>
         <CombatHUD c={combat} save={save} />
-        <div className="card popin" style={{ padding: 26, textAlign: 'center', borderColor: world.color }}>
-          <div className="eyebrow" style={{ color: world.color }}>{g.title} · clear</div>
-          <div style={{ fontSize: 24, margin: '10px 0 6px', fontWeight: 600 }}>{run.wrongs === 0 ? 'Flawless.' : run.wrongs <= 2 ? 'Cleared.' : 'Survived.'}</div>
-          <StarRow n={run.stars} size={20} />
-          <div style={{ color: '#76849A', fontSize: 12.5, margin: '10px 0 18px' }}>
-            {run.wrongs === 0 ? 'Five for five — not a single missed bit.' : `${TOTAL - run.wrongs}/${TOTAL} on first attempts.`}
-            {run.firstClear ? ` +${g.xp} XP` : ' (replay — no XP)'}
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn" onClick={() => { AudioFX.click(); setRun(newRun()); }}><RotateCcw size={13} /> run it again</button>
-            <button className="btn primary" onClick={() => go({ name: 'world', w: g.world })}>back to {world.name} <ChevronRight size={13} /></button>
-          </div>
-        </div>
+        <VictoryReport
+          overlay
+          tone={flawless || run.stars === 3 ? 'brass' : 'ok'}
+          kicker={flawless ? 'bin-1 yield · flawless ×1.5' : `${g.title} · yield report`}
+          title={run.wrongs === 0 ? 'ZERO DEFECT' : run.wrongs <= 2 ? 'SIGNED OFF' : 'SURVIVED'}
+          body={
+            (run.wrongs === 0
+              ? 'Five for five — not a single missed bit.'
+              : `${TOTAL - run.wrongs}/${TOTAL} on first attempts.`)
+            + (run.firstClear ? ` +${g.xp} XP.` : ' Replay — no XP.')
+          }
+          stars={run.stars}
+          stats={[
+            { id: 'scrap', label: 'reclaimed', value: lootScrap, prefix: '+', accent: 'brass' },
+            { id: 'xp', label: 'process credit', value: run.firstClear ? g.xp : 0, prefix: '+', accent: 'ok' },
+            { id: 'hit', label: 'first tries', value: `${TOTAL - run.wrongs}/${TOTAL}`, accent: 'cyan' },
+          ]}
+          primary={{
+            label: `back to ${world.name}`,
+            onClick: () => { AudioFX.click(); go({ name: 'world', w: g.world }); },
+          }}
+          secondary={{
+            label: 'run it again',
+            hotkey: 'r',
+            onClick: () => { AudioFX.click(); setRun(newRun()); },
+          }}
+          hint="ENTER · continue   ·   R · reprobe"
+        />
       </div>
     );
   }
@@ -329,6 +347,7 @@ function TruthScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsume,
   const [badRows, setBadRows] = useState(new Set());
   const [subs, setSubs] = useState(0);
   const [done, setDone] = useState(false);
+  const [doneMeta, setDoneMeta] = useState(null);
   const already = !!save.done[tc.id];
   const enemyT = useMemo(() => enemyFor(tc.id, tc.world, tc.xp, false, save.ngplus ? 'architect' : save.mode, !!save.ngplus), []); // eslint-disable-line
   const combat = useCombat({ enemy: enemyT, save, live: !(activeDone(save)[tc.id]), onEnd: onCombatEnd, onConsume });
@@ -351,6 +370,7 @@ function TruthScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsume,
       AudioFX.win();
       setDone(true);
       const stars = subs === 0 ? 3 : subs <= 2 ? 2 : 1;
+      setDoneMeta({ stars, firstClear: !already });
       onComplete(tc.id, stars, tc.xp);
     } else {
       FR.ev('tfail', { id });
@@ -394,11 +414,24 @@ function TruthScreen({ id, save, go, onComplete, onStat, onCombatEnd, onConsume,
             {subs > 0 && <span style={{ fontSize: 12, color: '#FF8B82' }}>{badRows.size} row{badRows.size === 1 ? '' : 's'} wrong — fix the marked cells</span>}
           </div>
         ) : (
-          <div className="popin" style={{ marginTop: 16, padding: '12px 14px', border: '1px solid #2EA56A', background: '#0E2418', borderRadius: 7 }}>
-            <div style={{ color: '#7CE7A2', fontWeight: 600, fontSize: 13 }}>TABLE VERIFIED {subs === 1 ? '— first submit, no corrections' : ''}</div>
-            <div style={{ color: '#B9C6D6', fontSize: 12.5, marginTop: 4 }}>This table now uniquely defines the circuit. Any implementation matching it is the same hardware.</div>
-            <button className="btn sm primary" style={{ marginTop: 10 }} onClick={() => go({ name: 'world', w: tc.world })}>back to {world.name} <ChevronRight size={12} /></button>
-          </div>
+          <VictoryReport
+            overlay
+            tone={(doneMeta && doneMeta.stars === 3) ? 'brass' : 'ok'}
+            kicker={(doneMeta && doneMeta.stars === 3) ? 'bin-1 yield · first submit' : 'yield report · truth table'}
+            title={(doneMeta && doneMeta.stars === 3) ? 'ZERO DEFECT' : 'TABLE VERIFIED'}
+            body="This table now uniquely defines the circuit. Any implementation matching it is the same hardware."
+            stars={doneMeta ? doneMeta.stars : 0}
+            stats={[
+              { id: 'scrap', label: 'reclaimed', value: (combat.loot && combat.loot.scrap) || 0, prefix: '+', accent: 'brass' },
+              { id: 'xp', label: 'process credit', value: (doneMeta && doneMeta.firstClear) ? tc.xp : 0, prefix: '+', accent: 'ok' },
+              { id: 'tries', label: 'submits', value: subs === 0 ? 1 : subs, accent: 'cyan' },
+            ]}
+            primary={{
+              label: `back to ${world.name}`,
+              onClick: () => { AudioFX.click(); go({ name: 'world', w: tc.world }); },
+            }}
+            hint="ENTER · continue"
+          />
         )}
       </div>
     </div>
@@ -513,6 +546,8 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
   const solUsedRef = useRef(false);
   const timeUpRef = useRef(false);
   const [passed, setPassed] = useState(false);
+  const [passMeta, setPassMeta] = useState(null);
+  const [reportOpen, setReportOpen] = useState(true);
   const dmap = save.ngplus ? (save.doneNg || {}) : save.done;
   const already = !!dmap[id];
   const activeTest = effMode === 'apprentice' ? ch.test : (ch.testHard || ch.test);
@@ -597,8 +632,10 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
         combat.onRun({ ok: true, frac: 1 });
         onComplete(ch.id, stars, ch.xp);
         if (ch.id === 'chip1') onBossWin(ng);
+        setPassMeta({ stars, firstClear: true });
       } else {
         lines.push({ cls: 'c-dim', text: '// already in the record books — clean run' });
+        setPassMeta({ stars: (dmap[id] && dmap[id].stars) || 0, firstClear: false });
       }
       FR.ev('pass', { id: ch.id });
       setPassed(true);
@@ -714,6 +751,42 @@ function CodeScreen({ id, save, go, onComplete, onBossWin, onStat, onCombatEnd, 
                 </button>
               )}
             </div>
+          )}
+          {passed && reportOpen && (
+            <VictoryReport
+              overlay
+              tone={ch.boss || (passMeta && passMeta.stars === 3) ? 'brass' : 'ok'}
+              kicker={ch.boss ? 'lot closed · boss destroyed' : ((passMeta && passMeta.stars === 3) ? 'bin-1 yield · synthesis-clean' : 'yield report · testbench')}
+              title={ch.boss ? ch.title : ((passMeta && passMeta.stars === 3) ? 'ZERO DEFECT' : 'SIGNED OFF')}
+              body={
+                (passMeta && passMeta.firstClear)
+                  ? 'Synthesis-clean. The testbench signed the lot. Reclaimed metal is in the hopper.'
+                  : 'Already in the record books — clean run. Replay grants no XP.'
+              }
+              stars={passMeta ? passMeta.stars : 0}
+              stats={[
+                { id: 'scrap', label: 'reclaimed', value: (combat.loot && combat.loot.scrap) || 0, prefix: '+', accent: 'brass' },
+                { id: 'xp', label: 'process credit', value: (passMeta && passMeta.firstClear) ? ch.xp : 0, prefix: '+', accent: 'ok' },
+              ]}
+              primary={{
+                label: `back to ${world.name}`,
+                onClick: () => { AudioFX.click(); go({ name: 'world', w: ch.world }); },
+              }}
+              secondary={nextChallengeAfter(ch.id)
+                ? {
+                  label: `next: ${nextChallengeAfter(ch.id).title}`,
+                  onClick: () => {
+                    AudioFX.click();
+                    const n = nextChallengeAfter(ch.id);
+                    go({ name: n.kind, id: n.id });
+                  },
+                }
+                : {
+                  label: 'inspect hardware',
+                  onClick: () => { AudioFX.click(); setReportOpen(false); },
+                }}
+              hint="ENTER · continue"
+            />
           )}
         </div>
       </div>

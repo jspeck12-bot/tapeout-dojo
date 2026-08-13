@@ -6,6 +6,7 @@ import { AudioFX } from '../audio/index.js';
 import { bossPhase } from '../engine/debug/diagnostics.js';
 import { ITEMS, derivedStats } from '../game/rpg.js';
 import { FR } from '../telemetry/flight-recorder.js';
+import { VictoryReport } from './victory/VictoryReport.jsx';
 
 // ============================================================
 // COMBAT SYSTEM — combat hook, HUD, flatline, shop, level-up
@@ -22,6 +23,7 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
   const [tele, setTele] = useState(0);
   const [feed, setFeed] = useState([]);
   const [over, setOver] = useState(null); // 'won' | 'dead'
+  const [loot, setLoot] = useState(null);
   const [fluxArmed, setFluxArmed] = useState(false);
   const bestRef = useRef(0);
   const hitRef = useRef(false);
@@ -94,6 +96,7 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     setEhp(0); setOver('won');
     const flaw = !hitRef.current;
     const scrap = Math.round(enemy.scrap * statsRef.current.scrapMult * (flaw ? 1.5 : 1));
+    setLoot({ kind: 'win', scrap, flawless: flaw });
     push(enemy.name + ' destroyed · +' + scrap + ' scrap' + (flaw ? ' · FLAWLESS ×1.5' : ''), 'win');
     onEnd({ win: true, scrap, flawless: flaw });
   };
@@ -124,6 +127,7 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     if (endedRef.current) return 0;
     endedRef.current = true;
     const loss = Math.min(saveRef.current.scrap || 0, Math.max(10, Math.round(enemy.scrap * 0.6)));
+    setLoot({ kind: 'dead', scrapLoss: loss });
     onEnd({ death: true, scrapLoss: loss });
     return loss;
   };
@@ -144,7 +148,7 @@ function useCombat({ enemy, save, live: liveIn, onEnd, onConsume }) {
     push('flux armed — next gain ×3 suppression', 'good');
   };
 
-  return { live: live0, stats, enemy, php, ehp, tele, feed, over, dead: over === 'dead', won: over === 'won', fluxArmed, onRun, onAnswer, victory, retreatDead, potion, flux, phase, phaseT };
+  return { live: live0, stats, enemy, php, ehp, tele, feed, over, loot, dead: over === 'dead', won: over === 'won', fluxArmed, onRun, onAnswer, victory, retreatDead, potion, flux, phase, phaseT };
 }
 
 function Bar({ pct, color, h }) {
@@ -229,20 +233,27 @@ function CombatHUD({ c, save }) {
 function FlatlineOverlay({ c, onRetreat }) {
   const [loss, setLoss] = useState(null);
   useEffect(() => { setLoss(c.retreatDead()); AudioFX.bad(); }, []); // eslint-disable-line
+  const stripped = loss == null ? (c.loot && c.loot.scrapLoss) || 0 : loss;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(4,6,10,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div className="card popin" style={{ maxWidth: 440, padding: 26, textAlign: 'center', borderColor: '#B14A52' }}>
-        <Skull size={30} color="#FF6B62" style={{ margin: '0 auto' }} />
-        <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: '.12em', color: '#FF8B82', margin: '12px 0 6px' }}>FLATLINED</div>
-        <div style={{ fontSize: 13, color: '#B9C6D6', lineHeight: 1.6 }}>
+    <VictoryReport
+      overlay
+      tone="danger"
+      kicker="probe fail · substrate dump"
+      title="FLATLINED"
+      body={(
+        <>
           The {c.enemy.name.toLowerCase()} grinds you into the substrate.
-          {loss > 0 ? <> Scavengers strip <b style={{ color: '#FFC76B' }}>{loss} scrap</b> from your kit.</> : null} Your code draft survives — come back leveled, geared, or both.
-        </div>
-        <button className="btn primary" style={{ marginTop: 18 }} onClick={() => { AudioFX.click(); onRetreat(); }}>
-          crawl back <ChevronRight size={13} />
-        </button>
-      </div>
-    </div>
+          {stripped > 0 ? <> Scavengers strip {stripped} scrap from your kit.</> : null}
+          {' '}Your code draft survives — come back leveled, geared, or both.
+        </>
+      )}
+      stats={[
+        { id: 'loss', label: 'stripped', value: stripped, prefix: '−', accent: 'danger' },
+        { id: 'draft', label: 'code draft', value: 'kept', accent: 'cyan' },
+      ]}
+      primary={{ label: 'crawl back', onClick: () => { AudioFX.click(); onRetreat(); } }}
+      hint="ENTER · crawl back"
+    />
   );
 }
 
@@ -320,21 +331,20 @@ function ShopScreen({ save, go, onBuy, onEquip }) {
 function LevelUpModal({ info, save, onClose }) {
   const st = derivedStats(save);
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(4,6,10,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <div className="card popin" style={{ maxWidth: 420, padding: 26, textAlign: 'center', borderColor: '#155E6B' }}>
-        <div className="eyebrow" style={{ color: '#7DEFFF' }}>promotion</div>
-        <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: '.1em', margin: '10px 0 4px', color: '#E8F1FA' }}>
-          Lv {info.from} <span style={{ color: '#5A6A80' }}>→</span> <span style={{ color: '#7DEFFF' }}>Lv {info.to}</span>
-        </div>
-        <div style={{ fontSize: 12.5, color: '#B9C6D6', margin: '6px 0 14px' }}>+14 max HP · +4 ATK per level</div>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <StatChip label="HP" val={st.maxHp} />
-          <StatChip label="ATK" val={st.atk} />
-          <StatChip label="DEF" val={Math.round(st.defPct * 100) + '%'} />
-        </div>
-        <button className="btn primary" style={{ marginTop: 18 }} onClick={() => { AudioFX.click(); onClose(); }}>onward <ChevronRight size={13} /></button>
-      </div>
-    </div>
+    <VictoryReport
+      overlay
+      tone="ok"
+      kicker="promotion · process credit"
+      title={`Lv ${info.from} → ${info.to}`}
+      body="+14 max HP · +4 ATK per level. The fab expects more of you now."
+      stats={[
+        { id: 'hp', label: 'HP', value: st.maxHp, accent: 'ok' },
+        { id: 'atk', label: 'ATK', value: st.atk, accent: 'cyan' },
+        { id: 'def', label: 'DEF', value: `${Math.round(st.defPct * 100)}%`, accent: 'brass' },
+      ]}
+      primary={{ label: 'onward', onClick: () => { AudioFX.click(); onClose(); } }}
+      hint="ENTER · onward"
+    />
   );
 }
 

@@ -44,6 +44,7 @@ import { WorkbenchScreen } from '../ui/WorkbenchScreen.jsx';
 import { WorldSelectScreen } from '../ui/WorldSelectScreen.jsx';
 import { DebugBayScreen } from '../ui/DebugBayScreen.jsx';
 import { HudScreen } from '../ui/HudScreen.jsx';
+import { VictoryScreen } from '../ui/VictoryScreen.jsx';
 import {
   ShopScreen, LevelUpModal,
 } from '../ui/combat.jsx';
@@ -65,7 +66,7 @@ function devScreenFromUrl() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay', 'notes', 'hud'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay', 'notes', 'hud', 'victory'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -528,7 +529,7 @@ export function App() {
     <div className="tk-root" onPointerDown={() => AudioFX.ensure()}>
       <style>{CSS}</style>
       <div className="scanlines" />
-      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'hud', 'codex'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
+      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'hud', 'victory', 'codex'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
@@ -559,6 +560,7 @@ export function App() {
         {screen.name === 'worlds' && <WorldSelectScreen save={save} go={go} />}
         {screen.name === 'debugbay' && <DebugBayScreen go={go} />}
         {screen.name === 'hud' && <HudScreen go={go} />}
+        {screen.name === 'victory' && <VictoryScreen go={go} />}
         {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}
