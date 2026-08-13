@@ -28,6 +28,7 @@ import { buildCanyonWorldScene } from './canyon-world.js';
 import { buildClockWorldScene } from './clock-world.js';
 import { buildFortressWorldScene } from './fortress-world.js';
 import { buildTapeoutWorldScene } from './tapeout-world.js';
+import { buildArcadeWorldScene } from './arcade-world.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -372,68 +373,7 @@ function applyMineProgress(api, model, save) {
 }
 
 function buildArcadeWorld(scene, model) {
-  scene.background = new THREE.Color(0x06060f);
-  scene.fog = new THREE.FogExp2(0x06060f, 0.022);
-  scene.add(new THREE.AmbientLight(0x404a66, 0.7));
-  scene.add(new THREE.HemisphereLight(0x222a44, 0x0a0810, 0.5));
-
-  const b = model.bounds, pad = 6;
-  const span = Math.max(b.maxX - b.minX, b.maxZ - b.minZ) + pad * 2;
-  const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX + pad * 2, b.maxZ - b.minZ + pad * 2), matStd(0x0b0b16, { roughness: 0.6, metalness: 0.3 }));
-  floor.rotation.x = -Math.PI / 2; floor.position.set(cx, 0, cz); scene.add(floor);
-  const grid = new THREE.GridHelper(span, 28, 0x22d3ee, 0x163848);
-  grid.position.set(cx, 0.02, cz); scene.add(grid);
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX + pad * 2, b.maxZ - b.minZ + pad * 2), matStd(0x07070f, { roughness: 1 }));
-  ceil.rotation.x = Math.PI / 2; ceil.position.set(cx, 5, cz); scene.add(ceil);
-
-  const wallMat = matStd(0x14101e, { roughness: 0.7, metalness: 0.25 });
-  model.colliders.forEach(wl => {
-    const sx = wl.maxX - wl.minX, sz = wl.maxZ - wl.minZ;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, 5, sz), wallMat);
-    m.position.set((wl.minX + wl.maxX) / 2, 2.5, (wl.minZ + wl.maxZ) / 2);
-    scene.add(m);
-  });
-  const neon = [0xff7df0, 0x22d3ee, 0xa3e635, 0xffc76b];
-  model.colliders.filter(w => (w.maxX - w.minX) > 6 || (w.maxZ - w.minZ) > 6).slice(0, 8).forEach((wl, i) => {
-    const sx = Math.max(0.3, wl.maxX - wl.minX), sz = Math.max(0.3, wl.maxZ - wl.minZ);
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(sx * 0.96, 0.14, sz * 0.96), new THREE.MeshBasicMaterial({ color: neon[i % neon.length] }));
-    strip.position.set((wl.minX + wl.maxX) / 2, 4.6, (wl.minZ + wl.maxZ) / 2);
-    scene.add(strip);
-  });
-
-  const api = { cabinets: {}, spin: null };
-  model.interactables.filter(i => i.kind === 'arcade').forEach(it => {
-    const col = new THREE.Color(it.accent);
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.7, 1.1), matStd(0x0c0c16, { roughness: 0.5, metalness: 0.5 }));
-    body.position.set(it.x, 1.35, it.z); scene.add(body);
-    const screenMat = new THREE.MeshBasicMaterial({ color: col });
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(1.05, 0.8), screenMat);
-    const faceZ = it.z < model.spawn.z ? 1 : -1;
-    scr.position.set(it.x, 1.9, it.z + 0.58 * faceZ);
-    if (faceZ < 0) scr.rotation.y = Math.PI;
-    scene.add(scr);
-    const lt = new THREE.PointLight(col.getHex(), 0.85, 12, 1.8);
-    lt.position.set(it.x, 2.7, it.z); scene.add(lt);
-    const lbl = mineLabelSprite(it.label, '#' + col.getHexString(), 0.78);
-    lbl.position.set(it.x, 3.6, it.z); scene.add(lbl);
-    api.cabinets[it.id] = { screenMat, light: lt };
-  });
-
-  const lift = model.interactables.find(i => i.kind === 'exit');
-  const padM = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.18, 4.4), new THREE.MeshBasicMaterial({ color: 0x7a2a30 }));
-  padM.position.set(lift.x, 0.09, lift.z); scene.add(padM);
-  const ll = mineLabelSprite('MAIN MENU', '#FF8B82', 0.8);
-  ll.position.set(lift.x, 3.0, lift.z); scene.add(ll);
-
-  const pole = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.4, 0.3), matStd(0x1a2230, { metalness: 0.7, roughness: 0.3 }));
-  pole.position.set(0, 1.7, 0); scene.add(pole);
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, 0.16, 12, 32), new THREE.MeshBasicMaterial({ color: 0x22d3ee }));
-  ring.position.set(0, 3.6, 0); scene.add(ring);
-  api.spin = ring;
-  lightScene(scene, model.bounds, { ceil: true, dust: 0x9a6abf, glowSize: 4.0, glowOpacity: 0.9, shadowLights: 3 });
-  api.worldArt = buildWorldArt(scene, model, 0);
-  return api;
+  return buildArcadeWorldScene(scene, model);
 }
 
 function buildDungeonNodes(scene, model, theme, api) {

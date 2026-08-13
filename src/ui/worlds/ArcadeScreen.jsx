@@ -7,7 +7,12 @@ import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,
 } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
+import { disposeScene } from '../../graphics/cinematic.js';
+import {
+  configureStyleGuideRenderer,
+  installStyleGuideEnvironment,
+  makeStyleGuidePostFX,
+} from '../../graphics/style-guide-renderer.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
 import { buildArcadeWorld } from '../../graphics/world-builders.js';
 import { resolveCollisions, nearestInteractable } from '../../world/collision.js';
@@ -22,6 +27,40 @@ import {
 import { ShopScreen } from '../combat.jsx';
 import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
 
+function applyArcadeGfx(ctx, gfx, quality) {
+  if (!ctx) return;
+  const { renderer, scene, post } = ctx;
+  try {
+    renderer.toneMappingExposure = (scene.userData.baseExposure || 0.88) * (gfx.exposure ?? 1.08);
+    post?.setBloom?.(Math.min(0.48, 0.2 + (gfx.bloom ?? 0.58) * 0.2));
+    post?.setQuality?.(quality);
+    if (scene.fog?.isFogExp2) {
+      const base = scene.userData.baseFogDensity || 0.018;
+      scene.fog.density = base * ((gfx.fog ?? 0.032) / 0.032);
+    }
+    scene.traverse(object => {
+      if (object.isLight) {
+        if (object.userData.baseIntensity == null) {
+          object.userData.baseIntensity = object.intensity;
+        }
+        const role = object.userData.lightRole;
+        const ambient = role === 'ambient' || role === 'fill' || object.isAmbientLight || object.isHemisphereLight;
+        object.intensity = object.userData.baseIntensity * (ambient ? (gfx.ambient ?? 0.92) : (gfx.lights ?? 1.1));
+      }
+      if (object.isSprite && object.material?.blending === THREE.AdditiveBlending) {
+        object.material.opacity = gfx.glow ?? 0.7;
+      }
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach(material => {
+        if (material?.normalScale) material.normalScale.setScalar(gfx.normal ?? 0.95);
+      });
+    });
+  } catch (error) {
+    // Live tuning must never tear down the world.
+  }
+}
+
 function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('tapeline'); musicSetState('explore'); } catch (e) { } }, []);
   const mountRef = useRef(null);
@@ -30,6 +69,12 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   const [prompt, setPrompt] = useState(null);
   const [banner, setBanner] = useState('THE ARCADE');
   const [showHelp, setShowHelp] = useState(true);
+  const [quality] = useState(() => (
+    typeof window !== 'undefined' && 'ontouchstart' in window ? 'low' : 'high'
+  ));
+  const [stage, setStage] = useState('booting');
+  const qualityRef = useRef(quality);
+  qualityRef.current = quality;
   const ctxRef = useRef(null);
   const ambRef = useRef(null);
   const engineRef = useRef(null);
@@ -77,28 +122,72 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch);
-      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
-      renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
+      configureStyleGuideRenderer(renderer, qualityRef.current);
+      const width = mount.clientWidth || window.innerWidth;
+      const height = mount.clientHeight || window.innerHeight;
+      renderer.setSize(width, height);
+      if (renderer.domElement.dataset) renderer.domElement.dataset.engine = 'silicon-gothic';
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
-      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, post };
-      const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
+      const camera = new THREE.PerspectiveCamera(74, (width || 1) / (height || 1), 0.1, 220);
+      scene.add(camera);
       camera.rotation.order = 'YXZ';
 
       const model = arcadeModel();
       const api = buildArcadeWorld(scene, model);
-      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
-      const playerLight = new THREE.PointLight(0xbfe0ff, 0.7, 22, 1.5);
-      scene.add(playerLight);
+      ctxRef.current = { renderer, scene, post: null, camera };
+      try { renderer.render(scene, camera); } catch (error) { /* first frame probes the context */ }
+      setStage('environment');
+      try {
+        installStyleGuideEnvironment(renderer, scene, qualityRef.current);
+      } catch (error) {
+        // PMREM IBL needs a real GPU; the hall still plays with local lights.
+      }
+      if (
+        renderer.compileAsync
+        && renderer.extensions?.has('KHR_parallel_shader_compile')
+      ) {
+        renderer.compileAsync(scene, camera).catch(() => {});
+      }
+      setStage('compiling');
+      try {
+        if (!isTouch) {
+          post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
+            preset: qualityRef.current,
+            bloom: 0.3,
+            grade: api.worldArt?.grade,
+            focus: 14,
+            dof: false,
+          });
+        }
+      } catch (error) {
+        post = null;
+      }
+      ctxRef.current.post = post;
+      applyArcadeGfx(ctxRef.current, gfx, qualityRef.current);
+
+      const lamp = new THREE.SpotLight(0xffd6f5, 1.55, 28, 0.5, 0.55, 1.3);
+      lamp.userData.lightRole = 'headlamp';
+      lamp.userData.baseIntensity = lamp.intensity;
+      if (!isTouch) {
+        try {
+          lamp.castShadow = true;
+          lamp.shadow.mapSize.set(1024, 1024);
+          lamp.shadow.camera.near = 0.6;
+          lamp.shadow.camera.far = 36;
+          lamp.shadow.bias = -0.0025;
+        } catch (e) { /* SwiftShader may reject shadow maps */ }
+      }
+      scene.add(lamp);
+      scene.add(lamp.target);
       ambRef.current = createAmbience(scene, 'arcade');
       cleanup.push(() => { try { ambRef.current && ambRef.current.dispose(); } catch (e) { } });
 
-      const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.05 };
+      const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.08 };
+      let announcedReady = false;
       const keys = {};
       let dragging = false, lastTX = 0, lastTY = 0, promptKey = '', zoneNow = 'THE ARCADE', frame = 0;
       let _moving = false, _sprint = false; const _bob = {};
@@ -183,7 +272,6 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         last = now;
         frame++;
         _moving = false; _sprint = false;
-        if (api.spin) { api.spin.rotation.y += dt * 0.8; api.spin.rotation.x = 0.42; }
         (scene.userData.anims || []).forEach(animate => animate(now / 1000, dt));
         if (!overlayRef.current) {
           const inp = inputRef.current;
@@ -214,11 +302,23 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         camera.position.set(player.x, 1.7, player.z);
         camera.rotation.y = player.yaw;
         camera.rotation.x = player.pitch;
-        playerLight.position.set(player.x, 2.6, player.z);
+        lamp.position.set(player.x, 1.78, player.z);
+        {
+          const fx2 = -Math.sin(player.yaw);
+          const fz2 = -Math.cos(player.yaw);
+          lamp.target.position.set(player.x + fx2 * 7, 1.0 + player.pitch * 4, player.z + fz2 * 7);
+        }
         const _stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         FR.tick(post ? 1 : 0);
-        if (post) post.render(scene, camera); else renderer.render(scene, camera);
+        if (post) {
+          post.setMoving?.(_moving);
+          post.render(scene, camera);
+        } else renderer.render(scene, camera);
+        if (!announcedReady) {
+          announcedReady = true;
+          setStage('ready');
+        }
       };
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));
@@ -229,7 +329,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     return teardown;
   }, []); // eslint-disable-line
 
-  useEffect(() => { applyGfx(ctxRef.current, gfx); }, [gfx]); // eslint-disable-line
+  useEffect(() => { applyArcadeGfx(ctxRef.current, gfx, quality); }, [gfx, quality]); // eslint-disable-line
 
   const renderOverlay = () => {
     if (!overlay) return null;
@@ -294,13 +394,21 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#06060F' }}>
+    <div className="sg-world" data-arcade-status={stage} style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#06040c' }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
 
       <CinematicFX accent="#FF7DF0" />
       <DevPerfHUD ctxRef={ctxRef} />
       <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
       <EnterFade />
+
+      {stage !== 'ready' && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 30, displayEvents: 'none', display: 'grid', placeItems: 'center', background: 'rgba(6,4,12,0.55)' }}>
+          <div style={{ letterSpacing: '.22em', fontSize: 12, color: '#FF7DF0' }}>
+            NEON HALL · {stage.toUpperCase()}
+          </div>
+        </div>
+      )}
 
       <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
@@ -327,7 +435,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         </div>
       )}
 
-      {showHelp && !overlay && (
+      {showHelp && !overlay && stage === 'ready' && (
         <div style={{ position: 'absolute', bottom: 64, left: 16, zIndex: 23, maxWidth: 290 }} className="card">
           <div style={{ padding: '12px 14px' }}>
             <div className="eyebrow" style={{ color: '#FF7DF0', marginBottom: 8 }}>arcade floor</div>
