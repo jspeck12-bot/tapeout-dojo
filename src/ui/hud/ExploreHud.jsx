@@ -35,6 +35,15 @@ const EXPLORE_HUD_CSS = `
   .ehud-rail__left,
   .ehud-rail__right{ display:flex;align-items:center;gap:6px;flex-wrap:wrap; }
   .ehud-rail__right{ margin-left:auto; }
+  .ehud-rail .sg-btn{
+    background:color-mix(in srgb, var(--sg-bg-elevated) 88%, transparent);
+    border-color:color-mix(in srgb, var(--hud-accent) 28%, var(--sg-line));
+    color:var(--sg-ink-muted);
+  }
+  .ehud-rail .sg-btn:hover:not(:disabled){
+    border-color:color-mix(in srgb, var(--hud-accent) 55%, var(--sg-line));
+    color:var(--hud-accent);
+  }
 
   .ehud-vitals{
     display:flex;align-items:center;gap:10px;
@@ -265,12 +274,12 @@ function ExploreHud({
       <div className="ehud-rail">
         <div className="ehud-rail__left ehud-pe">
           {onMenu && (
-            <Button size="sm" variant="ghost" icon={<BackMark size={12} />} onClick={onMenu}>
+            <Button size="sm" icon={<BackMark size={12} />} onClick={onMenu}>
               {menuLabel}
             </Button>
           )}
           {showMap && onMap && (
-            <Button size="sm" variant="ghost" icon={<MapMark size={12} />} onClick={onMap}>
+            <Button size="sm" icon={<MapMark size={12} />} onClick={onMap}>
               map
             </Button>
           )}
@@ -283,7 +292,7 @@ function ExploreHud({
           </span>
           <span className="ehud-vitals__chip ehud-vitals__scrap">
             <CoinMark size={12} />
-            <strong>{scrap}</strong>
+            <strong>{scrap}</strong> scrap
           </span>
           <span className="ehud-vitals__chip">
             <strong>{xp}</strong> XP
@@ -292,10 +301,10 @@ function ExploreHud({
 
         <div className="ehud-rail__right ehud-pe">
           {onGraphics && (
-            <Button size="sm" variant="ghost" onClick={onGraphics}>{graphicsLabel}</Button>
+            <Button size="sm" onClick={onGraphics}>{graphicsLabel}</Button>
           )}
           {onSettings && (
-            <Button size="sm" variant="ghost" icon={<GearMark size={12} />} onClick={onSettings} title="settings">
+            <Button size="sm" icon={<GearMark size={12} />} onClick={onSettings} title="settings">
               settings
             </Button>
           )}
