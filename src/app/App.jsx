@@ -536,7 +536,7 @@ export function App() {
         {screen.name === 'code' && <CodeScreen key={screen.id + '|' + (save.ngplus ? 'ng' : save.mode)} id={screen.id} save={save} go={go} onComplete={completeChallenge} onBossWin={onBossWin} onStat={onStat} onCombatEnd={onCombatEnd} onConsume={onConsume} />}
         {screen.name === 'blitz' && <BlitzScreen save={save} go={go} onBlitzEnd={onBlitzEnd} />}
         {screen.name === 'bugs' && <BugScreen save={save} go={go} onBugSolve={onBugSolve} />}
-        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} cb={worldCallbacks} />}
+        {(screen.name === 'campus' || screen.name === 'home') && <CampusScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'mine' && <MineScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'arcade' && <ArcadeScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'dungeon' && <DungeonScreen key={screen.w} w={screen.w} save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}

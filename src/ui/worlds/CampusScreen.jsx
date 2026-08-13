@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ChevronLeft, ChevronRight, Terminal, X, Zap,
+  ChevronLeft, ChevronRight, Settings, SlidersHorizontal, Terminal, X, Zap,
 } from "lucide-react";
 import * as THREE from "three";
-import { AudioFX } from '../../audio/index.js';
+import { AudioFX, musicEnsure, musicSetState, musicSetTrack } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';
-import { disposeScene, makePostFX } from '../../graphics/cinematic.js';
+import { disposeScene } from '../../graphics/cinematic.js';
+import {
+  STYLE_GUIDE_QUALITY,
+  configureStyleGuideRenderer,
+  installStyleGuideEnvironment,
+  makeStyleGuidePostFX,
+} from '../../graphics/style-guide-renderer.js';
+import { stepCamera, createAmbience } from '../../graphics/immersion.js';
 import {
   buildFabUltra, buildCampusWorld, applyCampusProgress,
 } from '../../graphics/world-builders.js';
@@ -23,20 +30,73 @@ import {
   ForgeScreen, TrainingScreen, ProfilesScreen,
 } from '../meta.jsx';
 import { ShopScreen } from '../combat.jsx';
-import { TouchControls, DevPerfHUD } from '../world-shared.jsx';
+import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shared.jsx';
 
-function CampusScreen({ save, go, cb }) {
+function applyCampusGfx(ctx, gfx, quality) {
+  if (!ctx) return;
+  const { renderer, scene, post } = ctx;
+  try {
+    renderer.toneMappingExposure = 0.92 * (gfx.exposure ?? 1.08);
+    post?.setBloom?.(Math.min(0.48, 0.18 + (gfx.bloom ?? 0.58) * 0.2));
+    post?.setQuality?.(quality);
+    if (scene.fog?.isFogExp2) {
+      const base = scene.userData.baseFogDensity || 0.0072;
+      scene.fog.density = base * ((gfx.fog ?? 0.032) / 0.032);
+    }
+    scene.traverse(object => {
+      if (object.isLight) {
+        if (object.userData.baseIntensity == null) {
+          object.userData.baseIntensity = object.intensity;
+        }
+        const role = object.userData.lightRole;
+        const ambient = role === 'ambient' || role === 'fill' || object.isAmbientLight || object.isHemisphereLight;
+        object.intensity = object.userData.baseIntensity * (ambient ? (gfx.ambient ?? 0.92) : (gfx.lights ?? 1.1));
+      }
+      if (object.isSprite && object.material?.blending === THREE.AdditiveBlending) {
+        object.material.opacity = gfx.glow ?? 0.7;
+      }
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach(material => {
+        if (material?.normalScale) material.normalScale.setScalar(gfx.normal ?? 0.95);
+      });
+    });
+  } catch (error) {
+    // Live tuning must never tear down the world.
+  }
+}
+
+function campusZoneName(model, x, z) {
+  for (const district of model.districts) {
+    if (Math.abs(x - district.x) < COURT_HALF && Math.abs(z - district.z) < COURT_HALF) {
+      return district.name;
+    }
+  }
+  if (Math.hypot(x, z) < 48) return 'CENTRAL PLAZA';
+  return 'ARRIVAL WALK';
+}
+
+function CampusScreen({ save, go, cb, gfx = {}, onSettings }) {
+  useEffect(() => { try { musicEnsure(); musicSetTrack('halogen'); musicSetState('explore'); } catch (e) { } }, []);
   const mountRef = useRef(null);
   const minimapRef = useRef(null);
   const ctxRef = useRef(null);
   const [failed, setFailed] = useState(false);
   const [overlay, setOverlay] = useState(null);
   const [prompt, setPrompt] = useState(null);
-  const [banner, setBanner] = useState(null);
+  const [banner, setBanner] = useState('ARRIVAL WALK');
   const [showHelp, setShowHelp] = useState(!save.campusVisited);
+  const [quality, setQuality] = useState(() => (
+    typeof window !== 'undefined' && 'ontouchstart' in window ? 'low' : 'high'
+  ));
+  const [stage, setStage] = useState('booting');
+  const [gfxOpen, setGfxOpen] = useState(false);
+  const qualityRef = useRef(quality);
+  qualityRef.current = quality;
   const engineRef = useRef(null);
   const overlayRef = useRef(null); overlayRef.current = overlay;
   const saveRef2 = useRef(save); saveRef2.current = save;
+  const ambRef = useRef(null);
   const inputRef = useRef({ jx: 0, jy: 0, sprint: false });
   const forgeKey = useRef(0);
   const isTouch = typeof window !== 'undefined' && 'ontouchstart' in window;
@@ -60,7 +120,6 @@ function CampusScreen({ save, go, cb }) {
     setOverlay(sc);
   }, []);
 
-  // ---------- engine ----------
   useEffect(() => {
     const mount = mountRef.current;
     let renderer, post = null, scene = null, raf = 0, alive = true;
@@ -83,31 +142,82 @@ function CampusScreen({ save, go, cb }) {
       } catch (e) { }
       engineRef.current = null;
       ctxRef.current = null;
+      ambRef.current = null;
     };
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
-      renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
+      configureStyleGuideRenderer(renderer, qualityRef.current);
+      const width = mount.clientWidth || window.innerWidth;
+      const height = mount.clientHeight || window.innerHeight;
+      renderer.setSize(width, height);
+      if (renderer.domElement.dataset) renderer.domElement.dataset.engine = 'silicon-gothic';
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
-      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, post };
-      const camera = new THREE.PerspectiveCamera(72, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 600);
+      const camera = new THREE.PerspectiveCamera(72, (width || 1) / (height || 1), 0.1, 500);
       camera.rotation.order = 'YXZ';
+      scene.add(camera);
 
       const model = campusModel();
       const api = buildCampusWorld(scene, model);
       try { buildFabUltra(scene, model, api); } catch (e) { }
-      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
+      ctxRef.current = { renderer, scene, post: null, camera };
+      try { renderer.render(scene, camera); } catch (error) { /* first frame probes the context */ }
+      setStage('environment');
+      try {
+        installStyleGuideEnvironment(renderer, scene, qualityRef.current);
+      } catch (error) {
+        // PMREM IBL needs a real GPU; the campus still plays with local lights.
+      }
+      if (
+        renderer.compileAsync
+        && renderer.extensions?.has('KHR_parallel_shader_compile')
+      ) {
+        renderer.compileAsync(scene, camera).catch(() => {});
+      }
+      setStage('compiling');
+      try {
+        if (!isTouch) {
+          post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
+            preset: qualityRef.current,
+            bloom: 0.28,
+            grade: api.worldArt?.grade,
+            focus: 28,
+            dof: false,
+          });
+        }
+      } catch (error) {
+        post = null;
+      }
+      ctxRef.current.post = post;
+      applyCampusGfx(ctxRef.current, gfx, qualityRef.current);
+
+      const lamp = new THREE.SpotLight(0xd8f4ff, 1.85, 46, 0.52, 0.5, 1.3);
+      lamp.userData.lightRole = 'headlamp';
+      lamp.userData.baseIntensity = lamp.intensity;
+      if (!isTouch) {
+        try {
+          lamp.castShadow = true;
+          lamp.shadow.mapSize.set(1024, 1024);
+          lamp.shadow.camera.near = 0.6;
+          lamp.shadow.camera.far = 52;
+          lamp.shadow.bias = -0.0025;
+        } catch (e) { }
+      }
+      scene.add(lamp);
+      scene.add(lamp.target);
+      ambRef.current = createAmbience(scene, 'foundry');
+      cleanup.push(() => { try { ambRef.current && ambRef.current.dispose(); } catch (e) { } });
 
       const player = { x: model.spawn.x, z: model.spawn.z, yaw: model.spawn.yaw, pitch: -0.04 };
       const keys = {};
       let dragging = false, lastTX = 0, lastTY = 0;
-      let zoneW = 0, promptKey = '', miniT = 0, helpDismissed = false;
+      let zoneNow = 'ARRIVAL WALK', promptKey = '', miniT = 0, helpDismissed = false;
+      let announcedReady = false, _moving = false, _sprint = false;
+      const _bob = {};
 
       const lockedTest = (it) => {
         const s = saveRef2.current;
@@ -160,7 +270,6 @@ function CampusScreen({ save, go, cb }) {
       window.addEventListener('mouseup', onMU);
       cleanup.push(() => { document.removeEventListener('mousemove', onMM); canvas.removeEventListener('mousedown', onMD); window.removeEventListener('mouseup', onMU); });
 
-      // touch-look on the canvas (right half); joystick handled by HUD via inputRef
       const onTS = (e) => {
         const t = e.touches[0];
         if (t && t.clientX > window.innerWidth * 0.4) { lastTX = t.clientX; lastTY = t.clientY; dragging = true; }
@@ -205,14 +314,17 @@ function CampusScreen({ save, go, cb }) {
         interact: tryInteract,
       };
 
-      const clock = new THREE.Clock();
+      let last = performance.now();
       const camVec = new THREE.Vector3();
       const loop = () => {
         if (!alive) return;
         raf = requestAnimationFrame(loop);
-        const dt = Math.min(0.05, clock.getDelta());
-        const t = clock.elapsedTime;
+        const now = performance.now();
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        const t = now / 1000;
         const paused = !!overlayRef.current;
+        _moving = false; _sprint = false;
 
         if (!paused) {
           const inp = inputRef.current;
@@ -229,8 +341,8 @@ function CampusScreen({ save, go, cb }) {
             const vz = (-cy) * (-mz) + (-sy) * mx;
             const res = resolveCollisions(player.x + vx * sp * dt, player.z + vz * sp * dt, 0.9, model.colliders);
             player.x = res.x; player.z = res.z;
+            _moving = true; _sprint = !!sprint;
           }
-          // interact prompt
           const it = nearestInteractable(player.x, player.z, model.interactables);
           const lock = it ? lockedTest(it) : null;
           const pk = it ? it.id + (lock ? '!' : '') : '';
@@ -238,38 +350,47 @@ function CampusScreen({ save, go, cb }) {
             promptKey = pk;
             setPrompt(it ? { text: lock ? lock : (isTouch ? 'TAP ⏎ — ' : '[E] ') + it.prompt, locked: !!lock } : null);
           }
-          // district banner
-          let zw = 0;
-          for (const d of model.districts) {
-            if (Math.abs(player.x - d.x) < COURT_HALF && Math.abs(player.z - d.z) < COURT_HALF) { zw = d.w; break; }
-          }
-          if (zw !== zoneW) {
-            zoneW = zw;
-            setBanner(zw ? model.districts.find(d => d.w === zw).name : null);
+          const zn = campusZoneName(model, player.x, player.z);
+          if (zn !== zoneNow) {
+            zoneNow = zn;
+            setBanner(zn);
           }
         }
 
         camera.position.set(player.x, 1.7, player.z);
         camera.rotation.y = player.yaw;
         camera.rotation.x = player.pitch;
+        const stepped = stepCamera(camera, 1.7, dt, _moving, _sprint, _bob);
+        lamp.position.set(player.x, 1.78, player.z);
+        const fx2 = -Math.sin(player.yaw), fz2 = -Math.cos(player.yaw);
+        lamp.target.position.set(player.x + fx2 * 8, 1.0 + player.pitch * 4, player.z + fz2 * 8);
 
         api.anims.forEach(f => f(t, dt));
         (scene.userData.anims || []).forEach(f => f(t, dt));
-        // billboard kiosk screens
         camVec.set(player.x, 0, player.z);
         Object.values(api.kioskScreens).forEach(k => {
           k.screen.lookAt(camVec.x, k.screen.position.y, camVec.z);
         });
+        if (ambRef.current) {
+          ambRef.current.update(dt, t, _moving, _sprint);
+          if (stepped) ambRef.current.footstep();
+        }
 
-        // minimap @ ~8Hz
         miniT += dt;
         if (miniT > 0.12 && minimapRef.current) {
           miniT = 0;
           drawMinimap(minimapRef.current, model, player, progress);
         }
 
+        if (post) {
+          post.setMoving?.(_moving);
+          post.render(scene, camera);
+        } else renderer.render(scene, camera);
         FR.tick(post ? 1 : 0);
-        if (post) post.render(scene, camera); else renderer.render(scene, camera);
+        if (!announcedReady) {
+          announcedReady = true;
+          setStage('ready');
+        }
       };
       loop();
       cleanup.push(() => cancelAnimationFrame(raf));
@@ -280,12 +401,12 @@ function CampusScreen({ save, go, cb }) {
     return teardown;
   }, []); // eslint-disable-line
 
-  // progress sync on save changes
+  useEffect(() => { applyCampusGfx(ctxRef.current, gfx, quality); }, [gfx, quality]);
+
   useEffect(() => {
     if (engineRef.current) engineRef.current.applyProgress(campusProgress(save));
   }, [save]);
 
-  // ---------- overlay router (mirrors App routes) ----------
   const renderOverlay = () => {
     if (!overlay) return null;
     const s = save;
@@ -345,7 +466,6 @@ function CampusScreen({ save, go, cb }) {
     );
   };
 
-  // ---------- fallback (no WebGL / headless) ----------
   if (failed) {
     return (
       <div style={{ marginTop: 22, maxWidth: 640, position: 'relative' }}>
@@ -381,48 +501,95 @@ function CampusScreen({ save, go, cb }) {
     );
   }
 
-  // ---------- full-screen 3D + HUD ----------
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#060A12' }}>
+    <div className="sg-world" data-campus-status={stage} style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#05070b' }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+      <div className="sg-corners" />
+      <CinematicFX accent="#7defff" />
       <DevPerfHUD ctxRef={ctxRef} />
+      {stage !== 'ready' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 27, display: 'grid', placeItems: 'center',
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle at 50% 42%, rgba(16,28,40,.18), rgba(5,7,11,.7))',
+        }}>
+          <div className="eyebrow" style={{
+            padding: '12px 16px', color: '#d7e4f0', background: 'rgba(5,7,11,.84)',
+            border: '1px solid #2a3340', letterSpacing: '.16em',
+          }}>
+            FAB FLOOR · {stage.toUpperCase()}
+          </div>
+        </div>
+      )}
+      {onSettings && (
+        <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 32 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
+      )}
+      <button
+        className="btn sm"
+        style={{ position: 'absolute', top: 12, right: onSettings ? 108 : 12, zIndex: 32 }}
+        onClick={() => { AudioFX.click(); setGfxOpen(open => !open); }}
+      >
+        <SlidersHorizontal size={12} /> graphics
+      </button>
+      {gfxOpen && (
+        <div className="card" style={{
+          position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
+          padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a3340',
+        }}>
+          <div className="eyebrow" style={{ color: '#7defff', marginBottom: 10 }}>quality · fab campus</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
+              <button
+                key={name}
+                className="btn sm"
+                onClick={() => { AudioFX.click(); setQuality(name); }}
+                style={{
+                  flex: 1,
+                  padding: '4px 0',
+                  color: quality === name ? '#061017' : '#cbb79a',
+                  background: quality === name ? '#7defff' : 'rgba(20,16,12,.7)',
+                  borderColor: quality === name ? '#7defff' : '#2a3340',
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <button className="lnk" style={{ paddingLeft: 0 }} onClick={() => setGfxOpen(false)}>close</button>
+        </div>
+      )}
+      <EnterFade />
 
-      {/* exit */}
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 32 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
         <ChevronLeft size={12} /> menu
       </button>
 
-      {/* crosshair */}
       {!overlay && !isTouch && (
         <div style={{ position: 'absolute', top: '50%', left: '50%', width: 5, height: 5, borderRadius: 99, background: '#7DEFFF', opacity: 0.85, transform: 'translate(-50%,-50%)', zIndex: 22, boxShadow: '0 0 8px #22D3EE' }} />
       )}
 
-      {/* district banner */}
       {banner && !overlay && (
         <div key={banner} className="popin" style={{ position: 'absolute', top: 56, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #1D2632', borderRadius: 8, background: 'rgba(10,14,20,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#7DEFFF' }}>
+          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #2a3340', background: 'rgba(10,14,20,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#7DEFFF' }}>
             {banner.toUpperCase()}
           </div>
         </div>
       )}
 
-      {/* interact prompt */}
       {prompt && !overlay && (
         <div style={{ position: 'absolute', bottom: isTouch ? 120 : 64, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <span style={{ padding: '8px 16px', borderRadius: 7, background: 'rgba(10,14,20,0.86)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#155E6B'), color: prompt.locked ? '#FF8B82' : '#7DEFFF', fontSize: 13, letterSpacing: '.08em' }}>
+          <span style={{ padding: '8px 16px', background: 'rgba(10,14,20,0.86)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#155E6B'), color: prompt.locked ? '#FF8B82' : '#7DEFFF', fontSize: 13, letterSpacing: '.08em' }}>
             {prompt.text}
           </span>
         </div>
       )}
 
-      {/* minimap */}
       {!overlay && (
         <canvas ref={minimapRef} width={150} height={150}
-          style={{ position: 'absolute', top: 12, right: 12, zIndex: 22, border: '1px solid #1D2632', borderRadius: 8, background: 'rgba(8,12,18,0.85)' }} />
+          style={{ position: 'absolute', top: 52, right: 12, zIndex: 22, border: '1px solid #2a3340', background: 'rgba(8,12,18,0.85)' }} />
       )}
 
-      {/* help card */}
       {showHelp && !overlay && (
         <div style={{ position: 'absolute', bottom: 64, left: 16, zIndex: 23, maxWidth: 290 }} className="card">
           <div style={{ padding: '12px 14px' }}>
@@ -437,7 +604,6 @@ function CampusScreen({ save, go, cb }) {
         </div>
       )}
 
-      {/* touch controls */}
       {isTouch && !overlay && <TouchControls inputRef={inputRef} onInteract={() => engineRef.current && engineRef.current.interact()} />}
 
       {overlay && renderOverlay()}
@@ -461,18 +627,15 @@ function drawMinimap(cv, model, player, progress) {
     g.strokeRect(X(d.x - COURT_HALF), Z(d.z - COURT_HALF), COURT_HALF * 2 * S, COURT_HALF * 2 * S);
     g.globalAlpha = 1;
   });
-  // plaza
   g.beginPath();
   g.arc(X(0), Z(0), 38 * S, 0, Math.PI * 2);
   g.strokeStyle = 'rgba(125,239,255,0.5)';
   g.stroke();
-  // gates
   model.gates.forEach(gt => {
     const open = !gt.collider.off ? false : true;
     g.fillStyle = open ? '#2EA56A' : '#FF8B82';
     g.fillRect(X(gt.x) - 2, Z(gt.z) - 2, 4, 4);
   });
-  // player arrow
   g.save();
   g.translate(X(player.x), Z(player.z));
   g.rotate(-player.yaw);

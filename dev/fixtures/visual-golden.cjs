@@ -4,7 +4,7 @@
 // Floors are intentionally 80% of the baseline so additions remain harmless
 // while a gutted or accidentally disconnected scene fails immediately.
 module.exports = {
-  campus: { direct: 272, total: 303, rendered: 283, lights: 4 },
+  campus: { direct: 272, total: 320, rendered: 290, lights: 11 },
   mines: { direct: 153, total: 328, rendered: 253, lights: 33 },
   arcade: { direct: 48, total: 49, rendered: 40, lights: 7 },
   'style-guide': { direct: 18, total: 70, rendered: 55, lights: 7 },
