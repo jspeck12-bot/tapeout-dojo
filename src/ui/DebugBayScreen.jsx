@@ -89,7 +89,7 @@ function DebugBayScreen({ go }) {
         }
         .db-shell{
           position:relative;z-index:1;
-          max-width:1280px;margin:0 auto;
+          max-width:min(1480px,100%);margin:0 auto;
           min-height:calc(100vh - 48px);
           display:grid;
           grid-template-rows:auto 1fr auto;
@@ -97,7 +97,7 @@ function DebugBayScreen({ go }) {
         }
         .db-grid{
           display:grid;
-          grid-template-columns:minmax(0,1.55fr) minmax(280px,0.85fr);
+          grid-template-columns:minmax(0,1.7fr) minmax(300px,0.78fr);
           gap:var(--sg-space-4);
           align-items:stretch;
           min-height:0;
@@ -107,17 +107,17 @@ function DebugBayScreen({ go }) {
           flex:1;display:flex;flex-direction:column;min-height:0;gap:12px;
         }
         .db-chassis{
-          position:relative;flex:1;min-height:min(58vh,640px);
-          border:1px solid color-mix(in srgb, var(--sg-brass) 32%, var(--sg-line-strong));
+          position:relative;flex:1;min-height:min(64vh,720px);
+          border:1px solid color-mix(in srgb, var(--sg-brass) 38%, var(--sg-line-strong));
           background:
             linear-gradient(180deg,
               color-mix(in srgb, var(--sg-bg-elevated) 92%, var(--sg-brass-deep)) 0%,
               var(--sg-bg-deep) 42%,
               color-mix(in srgb, var(--sg-bg-deep) 88%, var(--sg-cyan-deep)) 100%);
           box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, var(--sg-brass) 14%, transparent),
+            inset 0 0 0 1px color-mix(in srgb, var(--sg-brass) 18%, transparent),
             inset 0 0 80px color-mix(in srgb, var(--sg-bg) 55%, transparent);
-          padding:14px;
+          padding:12px;
           overflow:hidden;
         }
         .db-bezel{
@@ -133,21 +133,22 @@ function DebugBayScreen({ go }) {
         .db-bezel::before{ top:-1px;left:-1px;border-right:none;border-bottom:none; }
         .db-bezel::after{ top:-1px;right:-1px;border-left:none;border-bottom:none; }
         .db-crt{
-          position:relative;z-index:1;height:100%;min-height:360px;
-          border:1px solid color-mix(in srgb, var(--sg-cyan) 28%, var(--sg-line));
+          position:relative;z-index:1;height:100%;min-height:420px;
+          border:1px solid color-mix(in srgb, var(--sg-cyan) 34%, var(--sg-line));
           background:
             radial-gradient(120% 90% at 50% 40%,
-              color-mix(in srgb, var(--sg-cyan-deep) 16%, transparent) 0%,
+              color-mix(in srgb, var(--sg-cyan-deep) 22%, transparent) 0%,
               transparent 62%),
             linear-gradient(180deg,
               color-mix(in srgb, var(--sg-bg-deep) 70%, #020406) 0%,
               var(--sg-bg-deep) 100%);
-          box-shadow:inset 0 0 60px color-mix(in srgb, var(--sg-cyan-deep) 12%, transparent);
-          overflow:auto;
-          padding:10px 8px 8px;
+          box-shadow:inset 0 0 70px color-mix(in srgb, var(--sg-cyan-deep) 16%, transparent);
+          overflow:hidden;
+          padding:14px 12px 12px;
+          display:flex;flex-direction:column;
         }
         .db-crt::before{
-          content:"";position:absolute;inset:0;pointer-events:none;z-index:3;opacity:.22;
+          content:"";position:absolute;inset:0;pointer-events:none;z-index:3;opacity:.18;
           background:repeating-linear-gradient(
             180deg,
             transparent 0 2px,
@@ -157,20 +158,33 @@ function DebugBayScreen({ go }) {
         .db-crt::after{
           content:"";position:absolute;inset:0;pointer-events:none;z-index:3;
           background:
-            linear-gradient(color-mix(in srgb, var(--sg-cyan) 10%, transparent) 1px, transparent 1px),
-            linear-gradient(90deg, color-mix(in srgb, var(--sg-cyan) 10%, transparent) 1px, transparent 1px);
-          background-size:28px 28px;
-          -webkit-mask-image:radial-gradient(ellipse at 50% 45%, #000 35%, transparent 78%);
-          mask-image:radial-gradient(ellipse at 50% 45%, #000 35%, transparent 78%);
-          opacity:.35;
+            linear-gradient(color-mix(in srgb, var(--sg-cyan) 12%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--sg-cyan) 12%, transparent) 1px, transparent 1px);
+          background-size:32px 32px;
+          -webkit-mask-image:radial-gradient(ellipse at 50% 45%, #000 40%, transparent 82%);
+          mask-image:radial-gradient(ellipse at 50% 45%, #000 40%, transparent 82%);
+          opacity:.42;
         }
         .db-crt__tag{
-          position:absolute;top:8px;right:12px;z-index:4;
+          position:absolute;top:10px;right:14px;z-index:4;
           font-family:var(--sg-font-mono);font-size:10px;letter-spacing:.18em;
-          color:color-mix(in srgb, var(--sg-brass) 72%, transparent);
+          color:color-mix(in srgb, var(--sg-brass) 78%, transparent);
           pointer-events:none;
         }
-        .db-crt__body{ position:relative;z-index:2; }
+        .db-crt__body{
+          position:relative;z-index:2;flex:1;min-height:0;
+          display:flex;align-items:center;justify-content:center;
+          overflow:auto;
+        }
+        .db-crt[data-view="scope"] .db-crt__body .wavescroll{
+          border:none;background:transparent;padding:6px 4px;border-radius:0;
+          transform:scale(1.72);transform-origin:center center;
+          filter:drop-shadow(0 0 10px color-mix(in srgb, var(--sg-cyan) 22%, transparent));
+        }
+        .db-crt[data-view="netlist"] .db-crt__body > div{
+          transform:scale(1.38);transform-origin:center center;
+          filter:drop-shadow(0 0 8px color-mix(in srgb, var(--sg-cyan) 16%, transparent));
+        }
         .db-crt .wavescroll{
           border:none;background:transparent;padding:4px 2px;border-radius:0;
         }
@@ -203,14 +217,15 @@ function DebugBayScreen({ go }) {
         .db-ch__hint{ color:var(--sg-ink-dim); }
         .db-ch__role{ color:var(--sg-brass);letter-spacing:.08em;text-transform:uppercase;font-size:10px; }
         .db-readout{
-          padding:10px 12px;
-          border:1px solid color-mix(in srgb, var(--sg-danger) 45%, var(--sg-line));
+          padding:12px 13px;
+          border:1px solid color-mix(in srgb, var(--sg-danger) 58%, var(--sg-line));
           background:
             linear-gradient(180deg,
-              color-mix(in srgb, var(--sg-danger-top) 80%, transparent),
+              color-mix(in srgb, var(--sg-danger-top) 88%, transparent),
               color-mix(in srgb, var(--sg-bg-panel) 92%, transparent));
           color:var(--sg-danger);
-          font-family:var(--sg-font-mono);font-size:12.5px;line-height:1.45;
+          font-family:var(--sg-font-mono);font-size:13px;line-height:1.45;
+          box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--sg-danger) 18%, transparent);
         }
         .db-readout[data-ok="1"]{
           border-color:color-mix(in srgb, var(--sg-ok) 45%, var(--sg-line));
