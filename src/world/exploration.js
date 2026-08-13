@@ -59,7 +59,7 @@ function featureCandidates(model) {
       }
     }
   }
-  const occupied = model.interactables.slice();
+  const occupied = model.interactables.concat([{ x: model.spawn.x, z: model.spawn.z }]);
   const gate = model.gateCollider;
   const gateHorizontal = gate && (gate.maxX - gate.minX) > (gate.maxZ - gate.minZ);
   const gateAxis = gateHorizontal
