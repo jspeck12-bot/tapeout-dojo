@@ -229,7 +229,7 @@ function DungeonScreen({ w, save, go, cb, gfx, setGfx, onSettings }) {
         x: grace ? grace.x + (model.spawn.x - grace.x) / graceDistance * 3.2 : model.spawn.x,
         z: grace ? grace.z + (model.spawn.z - grace.z) / graceDistance * 3.2 : model.spawn.z,
         yaw: model.spawn.yaw,
-        pitch: -0.03,
+        pitch: gothic ? -0.08 : -0.03,
       };
       const keys = {};
       let dragging = false, lastTX = 0, lastTY = 0, promptKey = '', zoneNow = cfg.zone, frame = 0;

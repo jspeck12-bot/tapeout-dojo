@@ -118,7 +118,7 @@ function buildValleyLighting(scene, model, low) {
 function buildSpawnNave(scene, model, stone, brass) {
   const frame = new THREE.Group();
   frame.userData.foregroundFrame = true;
-  const z = model.spawn.z - 9.6;
+  const z = model.spawn.z - 10.2;
   [-1, 1].forEach(side => {
     const pier = addMesh(frame, roundedBoxGeometry(1.8, 8.2, 2.1, 0.18, 3), stone, side * 7.1, 4.1, z);
     pier.userData.cast = true;
@@ -155,6 +155,20 @@ function buildPathLighting(scene, model, low) {
     const dz = b.z - a.z;
     const len = Math.hypot(dx, dz);
     if (len < 0.5) continue;
+    const pavement = new THREE.Mesh(
+      roundedBoxGeometry(4.8, 0.04, len + 0.4, 0.04, 2),
+      pbrMaterial('silicon', 0x2a382c, {
+        roughness: 0.22,
+        metalness: 0.62,
+        emissive: 0x102418,
+        emissiveIntensity: 0.18,
+        repeat: 3,
+      }),
+    );
+    pavement.position.set((a.x + b.x) / 2, 0.02, (a.z + b.z) / 2);
+    pavement.rotation.y = Math.atan2(dx, dz);
+    pavement.receiveShadow = true;
+    group.add(pavement);
     const ribbon = new THREE.Mesh(roundedBoxGeometry(1.45, 0.045, len, 0.02, 2), strip);
     ribbon.position.set((a.x + b.x) / 2, 0.03, (a.z + b.z) / 2);
     ribbon.rotation.y = Math.atan2(dx, dz);
@@ -189,51 +203,51 @@ function buildMonolith(scene, model, brass, steel) {
   landmark.userData.landmark = true;
   landmark.position.set(model.gateX || 0, 0, model.gateZ || 0);
 
-  const slab = addMesh(landmark, roundedBoxGeometry(6.4, 22, 2.4, 0.22, 3), steel, 0, 11, 0);
+  const slab = addMesh(landmark, roundedBoxGeometry(7.2, 32, 2.6, 0.22, 3), steel, 0, 16, 0);
   slab.userData.cast = true;
   [-1, 1].forEach(side => {
-    const pier = addMesh(landmark, roundedBoxGeometry(1.7, 18, 2.8, 0.18, 3), brass, side * 4.6, 9, 0);
+    const pier = addMesh(landmark, roundedBoxGeometry(1.9, 26, 3.1, 0.18, 3), brass, side * 5.2, 13, 0);
     pier.userData.cast = true;
   });
-  const lintel = addMesh(landmark, roundedBoxGeometry(12.2, 1.4, 3.0, 0.16, 3), brass, 0, 18.6, 0);
+  const lintel = addMesh(landmark, roundedBoxGeometry(13.6, 1.6, 3.3, 0.16, 3), brass, 0, 26.4, 0);
   lintel.userData.cast = true;
   addMesh(
     landmark,
-    roundedBoxGeometry(7.2, 0.12, 0.12, 0.04, 2),
-    emissiveSurface('silicon', VALLEY_PALETTE.lime, 1.35, 1),
+    roundedBoxGeometry(8.2, 0.14, 0.14, 0.04, 2),
+    emissiveSurface('silicon', VALLEY_PALETTE.lime, 1.45, 1),
     0,
-    17.85,
-    1.35,
+    25.5,
+    1.55,
   );
 
   const halo = addMesh(
     landmark,
-    new THREE.TorusGeometry(5.4, 0.22, 10, 48),
-    emissiveSurface('silicon', VALLEY_PALETTE.lime, 1.1, 1),
+    new THREE.TorusGeometry(6.4, 0.26, 10, 48),
+    emissiveSurface('silicon', VALLEY_PALETTE.lime, 1.25, 1),
     0,
-    12.4,
+    17.6,
     0,
   );
   halo.rotation.x = Math.PI / 2;
   const xor = new THREE.Mesh(
-    new THREE.TorusGeometry(3.2, 0.14, 8, 40),
-    new THREE.MeshBasicMaterial({ color: VALLEY_PALETTE.lime, transparent: true, opacity: 0.72 }),
+    new THREE.TorusGeometry(3.8, 0.16, 8, 40),
+    new THREE.MeshBasicMaterial({ color: VALLEY_PALETTE.lime, transparent: true, opacity: 0.78 }),
   );
-  xor.position.set(0, 12.4, 0);
+  xor.position.set(0, 17.6, 0);
   xor.rotation.y = 0.4;
   landmark.add(xor);
 
-  const under = new THREE.PointLight(VALLEY_PALETTE.lime, 1.4, 52, 2);
-  under.position.set(0, 10, 0);
+  const under = new THREE.PointLight(VALLEY_PALETTE.lime, 1.7, 64, 2);
+  under.position.set(0, 14, 0);
   under.castShadow = false;
   under.userData.lightRole = 'monument';
   under.userData.baseIntensity = under.intensity;
   landmark.add(under);
-  landmark.add(fxCone(VALLEY_PALETTE.lime, 3.4, 16, 0.05, 0, 0));
-  landmark.add(fxCone(VALLEY_PALETTE.amber, 1.8, 14, 0.04, 0, 0));
+  landmark.add(fxCone(VALLEY_PALETTE.lime, 4.2, 22, 0.055, 0, 0));
+  landmark.add(fxCone(VALLEY_PALETTE.amber, 2.2, 18, 0.04, 0, 0));
 
-  const marquee = gothicLabel('THE UNIVERSAL MONOLITH', '#A3E635', 1.35);
-  marquee.position.set(0, 21.2, 0);
+  const marquee = gothicLabel('THE UNIVERSAL MONOLITH', '#A3E635', 1.7);
+  marquee.position.set(0, 29.4, 0);
   landmark.add(marquee);
 
   scene.add(landmark);
@@ -250,8 +264,8 @@ function buildLightShaft(scene, model) {
     side: THREE.DoubleSide,
     fog: false,
   });
-  const shaft = new THREE.Mesh(new THREE.ConeGeometry(12, 32, 24, 1, true), material);
-  shaft.position.set(model.gateX || 0, 18, model.gateZ || 0);
+  const shaft = new THREE.Mesh(new THREE.ConeGeometry(14, 40, 24, 1, true), material);
+  shaft.position.set(model.gateX || 0, 22, model.gateZ || 0);
   shaft.rotation.z = 0.08;
   shaft.castShadow = false;
   shaft.renderOrder = 3;
