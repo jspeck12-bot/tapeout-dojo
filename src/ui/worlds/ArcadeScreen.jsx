@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, X,
-} from "lucide-react";
+} from "../components/fab-icons.jsx";
 import * as THREE from "three";
 import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,

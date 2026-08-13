@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   Cpu, Trophy,
-} from "lucide-react";
+} from "../ui/components/fab-icons.jsx";
 import {
   reviewUpdate, todayNum,
 } from '../game/recall.js';
@@ -522,7 +522,7 @@ export function App() {
       <div className="tk-root" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <style>{TOKEN_CSS}</style>
         <style>{CSS}</style>
-        <div style={{ color: '#5A6A80', fontSize: 13, letterSpacing: '.2em' }}>POWERING ON<span className="cursorblink">_</span></div>
+        <div style={{ color: 'var(--sg-ink-dim)', fontSize: 13, letterSpacing: '.2em' }}>POWERING ON<span className="cursorblink">_</span></div>
       </div>
     );
   }
@@ -533,7 +533,10 @@ export function App() {
       <style>{CSS}</style>
       <div className="scanlines" />
       {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'hud', 'victory', 'codex', 'shop', 'settings'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
-      <div className="wrap">
+      <div
+        className={['campus', 'home', 'mine', 'arcade', 'dungeon', 'styleguide'].includes(screen.name) ? 'wrap' : 'wrap sg-enter'}
+        key={`${screen.name}|${screen.id || ''}|${screen.w || ''}|${screen.key || ''}`}
+      >
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
         {screen.name === 'codex' && <CodexScreen save={save} go={go} onRecall={onLessonRecall} />}
@@ -634,7 +637,7 @@ export function App() {
         <Modal onClose={() => setFrReport(false)} width={580}>
           <div className="eyebrow" style={{ marginBottom: 10 }}>flight report · paste this to Claude</div>
           <textarea readOnly value={FR.report(save, gfx)} rows={16}
-            style={{ width: '100%', background: '#0A0F16', color: '#9FE8C8', border: '1px solid #273245', borderRadius: 8, padding: 10, fontFamily: 'ui-monospace, SFMono-Regular, monospace', fontSize: 11.5, whiteSpace: 'pre', resize: 'vertical' }} />
+            style={{ width: '100%', background: 'var(--sg-bg-deep)', color: 'var(--sg-ok)', border: '1px solid var(--sg-line)', borderRadius: 8, padding: 10, fontFamily: 'var(--sg-font-mono), monospace', fontSize: 11.5, whiteSpace: 'pre', resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
             <button className="btn primary" onClick={() => { AudioFX.click(); try { navigator.clipboard && navigator.clipboard.writeText(FR.report(save, gfx)); } catch (e) { } }}>copy report</button>
           </div>

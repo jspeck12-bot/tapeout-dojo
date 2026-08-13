@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { ChevronLeft, Settings, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, Settings, SlidersHorizontal } from '../components/fab-icons.jsx';
 import { disposeScene } from '../../graphics/cinematic.js';
 import { buildStyleGuideScene } from '../../graphics/style-guide.js';
 import {

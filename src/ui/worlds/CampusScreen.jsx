@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Terminal, X, Zap,
-} from "lucide-react";
+} from "../components/fab-icons.jsx";
 import * as THREE from "three";
 import { AudioFX, musicEnsure, musicSetState, musicSetTrack } from '../../audio/index.js';
 import { FR } from '../../telemetry/flight-recorder.js';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Binary, BookOpen, ChevronRight, Cpu, Eye, Gamepad2, SkipForward,
   Terminal, Wrench, Zap,
-} from 'lucide-react';
+} from './components/fab-icons.jsx';
 import { AudioFX } from '../audio/index.js';
 import { firstDivergence } from '../engine/debug/diagnostics.js';
 import { netlistOf } from '../engine/debug/netlist.js';
@@ -86,7 +86,7 @@ function StepShell({ step, children, onSkip }) {
   return (
     <div className="prologue-root">
       <style>{`
-        .prologue-root{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 50% 35%,#101b2a 0%,#070a10 58%,#030508 100%);color:#d7e0ea;overflow:auto;font-family:ui-monospace,monospace}
+        .prologue-root{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse at 50% 35%,#101b2a 0%,#070a10 58%,#030508 100%);color:#d7e0ea;overflow:auto;font-family:var(--sg-font-body),sans-serif}
         .prologue-grid{position:fixed;inset:0;pointer-events:none;opacity:.2;background-image:linear-gradient(rgba(34,211,238,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.16) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(to bottom,transparent,#000 35%,#000)}
         .prologue-card{position:relative;z-index:2;width:min(760px,calc(100% - 32px));margin:7vh auto;padding:24px;border:1px solid #233247;border-radius:14px;background:rgba(8,12,18,.94);box-shadow:0 22px 90px rgba(0,0,0,.5)}
         .prologue-step{height:4px;flex:1;border-radius:9px;background:#1d2632}.prologue-step.on{background:#22d3ee;box-shadow:0 0 10px rgba(34,211,238,.5)}

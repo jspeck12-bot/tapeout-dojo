@@ -16,25 +16,22 @@ UI Debug Bay: done
 UI notes: done
 UI HUD: done
 UI victory: done
-UI forge/shop: NEXT
-UI settings: todo
-COMBAT: todo (after UI)
+UI forge/shop: done
+UI settings: done
+COMBAT: NEXT
 ENGINE: todo (after COMBAT)
 AUDIO: todo (after ENGINE)
 
 ## Last run
-ui-pass-1906 — Silicon Gothic yield report: shared `VictoryReport` (notched chassis, probe bins, ticking stats, lot ticket, yield meter) on tokens; `VictoryScreen` at `?screen=victory` with `?scene=` / `?still=1`; menu **YIELD REPORT**; bound into gauntlet/truth/code clears, FlatlineOverlay, LevelUpModal. 2 commits (build + three-bay polish). GATE GREEN (146 unit).
-Still signoff: SIGNED OFF + lot ticket #3 NAND ARRAY + yield 67%; PNG ~1.42 MB @2560×1440.
-Still flawless: ZERO DEFECT + 3 lit bins + ×1.5 + yield 100%; PNG ~1.41 MB.
-Still boss: THE HIERARCH + brass + phases 100%; PNG ~1.41 MB.
-Still flatline: FLATLINED + stripped −24 + integrity 0% + ENTER crawl back; PNG ~1.38 MB.
-Still levelup: LEVEL 4 → 5 + HP/ATK/DEF; PNG ~1.44 MB.
-Still wrong: bay still floats in dark gutters on 2560; 0% integrity meter reads as empty box; wafer grid under wash is easy to miss.
+ui-pass-1920 — Silicon Gothic UI directive closeout. Fonts self-hosted (Oxanium / IBM Plex Sans / JetBrains Mono); live CM6; ShopBay comparison plate; SettingsPanel search + gfx preview; kit on tokens; CombatHUD chrome. Stock lucide-react imports removed from `src/` (custom fab marks). Remaining system font stacks killed (prologue, Tapeout Bay, flight report, schematic labels, 3D sprites). Screen enter fade on 2D routes. Settings tab-row CSS fix. GATE pending this revision.
+Still shop probes / suits / rations, settings graphics / search / difficulty, workbench CM6, uikit kit — see prior 1440p stills.
 
 ## Known problems
-- Victory: 1400px bay still leaves ultrawide gutters; wafer under overlay is quiet vs chassis.
-- Victory: integrity 0% meter is an empty track — correct, but looks unfinished in stills.
-- Victory: CombatHUD / ShopScreen still on old card chrome (forge/shop + COMBAT are next).
+- Pedagogy screens (World/Gauntlet/Truth/Code chrome, Tapeout Bay, Prologue, training) still mix leftover inline hex with the token system — kit/shop/settings/HUD/victory do not.
+- Settings graphics tab: left column empty by design (preview lives on the right).
+- ShopBay default-selects first catalog item (Iron Probe on probes), not Copper.
+- Error gutter glyph is ◈ — stills may read as a red gutter mark, not a diamond.
+- CombatHUD chrome is on tokens; COMBAT systems (encounters, AI, loot) are still next.
 - HUD: showcase stage is abstract CSS (STACK + path ribbon), not a live 3D world — easy to misread as unfinished Foundry art.
 - HUD: rail menu/map/graphics/settings plates still quieter than zone plaque / engage prompt.
 - HUD: campus fake radar is a single pip — fine for bezel proof, not a dense floorplan.

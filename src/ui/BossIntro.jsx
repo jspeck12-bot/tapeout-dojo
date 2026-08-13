@@ -1,4 +1,4 @@
-import { ChevronRight, Swords, X } from 'lucide-react';
+import { ChevronRight, Swords, X } from './components/fab-icons.jsx';
 import { AudioFX } from '../audio/index.js';
 
 function BossIntro({ spec, onEnter, onCancel }) {

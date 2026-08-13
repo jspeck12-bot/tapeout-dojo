@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check, ChevronLeft, ChevronRight, Cpu, Eye, Flame, Play, RotateCcw,
   Sparkles, Terminal,
-} from "lucide-react";
+} from "./components/fab-icons.jsx";
 import { vCompile, runChallengeTest } from '../engine/verilog.js';
 import { AudioFX } from '../audio/index.js';
 import {

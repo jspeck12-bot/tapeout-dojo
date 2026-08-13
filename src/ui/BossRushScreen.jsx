@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Lock, Medal, Swords } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Medal, Swords } from './components/fab-icons.jsx';
 import { AudioFX } from '../audio/index.js';
 import { BOSS_SPECS } from '../game/bosses.js';
 import { ITEM_BY_ID } from '../game/rpg.js';

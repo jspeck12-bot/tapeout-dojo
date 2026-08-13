@@ -45,7 +45,7 @@ const SETTINGS_CSS = `
   .st-shell{
     position:relative;z-index:1;width:min(1100px,94vw);margin:0 auto;
     min-height:calc(100vh - 40px);
-    display:grid;grid-template-rows:auto auto 1fr;
+    display:grid;grid-template-rows:auto auto auto 1fr;
     gap:clamp(12px,1.8vh,20px);
     padding:clamp(16px,2.4vh,32px) 0 28px;
   }

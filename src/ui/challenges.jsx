@@ -4,7 +4,7 @@ import {
   ChevronLeft, Check, BookOpen, Bug, Timer, Award,
   RotateCcw, Play, Eye, Lightbulb, Terminal, ChevronRight, ChevronDown,
   Sparkles, Medal, SkipForward,
-} from "lucide-react";
+} from "./components/fab-icons.jsx";
 import { AudioFX, musicEnsure, musicSetState } from '../audio/index.js';
 import { vCompile, runChallengeTest } from '../engine/verilog.js';
 import { levelizeNetlist, netlistOf } from '../engine/debug/netlist.js';
@@ -485,7 +485,7 @@ function SchematicView({ mod, iface, accent }) {
   lay.nodes.forEach(n => {
     const { x, y, wd: w, ht: h, type: t } = n;
     const k = 'n' + n.id;
-    const lbl = (tx2, ty2, s, col, size, kk) => <text key={k + (kk || 'l')} x={tx2} y={ty2} fontSize={size || 10.5} textAnchor="middle" fill={col || txt} fontFamily="ui-monospace, monospace">{s}</text>;
+    const lbl = (tx2, ty2, s, col, size, kk) => <text key={k + (kk || 'l')} x={tx2} y={ty2} fontSize={size || 10.5} textAnchor="middle" fill={col || txt} fontFamily="var(--sg-font-mono), monospace">{s}</text>;
     if (t === 'IN' || t === 'OUT') {
       els.push(<rect key={k} x={x} y={y} width={w} height={h} rx={h / 2} fill={t === 'OUT' ? 'rgba(125,239,255,.08)' : fill} stroke={t === 'OUT' ? acc : stroke} />);
       els.push(lbl(x + w / 2, y + h / 2 + 3.5, n.label + (n.w > 1 ? '[' + (n.w - 1) + ':0]' : ''), t === 'OUT' ? acc : '#9FB4C8', 10));

@@ -18,7 +18,7 @@ function makeTextCanvas(lines, opts) {
   const n = lines.length;
   lines.forEach((ln, i) => {
     g.fillStyle = ln.color || '#E8F1FA';
-    g.font = `${ln.bold ? '700' : '500'} ${ln.size || 44}px monospace`;
+    g.font = `${ln.bold ? '700' : '500'} ${ln.size || 44}px Oxanium, sans-serif`;
     g.fillText(ln.text, cv.width / 2, cv.height * (i + 1) / (n + 1));
   });
   const tx = new THREE.CanvasTexture(cv);
@@ -87,14 +87,14 @@ function addBoxMesh(scene, cx, cy, cz, sx, sy, sz, mat) {
 function mineLabelSprite(text, color, scale) {
   const cv = document.createElement('canvas');
   const ctx = cv.getContext('2d');
-  ctx.font = '600 34px "Segoe UI", sans-serif';
+  ctx.font = '600 34px Oxanium, sans-serif';
   const w = Math.ceil(ctx.measureText(text).width) + 36;
   cv.width = w; cv.height = 64;
   const c2 = cv.getContext('2d');
   c2.fillStyle = 'rgba(8,12,18,0.78)';
   c2.fillRect(0, 0, w, 64);
   c2.strokeStyle = color; c2.globalAlpha = 0.6; c2.strokeRect(1, 1, w - 2, 62); c2.globalAlpha = 1;
-  c2.font = '600 34px "Segoe UI", sans-serif';
+  c2.font = '600 34px Oxanium, sans-serif';
   c2.fillStyle = color; c2.textAlign = 'center'; c2.textBaseline = 'middle';
   c2.fillText(text, w / 2, 34);
   const tex = new THREE.CanvasTexture(cv);

@@ -297,6 +297,164 @@ function MuteMark({ size }) {
   );
 }
 
+function CheckMark({ size }) {
+  return (
+    <FabMark size={size} label="ok">
+      <rect x="1.6" y="1.6" width="12.8" height="12.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 8.2l2.6 2.6 5.4-5.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="miter" />
+    </FabMark>
+  );
+}
+
+function StarMark({ size, filled }) {
+  return (
+    <FabMark size={size} label="star">
+      <path
+        d="M8 1.5l1.7 3.5 3.8.4-2.8 2.6.8 3.8L8 9.8 4.5 11.8l.8-3.8-2.8-2.6 3.8-.4z"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="miter"
+      />
+    </FabMark>
+  );
+}
+
+function CloseMark({ size }) {
+  return (
+    <FabMark size={size} label="close">
+      <rect x="1.6" y="1.6" width="12.8" height="12.8" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
+    </FabMark>
+  );
+}
+
+function DownMark({ size }) {
+  return (
+    <FabMark size={size} label="expand">
+      <path d="M3.2 6l4.8 4.8L12.8 6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="miter" />
+    </FabMark>
+  );
+}
+
+function EyeMark({ size }) {
+  return (
+    <FabMark size={size} label="reveal">
+      <path d="M1.8 8c1.8-3.2 3.8-4.6 6.2-4.6S12.4 4.8 14.2 8c-1.8 3.2-3.8 4.6-6.2 4.6S3.6 11.2 1.8 8z" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <circle cx="8" cy="8" r="1.7" fill="currentColor" />
+      <rect x="1.4" y="1.4" width="2" height="2" fill="currentColor" opacity="0.4" />
+    </FabMark>
+  );
+}
+
+function TimerMark({ size }) {
+  return (
+    <FabMark size={size} label="timer">
+      <circle cx="8" cy="8.4" r="5.1" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M6.4 1.6h3.2M8 1.6v1.8M8 8.4l2.4-2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="square" />
+    </FabMark>
+  );
+}
+
+function BugMark({ size }) {
+  return (
+    <FabMark size={size} label="defect">
+      <rect x="4.2" y="3.2" width="7.6" height="8.4" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4.2 6.4H1.8M11.8 6.4h2.4M4.2 9.4H2.2M11.8 9.4h2M8 3.2V1.6" stroke="currentColor" strokeWidth="1.2" />
+      <circle cx="6.2" cy="6.2" r="0.8" fill="currentColor" />
+      <circle cx="9.8" cy="6.2" r="0.8" fill="currentColor" />
+    </FabMark>
+  );
+}
+
+function FlameMark({ size, filled }) {
+  return (
+    <FabMark size={size} label="streak">
+      <path
+        d="M8 1.8c1.2 2.2-.2 3.6-.2 5.2 0 1 .8 1.8 1.8 1.8 1.6 0 2.8-1.8 2.8-4 0 3.8-1.6 8.4-5.4 8.4S2.8 10.4 2.8 7.2C2.8 5 5.4 3.4 8 1.8z"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.25"
+      />
+    </FabMark>
+  );
+}
+
+function PickaxeMark({ size }) {
+  return (
+    <FabMark size={size} label="mines">
+      <path d="M2.2 5.2h11.6L12 7.2H4z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="miter" />
+      <path d="M8 7.2v6.6M6.6 13.8h2.8" stroke="currentColor" strokeWidth="1.3" />
+    </FabMark>
+  );
+}
+
+function BinaryMark({ size }) {
+  return (
+    <FabMark size={size} label="gates">
+      <rect x="2" y="2.4" width="5.2" height="11.2" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <rect x="8.8" y="2.4" width="5.2" height="11.2" fill="none" stroke="currentColor" strokeWidth="1.25" />
+      <path d="M3.4 5.2h2.4M3.4 8h2.4M10.2 5.2h2.4M11.4 8v3.2" stroke="currentColor" strokeWidth="1.2" />
+    </FabMark>
+  );
+}
+
+function MountainMark({ size }) {
+  return (
+    <FabMark size={size} label="canyon">
+      <path d="M1.6 13.2L5.6 4.8 8 9.2 10.2 6.4 14.4 13.2z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="miter" />
+      <path d="M5.6 4.8l1.2 2.4" stroke="currentColor" strokeWidth="1.15" />
+    </FabMark>
+  );
+}
+
+function ClockMark({ size }) {
+  return (
+    <FabMark size={size} label="clock">
+      <rect x="2.2" y="2.2" width="11.6" height="11.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 4.4v4.2l2.6 1.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="square" />
+      <path d="M2.2 2.2h2.2v2.2H2.2zm9.4 9.4h2.2v2.2h-2.2z" fill="currentColor" opacity="0.45" />
+    </FabMark>
+  );
+}
+
+function CastleMark({ size }) {
+  return (
+    <FabMark size={size} label="keep">
+      <path d="M2.4 14V6.2h2.2V3.6h2.2V6.2h2.4V3.6h2.2V6.2h2.2V14z" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="miter" />
+      <path d="M6.4 14v-3.4h3.2V14" stroke="currentColor" strokeWidth="1.2" />
+    </FabMark>
+  );
+}
+
+function WrenchMark({ size }) {
+  return (
+    <FabMark size={size} label="tool">
+      <path d="M10.4 2.2l3.4 3.4-2 2-1.4-1.4-4.6 4.6-2.2 2.2-1.6-1.6 2.2-2.2 4.6-4.6-1.4-1.4z" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="miter" />
+      <circle cx="12.2" cy="3.8" r="1.1" fill="currentColor" />
+    </FabMark>
+  );
+}
+
+function SkipMark({ size }) {
+  return (
+    <FabMark size={size} label="skip">
+      <path d="M3 3.2v9.6l6.4-4.8z" fill="currentColor" />
+      <path d="M11.4 3.2v9.6" stroke="currentColor" strokeWidth="1.5" />
+    </FabMark>
+  );
+}
+
+function LightMark({ size }) {
+  return (
+    <FabMark size={size} label="hint">
+      <circle cx="8" cy="6.4" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M6.4 10.6h3.2v2.2H6.4zM7 13.6h2" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M8 1.6v1.2M12.8 6.4h1.2M2 6.4h1.2" stroke="currentColor" strokeWidth="1.15" />
+    </FabMark>
+  );
+}
+
 export {
   FabMark,
   PlayMark,
@@ -323,4 +481,20 @@ export {
   SearchMark,
   SoundMark,
   MuteMark,
+  CheckMark,
+  StarMark,
+  CloseMark,
+  DownMark,
+  EyeMark,
+  TimerMark,
+  BugMark,
+  FlameMark,
+  PickaxeMark,
+  BinaryMark,
+  MountainMark,
+  ClockMark,
+  CastleMark,
+  WrenchMark,
+  SkipMark,
+  LightMark,
 };

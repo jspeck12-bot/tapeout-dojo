@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
-  Star, Check, X, Flame, Volume2, VolumeX, RotateCcw,
-} from "lucide-react";
+  Star, Check, X, Flame, Volume2, VolumeX, Settings,
+} from "./components/fab-icons.jsx";
 import { V_KEYWORDS } from '../engine/verilog.js';
 import { formatValue as fmtVal } from '../engine/format.js';
 import { RANKS, modeOf } from '../game/content.js';
@@ -154,7 +154,12 @@ function StarRow({ n, size }) {
   return (
     <span style={{ display: 'inline-flex', gap: 2 }}>
       {[0, 1, 2].map(i => (
-        <Star key={i} size={size || 13} fill={i < n ? '#FACC15' : 'none'} color={i < n ? '#FACC15' : '#3A4759'} strokeWidth={1.6} />
+        <Star
+          key={i}
+          size={size || 13}
+          fill={i < n ? 'currentColor' : 'none'}
+          style={{ color: i < n ? 'var(--sg-brass)' : 'var(--sg-ink-dim)' }}
+        />
       ))}
     </span>
   );
@@ -395,34 +400,43 @@ function Header({ save, onHome, onToggleSound, onSettings }) {
   const cur = RANKS[ri], next = RANKS[ri + 1];
   const pct = next ? Math.min(100, Math.round(((save.xp - cur[1]) / (next[1] - cur[1])) * 100)) : 100;
   return (
-    <div style={{ borderBottom: '1px solid #222b36', background: 'rgba(5,7,11,.92)', position: 'sticky', top: 0, zIndex: 50, boxShadow: 'inset 0 1px 0 rgba(255,199,107,.18)' }}>
-      <div className="wrap" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+    <div className="sg-header">
+      <div className="wrap sg-header__row">
         <button className="lnk" onClick={onHome} style={{ padding: 0 }} aria-label="Home">
-          <span style={{ fontSize: 17, letterSpacing: '.18em', color: '#E8F1FA', fontWeight: 600 }}>
-            TAPEOUT<span className="cursorblink" style={{ color: '#7DEFFF' }}>_</span>
+          <span className="sg-header__mark">
+            TAPEOUT<span className="cursorblink sg-header__caret">_</span>
           </span>
         </button>
         <span className="eyebrow hidesm">the verilog dojo</span>
         <div style={{ flex: 1 }} />
-        <button className="lnk hidesm" onClick={onSettings} title="difficulty" style={{ fontSize: 10.5, letterSpacing: '.12em', color: save.ngplus ? '#FFE27A' : '#76849A' }}>
+        <button
+          className="lnk hidesm"
+          onClick={onSettings}
+          title="difficulty"
+          style={{ fontSize: 10.5, letterSpacing: '.12em', color: save.ngplus ? 'var(--sg-brass)' : 'var(--sg-ink-muted)' }}
+        >
           {(save.ngplus ? 'NG+ · ' : '') + modeOf(save.ngplus ? 'architect' : save.mode).label.toUpperCase()}
         </button>
-        <div title="daily streak" style={{ display: 'flex', alignItems: 'center', gap: 5, color: save.streak.count > 1 ? '#FFC76B' : '#5A6A80', fontSize: 13 }}>
-          <Flame size={15} fill={save.streak.count > 1 ? '#FFC76B' : 'none'} /> {save.streak.count}
+        <div
+          title="daily streak"
+          className="sg-header__streak"
+          style={{ color: save.streak.count > 1 ? 'var(--sg-brass)' : 'var(--sg-ink-dim)' }}
+        >
+          <Flame size={15} fill={save.streak.count > 1 ? 'currentColor' : 'none'} /> {save.streak.count}
         </div>
         <div style={{ minWidth: 180 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, marginBottom: 3 }}>
-            <span style={{ color: '#7DEFFF', letterSpacing: '.1em' }}>{cur[0].toUpperCase()}</span>
+          <div className="sg-header__xp">
+            <span className="sg-header__rank">{cur[0].toUpperCase()}</span>
           <span className="chip" title="level">Lv {levelFromXp(save.xp || 0)}</span>
-          <span className="chip" title="scrap" style={{ color: '#FFC76B' }}>⛁ {save.scrap || 0}</span>
-            <span style={{ color: '#76849A' }}>{save.xp} XP{next ? ' / ' + next[1] : ''}</span>
+          <span className="chip sg-header__scrap" title="scrap">⛁ {save.scrap || 0}</span>
+            <span className="sg-header__muted">{save.xp} XP{next ? ' / ' + next[1] : ''}</span>
           </div>
-          <div className="hbar"><div style={{ width: pct + '%', background: 'linear-gradient(90deg,#155E6B,#22D3EE)' }} /></div>
+          <div className="hbar"><div style={{ width: pct + '%', background: 'linear-gradient(90deg, var(--sg-cyan-top), var(--sg-cyan-deep))' }} /></div>
         </div>
         <button className="lnk" onClick={onToggleSound} aria-label="toggle sound">
           {save.sound ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
-        <button className="lnk" onClick={onSettings} aria-label="settings"><RotateCcw size={15} /></button>
+        <button className="lnk" onClick={onSettings} aria-label="settings"><Settings size={15} /></button>
       </div>
     </div>
   );

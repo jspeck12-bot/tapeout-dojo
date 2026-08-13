@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import React from 'react';
 import TestRenderer, { act } from 'react-test-renderer';
 import { describe, expect, test } from 'vitest';
@@ -7,6 +10,15 @@ import { Panel } from '../src/ui/components/Panel.jsx';
 import { Badge } from '../src/ui/components/Badge.jsx';
 import { ProgressBar } from '../src/ui/components/ProgressBar.jsx';
 import { UiKitScreen } from '../src/ui/UiKitScreen.jsx';
+
+function walk(dir, acc = []) {
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) walk(p, acc);
+    else if (/\.(js|jsx|css)$/.test(ent.name)) acc.push(p);
+  }
+  return acc;
+}
 
 const { createElement: h } = React;
 
@@ -36,6 +48,23 @@ describe('Silicon Gothic UI kit', () => {
     expect(TOKEN_CSS).toContain('--sg-motion-enter:');
     expect(TOKEN_CSS).toContain('prefers-reduced-motion');
     expect(TOKEN_CSS).toContain('font-variant-ligatures');
+    expect(TOKEN_CSS).toContain('.sg-header');
+    expect(TOKEN_CSS).toContain('.sg-enter');
+    expect(TOKEN_CSS).toContain('.sg-btn:hover');
+    expect(TOKEN_CSS).toContain('.sg-btn:focus-visible');
+    expect(TOKEN_CSS).toContain('.sg-btn:disabled');
+  });
+
+  test('src has no system font stacks or lucide-react imports', () => {
+    const root = path.resolve(fileURLToPath(new URL('../src', import.meta.url)));
+    const files = walk(root);
+    const banned = /ui-monospace|Segoe UI|Cascadia|Menlo|Consolas|SFMono-Regular|system-ui|from ['"]lucide-react['"]/;
+    const hits = [];
+    for (const file of files) {
+      const text = fs.readFileSync(file, 'utf8');
+      if (banned.test(text)) hits.push(path.relative(root, file));
+    }
+    expect(hits).toEqual([]);
   });
 
   test('Button and Panel render with token classes and no inline hex colors', () => {

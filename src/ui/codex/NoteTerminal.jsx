@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, Cpu, Play, RotateCcw, Zap } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Cpu, Play, RotateCcw, Zap } from '../components/fab-icons.jsx';
 import { AudioFX } from '../../audio/index.js';
 import { vCompile, VSim } from '../../engine/verilog.js';
 import { noteMeta } from '../../game/codex.js';

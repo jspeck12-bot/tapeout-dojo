@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { X } from '../components/fab-icons.jsx';
 import { activeDone } from '../../world/challenges.js';
 import { featureComplete } from '../../world/exploration.js';
 

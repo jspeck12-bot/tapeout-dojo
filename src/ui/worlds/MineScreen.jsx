@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   BookOpen, ChevronLeft, Coins, Map as MapIcon, X,
-} from "lucide-react";
+} from "../components/fab-icons.jsx";
 import * as THREE from "three";
 import {
   AudioFX, musicCycleTrack, musicEnsure, musicSetState, musicSetTrack,
