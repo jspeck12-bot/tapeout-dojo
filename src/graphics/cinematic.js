@@ -264,7 +264,9 @@ function disposeScene(scene) {
   const disposedMaterials = new Set();
   const disposedTextures = new Set();
   scene.traverse((object) => {
-    if (object.geometry && !disposedGeometries.has(object.geometry)) {
+    if (object.geometry &&
+      !object.geometry.userData?.shared &&
+      !disposedGeometries.has(object.geometry)) {
       disposedGeometries.add(object.geometry);
       try { object.geometry.dispose(); } catch (error) { }
     }

@@ -137,6 +137,10 @@ const REEXPORTS = [
       'buildDungeonWorld', 'applyDungeonProgress',
     ],
   },
+  {
+    from: './graphics/style-guide.js',
+    names: ['STYLE_GUIDE_MODEL', 'buildStyleGuideScene'],
+  },
 ];
 
 let _mod = null;

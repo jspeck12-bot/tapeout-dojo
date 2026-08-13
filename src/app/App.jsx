@@ -37,6 +37,7 @@ import { CampusScreen } from '../ui/worlds/CampusScreen.jsx';
 import { MineScreen } from '../ui/worlds/MineScreen.jsx';
 import { ArcadeScreen } from '../ui/worlds/ArcadeScreen.jsx';
 import { DungeonScreen } from '../ui/worlds/DungeonScreen.jsx';
+import { StyleGuideScreen } from '../ui/worlds/StyleGuideScreen.jsx';
 import {
   ShopScreen, LevelUpModal,
 } from '../ui/combat.jsx';
@@ -53,10 +54,12 @@ import {
 } from '../world/challenges.js';
 
 function devScreenFromUrl() {
-  if (typeof window === 'undefined' || window.location?.hostname !== 'localhost') return null;
+  if (typeof window === 'undefined') return null;
+  const hostname = window.location?.hostname;
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -537,6 +540,7 @@ export function App() {
         {screen.name === 'mine' && <MineScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'arcade' && <ArcadeScreen save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
         {screen.name === 'dungeon' && <DungeonScreen key={screen.w} w={screen.w} save={save} go={go} gfx={gfx} setGfx={setGfx} onSettings={() => setSettingsOpen(true)} cb={worldCallbacks} />}
+        {screen.name === 'styleguide' && <StyleGuideScreen go={go} onSettings={() => setSettingsOpen(true)} />}
         {screen.name === 'shop' && <ShopScreen save={save} go={go} onBuy={onBuy} onEquip={onEquip} />}
         {levelModal && <LevelUpModal info={levelModal} save={save} onClose={() => setLevelModal(null)} />}
         {screen.name === 'training' && <TrainingScreen save={save} go={go} />}

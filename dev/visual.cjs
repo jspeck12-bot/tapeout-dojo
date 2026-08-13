@@ -189,6 +189,17 @@ function run() {
     return { scene, model, api, kind: 'arcade' };
   }]);
 
+  scenes.push(['style-guide', () => {
+    const scene = new THREE.Scene();
+    const result = m.buildStyleGuideScene(scene);
+    return {
+      scene,
+      model: result.model,
+      api: { ...result, worldArt: result.worldArt },
+      kind: 'style-guide',
+    };
+  }]);
+
   // dungeon worlds 2..7 (valley, foundry, canyon, clockworks, fortress, tapeout)
   for (const w of [2, 3, 4, 5, 6, 7]) {
     scenes.push(['dungeon-' + w, () => {
@@ -241,9 +252,20 @@ function run() {
         });
       }
       checks += 26;
-    } else {
+    } else if (result.kind === 'arcade') {
       assert(api && api.cabinets && api.spin, 'arcade returned an incomplete animation api');
       checks++;
+    } else {
+      assert(api.worldArt.materialCoverage.complete,
+        'style guide contains an untextured PBR material');
+      assert(api.worldArt.frame.userData.foregroundFrame,
+        'style guide foreground frame is missing');
+      assert(api.worldArt.pathLighting.userData.pathLighting,
+        'style guide signal path is missing');
+      assert(api.worldArt.key.userData.lightRole === 'key' &&
+        api.worldArt.rim.userData.lightRole === 'rim',
+      'style guide key/rim lighting rig is incomplete');
+      checks += 4;
     }
   }
 
