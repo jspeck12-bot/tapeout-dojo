@@ -19,6 +19,7 @@ describe('Silicon Gothic UI kit', () => {
     expect(TOKEN_CSS).toContain('--sg-font-display:');
     expect(TOKEN_CSS).toContain('.sg-btn--primary');
     expect(TOKEN_CSS).toContain('.sg-panel');
+    expect(TOKEN_CSS).toContain('.sg-menu-row');
     expect(TOKEN_CSS).toContain('prefers-reduced-motion');
   });
 

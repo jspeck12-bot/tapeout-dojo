@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  BookOpen, Check, ChevronLeft, ChevronRight, Coins, Cpu, Gamepad2, Medal, Play,
-  RotateCcw, Settings, Sparkles, Star, Swords, Terminal,
+  Check, ChevronLeft, ChevronRight, Cpu, Medal, Star, Terminal,
 } from "lucide-react";
 import {
   AudioFX, musicEnsure, musicSetState, musicSetTrack,
@@ -16,6 +15,12 @@ import { exportRTL } from '../engine/debug/rtl-export.js';
 import { levelFromXp } from '../game/rpg.js';
 import { rankIndex } from './foundations.jsx';
 import { ALL_CHALLENGES } from '../world/challenges.js';
+import { TOKEN_CSS } from './tokens.js';
+import { MenuRow } from './components/MenuRow.jsx';
+import {
+  ArcadeMark, BookMark, ChipMark, CoinMark, GearMark, PlayMark,
+  ReplayMark, SparkMark, SwordMark,
+} from './components/icons.jsx';
 
 // ============================================================
 // MAIN MENU + TAPEOUT BAY + SPACED REVIEW
@@ -23,9 +28,20 @@ import { ALL_CHALLENGES } from '../world/challenges.js';
 
 function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('cold_cathode'); musicSetState('menu'); } catch (e) { } }, []);
+  const [stage, setStage] = useState('boot');
   const [confirmNew, setConfirmNew] = useState(false);
-  const mapNodes = useMemo(() => { const P = [[180, 820], [430, 720], [250, 540], [560, 470], [360, 300], [680, 250], [520, 110]]; return WORLDS.map((w, i) => ({ id: w.id, color: w.color, name: w.name, x: P[i][0], y: P[i][1] })); }, []);
-  const tracePath = useMemo(() => mapNodes.map((n, i) => (i ? 'L' : 'M') + n.x + ',' + n.y).join(' '), [mapNodes]);
+  useEffect(() => {
+    const id = setTimeout(() => setStage('ready'), 16);
+    return () => clearTimeout(id);
+  }, []);
+  const mapNodes = useMemo(() => {
+    const P = [[180, 820], [430, 720], [250, 540], [560, 470], [360, 300], [680, 250], [520, 110]];
+    return WORLDS.map((w, i) => ({ id: w.id, color: w.color, name: w.name, x: P[i][0], y: P[i][1] }));
+  }, []);
+  const tracePath = useMemo(
+    () => mapNodes.map((n, i) => (i ? 'L' : 'M') + n.x + ',' + n.y).join(' '),
+    [mapNodes],
+  );
   const bits = useMemo(() => Array.from({ length: 18 }, (_, i) => ({
     left: (i * 53 + 7) % 100,
     delay: ((i * 0.37) % 4).toFixed(2),
@@ -34,117 +50,213 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
     size: 11 + (i % 3) * 3,
   })), []);
   const ri = rankIndex(save.xp);
+  const dueCount = dueTopics(save.skill, todayNum()).length;
+  const signedOff = CODE_CHALLENGES.filter(c => save.done[c.id]).length;
+  const lvl = levelFromXp(save.xp || 0);
+
   return (
-    <div className="mm-root">
+    <div className="sg-ui mm-root" data-menu-status={stage}>
+      <style>{TOKEN_CSS}</style>
       <style>{`
-        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -8%,#14100c 0%,#08070b 52%,#05070b 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:42px 24px}
+        .mm-root{
+          position:fixed;inset:0;z-index:30;overflow:auto;
+          display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+          padding:clamp(28px,5vh,48px) 24px 36px;
+        }
         @media(min-height:920px){.mm-root{justify-content:center}}
-        .mm-grid{position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;background-image:linear-gradient(rgba(255,199,107,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(125,239,255,.08) 1px,transparent 1px);background-size:46px 46px;transform:perspective(420px) rotateX(62deg);transform-origin:50% 100%;animation:mm-pan 7s linear infinite;-webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);mask-image:linear-gradient(to top,#000 8%,transparent 78%)}
+        .mm-grid{
+          position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;
+          background-image:
+            linear-gradient(color-mix(in srgb, var(--sg-brass) 12%, transparent) 1px, transparent 1px),
+            linear-gradient(90deg, color-mix(in srgb, var(--sg-cyan) 10%, transparent) 1px, transparent 1px);
+          background-size:46px 46px;
+          transform:perspective(420px) rotateX(62deg);
+          transform-origin:50% 100%;
+          animation:mm-pan 7s linear infinite;
+          -webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);
+          mask-image:linear-gradient(to top,#000 8%,transparent 78%);
+          pointer-events:none;z-index:0;
+        }
         @keyframes mm-pan{from{background-position:0 0}to{background-position:0 46px}}
-        .mm-bit{position:absolute;top:-8%;color:rgba(255,199,107,.22);font-family:ui-monospace,monospace;animation:mm-fall linear infinite;pointer-events:none}
+        .mm-bit{
+          position:absolute;top:-8%;
+          color:color-mix(in srgb, var(--sg-brass) 28%, transparent);
+          font-family:var(--sg-font-mono);
+          animation:mm-fall linear infinite;
+          pointer-events:none;z-index:1;
+        }
         @keyframes mm-fall{to{transform:translateY(116vh)}}
         .mm-map{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.55;pointer-events:none}
-        .mm-trace{stroke-dasharray:9 13;animation:mm-flow 4s linear infinite}
+        .mm-trace{stroke-dasharray:9 13;animation:mm-flow 4s linear infinite;stroke:color-mix(in srgb, var(--sg-cyan) 32%, transparent)}
         @keyframes mm-flow{to{stroke-dashoffset:-44}}
         .mm-node{animation:mm-pulse 3.2s ease-in-out infinite}
         @keyframes mm-pulse{0%,100%{stroke-opacity:.22}50%{stroke-opacity:.6}}
-        .mm-glow{text-shadow:0 0 24px rgba(255,199,107,.35),0 0 60px rgba(34,211,238,.16)}
-        .mm-btn{display:flex;align-items:center;gap:13px;width:330px;max-width:84vw;padding:13px 18px;border-radius:2px;border:1px solid #2a3340;background:rgba(10,12,16,.82);color:#D7E0EA;font:inherit;cursor:pointer;text-align:left;transition:border-color .15s,background .15s,transform .05s,box-shadow .15s}
-        .mm-btn:hover{border-color:#ffc76b;background:rgba(16,18,22,.92);box-shadow:0 0 22px rgba(255,199,107,.12)}
-        .mm-btn:active{transform:translateY(1px)}
-        .mm-btn.start{border-color:#7A6310;background:rgba(24,18,8,.88)}
-        .mm-btn.start:hover{border-color:#ffc76b;box-shadow:0 0 30px rgba(255,199,107,.2)}
-        .mm-ico{display:flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:2px;background:rgba(34,211,238,.10);flex:none}
+        .mm-brand{
+          text-shadow:
+            0 0 24px color-mix(in srgb, var(--sg-brass) 35%, transparent),
+            0 0 60px color-mix(in srgb, var(--sg-cyan-deep) 16%, transparent);
+        }
+        .mm-shell{
+          position:relative;z-index:2;width:min(380px,92vw);
+          display:flex;flex-direction:column;align-items:center;gap:clamp(16px,2.4vh,26px);
+        }
+        .mm-actions{display:flex;flex-direction:column;gap:10px;align-items:center;width:100%}
+        .mm-actions .sg-menu-row{width:100%;max-width:340px}
+        .mm-stats{
+          display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;
+          font-size:11.5px;color:var(--sg-ink-dim);
+        }
+        .mm-stats .mm-rank{color:var(--sg-cyan);letter-spacing:.12em}
+        .mm-stats .mm-scrap{color:var(--sg-brass)}
+        .mm-stats .mm-ng{color:var(--sg-brass);letter-spacing:.1em}
+        .mm-frame{
+          fill:none;stroke:color-mix(in srgb, var(--sg-cyan-deep) 18%, transparent);stroke-width:2;
+        }
+        .mm-frame-soft{
+          fill:none;stroke:color-mix(in srgb, var(--sg-cyan-deep) 8%, transparent);stroke-width:1.5;
+        }
+        .mm-pin{fill:none;stroke:color-mix(in srgb, var(--sg-cyan-deep) 14%, transparent);stroke-width:2}
+        .mm-label{fill:color-mix(in srgb, var(--sg-ink-muted) 55%, transparent);font-size:13px;font-family:var(--sg-font-mono)}
+        @media (prefers-reduced-motion:reduce){
+          .mm-grid{animation:none;transform:none;opacity:.35}
+          .mm-bit,.mm-trace,.mm-node{animation:none !important}
+        }
       `}</style>
-      <div className="mm-grid" />
+
+      <div className="mm-grid" aria-hidden="true" />
       <svg className="mm-map" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-        <rect x="78" y="64" width="844" height="872" rx="28" fill="none" stroke="rgba(34,211,238,.12)" strokeWidth="2" />
-        <rect x="120" y="106" width="760" height="788" rx="18" fill="none" stroke="rgba(34,211,238,.055)" strokeWidth="1.5" />
-        <line x1="78" y1="500" x2="48" y2="500" stroke="rgba(34,211,238,.10)" strokeWidth="2" />
-        <line x1="922" y1="500" x2="952" y2="500" stroke="rgba(34,211,238,.10)" strokeWidth="2" />
-        <path d={tracePath} fill="none" stroke="rgba(125,239,255,.20)" strokeWidth="3" className="mm-trace" />
+        <rect className="mm-frame" x="78" y="64" width="844" height="872" rx="28" />
+        <rect className="mm-frame-soft" x="120" y="106" width="760" height="788" rx="18" />
+        <line className="mm-pin" x1="78" y1="500" x2="48" y2="500" />
+        <line className="mm-pin" x1="922" y1="500" x2="952" y2="500" />
+        <path d={tracePath} fill="none" strokeWidth="3" className="mm-trace" />
         {mapNodes.map(n => (
           <g key={n.id}>
             <circle cx={n.x} cy={n.y} r="17" fill={n.color} fillOpacity=".10" />
             <circle cx={n.x} cy={n.y} r="23" fill="none" stroke={n.color} strokeOpacity=".5" strokeWidth="2" className="mm-node" />
             <circle cx={n.x} cy={n.y} r="6" fill={n.color} fillOpacity=".85" />
-            <text x={n.x} y={n.y - 32} fill={n.color} fillOpacity=".62" fontSize="19" fontFamily="ui-monospace, monospace" textAnchor="middle">{n.id < 10 ? '0' + n.id : '' + n.id}</text>
-            <text x={n.x} y={n.y + 40} fill="rgba(159,178,200,.5)" fontSize="13" fontFamily="ui-monospace, monospace" textAnchor="middle">{n.name}</text>
+            <text x={n.x} y={n.y - 32} fill={n.color} fillOpacity=".62" fontSize="19" fontFamily="var(--sg-font-mono)" textAnchor="middle">{n.id < 10 ? '0' + n.id : '' + n.id}</text>
+            <text className="mm-label" x={n.x} y={n.y + 40} textAnchor="middle">{n.name}</text>
           </g>
         ))}
       </svg>
       {bits.map((b, i) => (
-        <span key={i} className="mm-bit" style={{ left: b.left + '%', fontSize: b.size, animationDelay: b.delay + 's', animationDuration: b.dur + 's' }}>{b.ch}</span>
+        <span
+          key={i}
+          className="mm-bit"
+          style={{ left: b.left + '%', fontSize: b.size, animationDelay: b.delay + 's', animationDuration: b.dur + 's' }}
+        >
+          {b.ch}
+        </span>
       ))}
 
-      <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', marginBottom: 26 }}>
-        <div className="eyebrow" style={{ color: '#7DEFFF', marginBottom: 10 }}>fab dojo-n4 · rev a</div>
-        <div className="mm-glow" style={{ fontSize: 'clamp(44px,11vw,84px)', fontWeight: 700, letterSpacing: '.12em', color: '#E8F1FA', lineHeight: 1 }}>
-          TAPEOUT<span className="cursorblink" style={{ color: '#7DEFFF' }}>_</span>
-        </div>
-        <div style={{ marginTop: 8, fontSize: 13, letterSpacing: '.34em', textTransform: 'uppercase', color: '#76849A' }}>the verilog dojo</div>
-      </div>
+      <div className="mm-shell">
+        <header style={{ textAlign: 'center' }}>
+          <div className="sg-eyebrow" style={{ color: 'var(--sg-cyan)', marginBottom: 10 }}>
+            fab dojo-n4 · rev a
+          </div>
+          <h1
+            className="sg-display mm-brand"
+            style={{
+              margin: 0,
+              fontSize: 'clamp(44px, 11vw, 84px)',
+              fontWeight: 700,
+              letterSpacing: '.12em',
+              color: 'var(--sg-ink)',
+              lineHeight: 1,
+            }}
+          >
+            TAPEOUT<span style={{ color: 'var(--sg-cyan)' }}>_</span>
+          </h1>
+          <p
+            style={{
+              margin: '10px 0 0',
+              fontSize: 13,
+              letterSpacing: '.34em',
+              textTransform: 'uppercase',
+              color: 'var(--sg-ink-muted)',
+            }}
+          >
+            the verilog dojo
+          </p>
+        </header>
 
-      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
-        <button className="mm-btn start" onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(34,211,238,.16)' }}><Play size={17} color="#7DEFFF" fill="#7DEFFF" /></span>
-          <span><div style={{ fontSize: 15, fontWeight: 600, letterSpacing: '.04em', color: '#7DEFFF' }}>CONTINUE</div><div style={{ fontSize: 11, color: '#76849A' }}>resume · walk the fab · Lv {levelFromXp(save.xp || 0)} · ⛁ {save.scrap || 0}</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" style={confirmNew ? { borderColor: '#B14A52' } : undefined} onClick={() => { if (confirmNew) { AudioFX.click(); onNewGame(); } else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); } }}>
-          <span className="mm-ico" style={{ background: 'rgba(255,226,122,.12)' }}><Sparkles size={16} color={confirmNew ? '#FF8B82' : '#FFE27A'} /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600, color: confirmNew ? '#FF8B82' : '#D7E0EA' }}>{confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}</div><div style={{ fontSize: 11, color: '#76849A' }}>{confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" onClick={() => { AudioFX.click(); onReplayTutorial(); }}>
-          <span className="mm-ico" style={{ background: 'rgba(125,239,255,.10)' }}><RotateCcw size={16} color="#7DEFFF" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>REPLAY PROLOGUE</div><div style={{ fontSize: 11, color: '#76849A' }}>controls, first compile &amp; Debug Bay</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(163,230,53,.10)' }}><BookOpen size={16} color="#A3E635" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>CODEX &amp; MASTERY DIE</div><div style={{ fontSize: 11, color: '#76849A' }}>search recovered notes · inspect weak topics</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        {save.tapeoutDone && (
-          <button className="mm-btn" onClick={() => { AudioFX.bad(); go({ name: 'bossrush' }); }}>
-            <span className="mm-ico" style={{ background: 'rgba(255,107,98,.12)' }}><Swords size={16} color="#FF8B82" /></span>
-            <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>BOSS RUSH</div><div style={{ fontSize: 11, color: '#76849A' }}>seven remembrances · no runback</div></span>
-            <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-          </button>
-        )}
-        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(255,125,240,.12)' }}><Gamepad2 size={17} color="#FF7DF0" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>ARCADE</div><div style={{ fontSize: 11, color: '#76849A' }}>training, blitz, bug bounty &amp; the kit</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'drill' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(125,239,255,.12)' }}><RotateCcw size={16} color="#7DEFFF" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>SPACED REVIEW</div><div style={{ fontSize: 11, color: '#76849A' }}>{(() => { const d = dueTopics(save.skill, todayNum()).length; return d ? `${d} concept${d > 1 ? 's' : ''} due for recall` : 'keep cleared concepts sharp'; })()}</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'tapeout' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(250,204,21,.12)' }}><Cpu size={16} color="#FACC15" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>TAPEOUT BAY</div><div style={{ fontSize: 11, color: '#76849A' }}>{(() => { const n = CODE_CHALLENGES.filter(c => save.done[c.id]).length; return n ? `export ${n} signed-off module${n > 1 ? 's' : ''} as RTL` : 'export your modules to real Verilog'; })()}</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" onClick={() => { AudioFX.click(); go({ name: 'shop' }); }}>
-          <span className="mm-ico" style={{ background: 'rgba(255,199,107,.12)' }}><Coins size={16} color="#FFC76B" /></span>
-          <span><div style={{ fontSize: 14.5, fontWeight: 600 }}>SCRAP EXCHANGE</div><div style={{ fontSize: 11, color: '#76849A' }}>trade scrap for gear &amp; boosts</div></span>
-          <ChevronRight size={16} style={{ marginLeft: 'auto', color: '#5A6A80' }} />
-        </button>
-        <button className="mm-btn" style={{ width: 330, maxWidth: '84vw' }} onClick={() => { AudioFX.click(); onSettings(); }}>
-          <span className="mm-ico" style={{ background: 'rgba(118,132,154,.12)' }}><Settings size={15} color="#9FB4C8" /></span>
-          <span style={{ fontSize: 13.5, fontWeight: 600 }}>SETTINGS</span>
-        </button>
-      </div>
+        <nav className="mm-actions" aria-label="main menu">
+          <MenuRow
+            variant="primary"
+            icon={<PlayMark size={17} />}
+            title="CONTINUE"
+            hint={`resume · walk the fab · Lv ${lvl} · ⛁ ${save.scrap || 0}`}
+            onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
+          />
+          <MenuRow
+            variant={confirmNew ? 'danger' : 'default'}
+            icon={<SparkMark size={16} />}
+            title={confirmNew ? 'TAP AGAIN — ERASE SAVE' : 'NEW GAME'}
+            hint={confirmNew ? 'this wipes all progress on this slot' : 'wipe the wafer & start from the Bit Mines'}
+            onClick={() => {
+              if (confirmNew) { AudioFX.click(); onNewGame(); }
+              else { AudioFX.bad(); setConfirmNew(true); setTimeout(() => setConfirmNew(false), 3200); }
+            }}
+          />
+          <MenuRow
+            icon={<ReplayMark size={16} />}
+            title="REPLAY PROLOGUE"
+            hint="controls, first compile & Debug Bay"
+            onClick={() => { AudioFX.click(); onReplayTutorial(); }}
+          />
+          <MenuRow
+            icon={<BookMark size={16} />}
+            title="CODEX & MASTERY DIE"
+            hint="search recovered notes · inspect weak topics"
+            onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}
+          />
+          {save.tapeoutDone && (
+            <MenuRow
+              icon={<SwordMark size={16} />}
+              title="BOSS RUSH"
+              hint="seven remembrances · no runback"
+              onClick={() => { AudioFX.bad(); go({ name: 'bossrush' }); }}
+            />
+          )}
+          <MenuRow
+            icon={<ArcadeMark size={17} />}
+            title="ARCADE"
+            hint="training, blitz, bug bounty & the kit"
+            onClick={() => { AudioFX.click(); go({ name: 'arcade' }); }}
+          />
+          <MenuRow
+            icon={<ReplayMark size={16} />}
+            title="SPACED REVIEW"
+            hint={dueCount ? `${dueCount} concept${dueCount > 1 ? 's' : ''} due for recall` : 'keep cleared concepts sharp'}
+            onClick={() => { AudioFX.click(); go({ name: 'drill' }); }}
+          />
+          <MenuRow
+            icon={<ChipMark size={16} />}
+            title="TAPEOUT BAY"
+            hint={signedOff ? `export ${signedOff} signed-off module${signedOff > 1 ? 's' : ''} as RTL` : 'export your modules to real Verilog'}
+            onClick={() => { AudioFX.click(); go({ name: 'tapeout' }); }}
+          />
+          <MenuRow
+            icon={<CoinMark size={16} />}
+            title="SCRAP EXCHANGE"
+            hint="trade scrap for gear & boosts"
+            onClick={() => { AudioFX.click(); go({ name: 'shop' }); }}
+          />
+          <MenuRow
+            icon={<GearMark size={15} />}
+            title="SETTINGS"
+            onClick={() => { AudioFX.click(); onSettings(); }}
+          />
+        </nav>
 
-      <div style={{ position: 'relative', zIndex: 2, marginTop: 26, fontSize: 11.5, color: '#5A6A80', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ color: '#7DEFFF', letterSpacing: '.12em' }}>{RANKS[ri][0].toUpperCase()}</span>
-        <span>Lv {levelFromXp(save.xp || 0)}</span>
-        <span style={{ color: '#FFC76B' }}>⛁ {save.scrap || 0}</span>
-        <span>{save.xp} XP</span>
-        {save.ngplus && <span style={{ color: '#FFE27A', letterSpacing: '.1em' }}>NG+</span>}
+        <footer className="mm-stats">
+          <span className="mm-rank">{RANKS[ri][0].toUpperCase()}</span>
+          <span>Lv {lvl}</span>
+          <span className="mm-scrap">⛁ {save.scrap || 0}</span>
+          <span>{save.xp} XP</span>
+          {save.ngplus && <span className="mm-ng">NG+</span>}
+        </footer>
       </div>
     </div>
   );

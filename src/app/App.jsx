@@ -61,7 +61,7 @@ function devScreenFromUrl() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
