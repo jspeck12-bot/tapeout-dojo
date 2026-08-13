@@ -84,6 +84,7 @@ function makePostFX(renderer, cssW, cssH) {
     renderer.setRenderTarget(target);
     renderer.render(quadScene, quadCam);
   };
+  let sceneStats = { calls: 0, triangles: 0 };
   // Warm-up: force-compile all three programs NOW and verify they built.
   // If any shader fails on this GPU, throw — callers fall back to plain
   // rendering instead of a black screen.
@@ -104,10 +105,15 @@ function makePostFX(renderer, cssW, cssH) {
       if (grade.contrast != null) comp.uniforms.contrast.value = grade.contrast;
       if (grade.tint != null) comp.uniforms.tint.value.set(grade.tint);
     },
+    getStats() { return sceneStats; },
     render(scene, camera) {
       try {
         renderer.setRenderTarget(rtScene);
         renderer.render(scene, camera);
+        sceneStats = {
+          calls: renderer.info?.render?.calls || 0,
+          triangles: renderer.info?.render?.triangles || 0,
+        };
         bright.uniforms.tex.value = rtScene.texture; pass(bright, rtA);
         blur.uniforms.tex.value = rtA.texture; blur.uniforms.dir.value.set(1, 0); pass(blur, rtB);
         blur.uniforms.tex.value = rtB.texture; blur.uniforms.dir.value.set(0, 1); pass(blur, rtA);

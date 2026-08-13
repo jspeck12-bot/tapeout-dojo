@@ -30,7 +30,7 @@ const DUNGEON_CFG = {
   7: {
     trail: { legs: 2, Lv: 36, H: 44, W: 24 }, chamberW: 40, chamberD: 32,
     zone: 'THE TAPEOUT FLOOR', bossZone: 'THE ALTAR',
-    theme: { bg: 0x12100a, fog: 0.02, floorCol: 0x1a1608, gridCol: 0x7a6310, wallCol: 0x2e2810, accent: 0xfacc15, ambient: 0.92, ceil: true, prop: 'altar' },
+    theme: { bg: 0x06090d, fog: 0.018, floorCol: 0x111820, gridCol: 0x6e5d1a, wallCol: 0x28323d, accent: 0xfacc15, ambient: 0.82, ceil: true, prop: 'altar' },
     descend: { label: 'WALK TO TAPEOUT', sub: 'One floor. One altar. One shot at silicon.' },
   },
 };

@@ -55,6 +55,7 @@ describe('post-processing pipeline', () => {
     expect(() => post.render(scene, camera)).not.toThrow();
     expect(renderCalls).toBe(10);
     expect(targetCalls).toBe(11);
+    expect(post.getStats()).toEqual({ calls: 0, triangles: 0 });
     expect(() => post.dispose()).not.toThrow();
   });
 

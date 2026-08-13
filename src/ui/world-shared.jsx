@@ -104,11 +104,12 @@ function DevPerfHUD({ ctxRef }) {
     const interval = setInterval(() => {
       const now = performance.now();
       const renderer = ctxRef.current?.renderer;
+      const postStats = ctxRef.current?.post?.getStats?.();
       const elapsed = Math.max(1, now - last);
       setStats({
         fps: Math.round(frames * 1000 / elapsed),
-        calls: renderer?.info?.render?.calls || 0,
-        triangles: renderer?.info?.render?.triangles || 0,
+        calls: postStats?.calls ?? renderer?.info?.render?.calls ?? 0,
+        triangles: postStats?.triangles ?? renderer?.info?.render?.triangles ?? 0,
       });
       frames = 0;
       last = now;
