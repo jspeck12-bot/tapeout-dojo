@@ -12,24 +12,33 @@ import { levelFromXp } from '../game/rpg.js';
 // ============================================================
 
 const CSS = `
-.tk-root{min-height:100vh;background:#07090D;color:#D7E0EA;font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.tk-root{min-height:100vh;background:#05070b;color:#d5dee8;font-family:ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
 .tk-root *{box-sizing:border-box}
-.tk-root ::selection{background:rgba(34,211,238,.28)}
-.scanlines{position:fixed;inset:0;pointer-events:none;z-index:70;background:repeating-linear-gradient(0deg,rgba(255,255,255,.016) 0 1px,transparent 1px 3px)}
+.tk-root ::selection{background:rgba(255,179,95,.28)}
+.scanlines{position:fixed;inset:0;pointer-events:none;z-index:70;background:repeating-linear-gradient(0deg,rgba(255,255,255,.012) 0 1px,transparent 1px 4px)}
 .wrap{max-width:1060px;margin:0 auto;padding:0 16px 80px}
 .eyebrow{font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:#76849A}
-.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #273245;background:#10151E;color:#D7E0EA;padding:8px 14px;border-radius:6px;font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,transform .05s;white-space:nowrap}
-.btn:hover{border-color:#3A4A63;background:#141B26}
+.btn{display:inline-flex;align-items:center;gap:7px;border:1px solid #2a3340;background:linear-gradient(180deg,#141a22,#10151c);color:#D7E0EA;padding:8px 14px;border-radius:2px;font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,transform .05s;white-space:nowrap}
+.btn:hover{border-color:#3A4A63;background:linear-gradient(180deg,#18202a,#121820)}
 .btn:active{transform:translateY(1px)}
 .btn:focus-visible,.lnk:focus-visible,.opt:focus-visible,.ycell:focus-visible,.bugline:focus-visible{outline:2px solid #22D3EE;outline-offset:2px}
-.btn.primary{background:#0C2C33;border-color:#155E6B;color:#7DEFFF}
-.btn.primary:hover{border-color:#22D3EE;background:#0E343D}
-.btn.gold{background:#2B2208;border-color:#7A6310;color:#FFE27A}
+.btn.primary{background:linear-gradient(180deg,#12343c,#0c2c33);border-color:#1a6a78;color:#7DEFFF}
+.btn.primary:hover{border-color:#22D3EE;background:linear-gradient(180deg,#164048,#0e343d)}
+.btn.gold{background:linear-gradient(180deg,#32280c,#2B2208);border-color:#7A6310;color:#FFE27A}
 .btn.gold:hover{border-color:#FACC15}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .btn.sm{padding:5px 10px;font-size:12px}
-.card{background:#0D1118;border:1px solid #1D2632;border-radius:10px}
+.card{background:linear-gradient(180deg,#10151c,#0c1016);border:1px solid #222b36;border-radius:2px}
 .lnk{background:none;border:none;color:#76849A;cursor:pointer;font:inherit;font-size:12px;padding:4px 6px;display:inline-flex;align-items:center;gap:5px}
+.sg-corners{position:absolute;inset:10px;pointer-events:none;z-index:21}
+.sg-corners:before,.sg-corners:after{content:'';position:absolute;width:22px;height:22px;border:1px solid rgba(255,199,107,.42)}
+.sg-corners:before{top:0;left:0;border-right:none;border-bottom:none}
+.sg-corners:after{top:0;right:0;border-left:none;border-bottom:none}
+.sg-world:after{content:'';position:absolute;inset:10px;pointer-events:none;z-index:21;background:
+  linear-gradient(rgba(255,199,107,.42),rgba(255,199,107,.42)) left bottom / 22px 1px no-repeat,
+  linear-gradient(rgba(255,199,107,.42),rgba(255,199,107,.42)) left bottom / 1px 22px no-repeat,
+  linear-gradient(rgba(255,199,107,.42),rgba(255,199,107,.42)) right bottom / 22px 1px no-repeat,
+  linear-gradient(rgba(255,199,107,.42),rgba(255,199,107,.42)) right bottom / 1px 22px no-repeat}
 .lnk:hover{color:#D7E0EA}
 .codespan{background:#141B26;border:1px solid #232E40;border-radius:4px;padding:1px 5px;font-size:.92em;color:#9BE8F7;white-space:nowrap}
 .hbar{height:8px;background:#11161F;border:1px solid #1D2632;border-radius:99px;overflow:hidden}
@@ -423,7 +432,7 @@ function Header({ save, onHome, onToggleSound, onSettings }) {
   const cur = RANKS[ri], next = RANKS[ri + 1];
   const pct = next ? Math.min(100, Math.round(((save.xp - cur[1]) / (next[1] - cur[1])) * 100)) : 100;
   return (
-    <div style={{ borderBottom: '1px solid #1D2632', background: 'rgba(7,9,13,.92)', position: 'sticky', top: 0, zIndex: 50 }}>
+    <div style={{ borderBottom: '1px solid #222b36', background: 'rgba(5,7,11,.92)', position: 'sticky', top: 0, zIndex: 50, boxShadow: 'inset 0 1px 0 rgba(255,199,107,.18)' }}>
       <div className="wrap" style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         <button className="lnk" onClick={onHome} style={{ padding: 0 }} aria-label="Home">
           <span style={{ fontSize: 17, letterSpacing: '.18em', color: '#E8F1FA', fontWeight: 600 }}>

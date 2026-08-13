@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { mulberry32, GAUNTLETS } from '../game/content.js';
+import { mulberry32 } from '../game/content.js';
 import { enemyFor } from '../game/rpg.js';
 import { activeDone } from '../world/challenges.js';
 import { nextStationOf } from '../world/progression.js';
@@ -12,11 +12,12 @@ import {
 } from './primitives.js';
 import { fxCone, glowSprite, lightScene } from './cinematic.js';
 import {
-  caveDressing, rockMaterial, rockNoise, rockWall, roughen, plinthRock,
+  rockMaterial, roughen, plinthRock,
   fieldNoteProp,
 } from './rock.js';
 import { creatureSpec, makeCreature } from './creatures.js';
 import { buildWorldArt } from './art-direction.js';
+import { buildMineWorldScene } from './mine-world.js';
 
 function buildExplorationProps(scene, model, accent) {
   const built = {};
@@ -854,154 +855,11 @@ function buildCanyon(scene, model, theme) {
 }
 
 function buildMineWorld(scene, model) {
-  scene.background = new THREE.Color(0x0a0604);
-  scene.fog = new THREE.FogExp2(0x0a0604, 0.045 / (model.worldScale || 1));
-  scene.add(new THREE.AmbientLight(0x3a2c1a, 0.78));
-  const hemi = new THREE.HemisphereLight(0x32281a, 0x0a0604, 0.4);
-  scene.add(hemi);
-
-  const pad = 8;
-  const b = model.bounds;
-  const floorMat = rockMaterial({ repeat: [11, 11], normal: 1.0, tint: 0x8a7858, disp: 0.35 });
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(b.maxX - b.minX + pad * 2, b.maxZ - b.minZ + pad * 2, 100, 100), floorMat);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2);
-  scene.add(floor);
-  buildPathTrail(scene, model.path, 0xf5b14c);
-  const zSplit = -62;
-  const ceilMat = rockMaterial({ repeat: [9, 9], normal: 1.2, tint: 0x554636 });
-  const mkCeil = (z1, z2, y, amp, segs) => {
-    const w = b.maxX - b.minX + pad * 2, cxx = (b.minX + b.maxX) / 2, czz = (z1 + z2) / 2;
-    const cg = new THREE.PlaneGeometry(w, z2 - z1, segs, segs);
-    cg.rotateX(Math.PI / 2); cg.translate(cxx, y, czz);
-    const cp = cg.attributes.position;
-    for (let i = 0; i < cp.count; i++) { const x = cp.getX(i), z = cp.getZ(i); let dy = rockNoise(x + 7, 3, z + 7) * amp - amp * 0.4; dy = Math.max(-amp * 1.6, Math.min(amp * 0.7, dy)); cp.setY(i, cp.getY(i) + dy); }
-    cp.needsUpdate = true; cg.computeVertexNormals();
-    const m = new THREE.Mesh(cg, ceilMat); m.material.side = THREE.DoubleSide; scene.add(m);
-  };
-  mkCeil(zSplit, b.maxZ + pad, 5.4, 1.05, 70);   // low ceiling: shaft + galleries
-  mkCeil(b.minZ - pad, zSplit, 16.5, 2.4, 48);   // tall vault over the wyrm hollow
-
-  const wallSmall = rockMaterial({ repeat: [1.6, 1.4], normal: 1.45 });
-  const wallMed = rockMaterial({ repeat: [4, 1.6], normal: 1.45 });
-  const wallLong = rockMaterial({ repeat: [10, 1.8], normal: 1.45 });
-  model.colliders.forEach(wl => {
-    const sx = wl.maxX - wl.minX, sz = wl.maxZ - wl.minZ, L = Math.max(sx, sz);
-    const mat = L > 40 ? wallLong : (L > 14 ? wallMed : wallSmall);
-    const cx = (wl.minX + wl.maxX) / 2, cz = (wl.minZ + wl.maxZ) / 2;
-    const H = cz < zSplit + 1 ? 16.5 : 5.4;       // wyrm-hollow walls rise into a tall cavern
-    const m = rockWall(sx, H, sz, mat, cx, cz);
-    m.position.set(cx, H / 2, cz);
-    scene.add(m);
+  return buildMineWorldScene(scene, model, {
+    makeNextBeacon,
+    buildFogGate,
+    buildExplorationProps,
   });
-  // lintel sealing the gap above the gate opening (low shaft -> tall arena)
-  const lintel = rockWall(10, 12, 1.6, wallSmall, 0, zSplit);
-  lintel.position.set(0, 10.4, zSplit);
-  scene.add(lintel);
-
-  // ore veins (seeded)
-  const rng = mulberry32(1337);
-  const cyan = new THREE.MeshBasicMaterial({ color: 0x7defff });
-  const amber = new THREE.MeshBasicMaterial({ color: 0xffc76b });
-  for (let i = 0; i < 26; i++) {
-    const wl = model.colliders[Math.floor(rng() * model.colliders.length)];
-    const sx = wl.maxX - wl.minX, sz = wl.maxZ - wl.minZ;
-    const v = new THREE.Mesh(new THREE.BoxGeometry(Math.min(sx, 0.7) + 0.5, 0.5 + rng() * 0.7, Math.min(sz, 0.7) + 0.5), rng() < 0.6 ? cyan : amber);
-    v.position.set(wl.minX + rng() * sx, 0.7 + rng() * 2.6, wl.minZ + rng() * sz);
-    v.rotation.y = rng() * Math.PI;
-    scene.add(v);
-  }
-
-  // support beams across the shaft
-  const wood = matStd(0x4a3520, { roughness: 0.95 });
-  model.beams.forEach(bm => {
-    [-3.7, 3.7].forEach(x => {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.36, 4.9, 0.36), wood);
-      post.position.set(bm.x + x, 2.45, bm.z);
-      scene.add(post);
-    });
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.34, 0.4), wood);
-    bar.position.set(bm.x, 4.75, bm.z);
-    scene.add(bar);
-  });
-
-  // lanterns
-  model.lanterns.forEach(L => {
-    const pt = new THREE.PointLight(0xffb066, 1.3, 17 * (model.worldScale || 1), 1.6);
-    pt.position.set(L.x, 3.6, L.z);
-    scene.add(pt);
-    const bulb = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.46, 0.32), new THREE.MeshBasicMaterial({ color: 0xffc98a }));
-    bulb.position.set(L.x, 3.6, L.z);
-    scene.add(bulb);
-  });
-
-  const api = { totems: {}, books: {}, gateGrp: null, creatures: [] };
-
-  // enemy totems
-  model.interactables.filter(i => i.kind === 'fight').forEach(it => {
-    const en = enemyFor(it.id, 1, 30, it.boss, 'engineer', false);
-    const g = GAUNTLETS.find(x => x.id === it.id);
-    const sc = it.boss ? 1.7 : 1;
-    plinthRock(scene, it.x, it.z, sc);
-    const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff6b62 });
-    const creature = makeCreature(creatureSpec(1, en.name, it.boss), beaconMat);
-    creature.position.set(it.x, 0.5, it.z);
-    scene.add(creature);
-    const fl = new THREE.PointLight(it.boss ? 0xfacc15 : 0xff6b62, it.boss ? 1.0 : 0.72, 15 * (model.worldScale || 1), 2.0);
-    fl.position.set(it.x, 3.2 * sc, it.z);
-    scene.add(fl);
-    scene.add(fxCone(it.boss ? 0xfacc15 : 0xff6b62, it.boss ? 3.2 : 2.0, 5.1, it.boss ? 0.1 : 0.06, it.x, it.z));
-    const nl = mineLabelSprite((it.boss ? '★ FINAL · ' : it.ord ? '#' + it.ord + ' · ' : '') + en.name, it.boss ? '#FFE27A' : '#FF8B82', it.boss ? 0.44 : 0.34);
-    nl.position.set(it.x, it.boss ? 9.5 : 2.9 * sc + 0.5, it.z);
-    scene.add(nl);
-    api.totems[it.id] = { beaconMat, creature };
-    api.creatures.push({ grp: creature, it });
-  });
-
-  // field-note books
-  model.interactables.filter(i => i.kind === 'book').forEach(it => {
-    const { bookMat } = fieldNoteProp(scene, it.x, it.z, 0x7defff);
-    const lbl = mineLabelSprite((it.ord ? '#' + it.ord + ' · ' : '') + 'FIELD NOTE', '#7DEFFF', 0.42);
-    lbl.position.set(it.x, 2.5, it.z);
-    scene.add(lbl);
-    scene.add(fxCone(0x7defff, 1.6, 5.1, 0.055, it.x, it.z));
-    api.books[it.lid] = { bookMat };
-  });
-
-  // boss gate bars
-  const gate = new THREE.Group();
-  const barMat = matStd(0x3a4a63, { roughness: 0.4, metalness: 0.8 });
-  for (let x = -3.2; x <= 3.2; x += 1.6) {
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.3, 5.2, 0.3), barMat);
-    bar.position.set(x, 2.6, model.gateZ);
-    gate.add(bar);
-  }
-  const cross = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.4, 0.42), barMat);
-  cross.position.set(0, 4.7, model.gateZ);
-  gate.add(cross);
-  scene.add(gate);
-  api.gateGrp = gate;
-  const gl = mineLabelSprite('THE DEEP GATE', '#FF8B82', 0.85);
-  gl.position.set(0, 6.1, model.gateZ + 0.2);
-  scene.add(gl);
-
-  // surface lift
-  const lift = model.interactables.find(i => i.kind === 'exit');
-  const padM = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.18, 4.6), new THREE.MeshBasicMaterial({ color: 0x155e6b }));
-  padM.position.set(lift.x, 0.09, lift.z);
-  scene.add(padM);
-  const ll = mineLabelSprite('SURFACE LIFT', '#7DEFFF', 0.8);
-  ll.position.set(lift.x, 3.1, lift.z);
-  scene.add(ll);
-  api.nextGrp = makeNextBeacon(scene, 0xf5b14c, false);
-
-  caveDressing(scene, model);
-  lightScene(scene, model.bounds, { ceil: true, dust: 0x6a5030, glowSize: 4.8, glowOpacity: 0.8 });
-  api.exploration = buildExplorationProps(scene, model, 0xf5b14c);
-  api.fogGate = buildFogGate(scene, model, 0xff6b62);
-  api.worldArt = buildWorldArt(scene, model, 1);
-
-  return api;
 }
 
 function applyMineProgress(api, model, save) {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, X,
+  BookOpen, ChevronLeft, Coins, Map as MapIcon, Settings, SlidersHorizontal, X,
 } from "lucide-react";
 import * as THREE from "three";
 import {
@@ -10,7 +10,13 @@ import { FR } from '../../telemetry/flight-recorder.js';
 import { GAUNTLETS, LESSON_DEPTH, LESSONS } from '../../game/content.js';
 import { enemyFor } from '../../game/rpg.js';
 import { bossSpec } from '../../game/bosses.js';
-import { disposeScene, tuneRenderer, makePostFX, applyGfx } from '../../graphics/cinematic.js';
+import { disposeScene } from '../../graphics/cinematic.js';
+import {
+  STYLE_GUIDE_QUALITY,
+  configureStyleGuideRenderer,
+  installStyleGuideEnvironment,
+  makeStyleGuidePostFX,
+} from '../../graphics/style-guide-renderer.js';
 import { spawnShatter } from '../../graphics/rock.js';
 import { updateCreature, makeViewModel, updateViewModel } from '../../graphics/creatures.js';
 import { stepCamera, createAmbience } from '../../graphics/immersion.js';
@@ -26,7 +32,41 @@ import { TouchControls, CinematicFX, EnterFade, DevPerfHUD } from '../world-shar
 import { WorldMap } from './WorldMap.jsx';
 import { BossIntro } from '../BossIntro.jsx';
 
-function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
+function applyMineGfx(ctx, gfx, quality) {
+  if (!ctx) return;
+  const { renderer, scene, post } = ctx;
+  try {
+    renderer.toneMappingExposure = 0.84 * (gfx.exposure ?? 1.08);
+    post?.setBloom?.(Math.min(0.52, 0.2 + (gfx.bloom ?? 0.58) * 0.22));
+    post?.setQuality?.(quality);
+    if (scene.fog?.isFogExp2) {
+      const base = scene.userData.baseFogDensity || 0.0165;
+      scene.fog.density = base * ((gfx.fog ?? 0.032) / 0.032);
+    }
+    scene.traverse(object => {
+      if (object.isLight) {
+        if (object.userData.baseIntensity == null) {
+          object.userData.baseIntensity = object.intensity;
+        }
+        const role = object.userData.lightRole;
+        const ambient = role === 'ambient' || role === 'fill' || object.isAmbientLight || object.isHemisphereLight;
+        object.intensity = object.userData.baseIntensity * (ambient ? (gfx.ambient ?? 0.92) : (gfx.lights ?? 1.1));
+      }
+      if (object.isSprite && object.material?.blending === THREE.AdditiveBlending) {
+        object.material.opacity = gfx.glow ?? 0.7;
+      }
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach(material => {
+        if (material?.normalScale) material.normalScale.setScalar(gfx.normal ?? 0.95);
+      });
+    });
+  } catch (error) {
+    // Live tuning must never tear down the world.
+  }
+}
+
+function MineScreen({ save, go, cb, gfx, onSettings }) {
   useEffect(() => { try { musicEnsure(); musicSetTrack('heavy_press'); musicSetState('explore'); } catch (e) { } }, []);
   const mountRef = useRef(null);
   const [failed, setFailed] = useState(false);
@@ -37,6 +77,13 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   const [showHelp, setShowHelp] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [bossIntro, setBossIntro] = useState(null);
+  const [quality, setQuality] = useState(() => (
+    typeof window !== 'undefined' && 'ontouchstart' in window ? 'low' : 'high'
+  ));
+  const [stage, setStage] = useState('booting');
+  const [gfxOpen, setGfxOpen] = useState(false);
+  const qualityRef = useRef(quality);
+  qualityRef.current = quality;
   const ctxRef = useRef(null);
   const ambRef = useRef(null);
   const engineRef = useRef(null);
@@ -87,27 +134,58 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
     try {
       if (!mount || typeof document === 'undefined') throw new Error('no DOM');
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-      tuneRenderer(renderer, isTouch);
-      renderer.setPixelRatio(Math.min((window.devicePixelRatio || 1), 2));
-      renderer.setSize(mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight);
+      configureStyleGuideRenderer(renderer, qualityRef.current);
+      const width = mount.clientWidth || window.innerWidth;
+      const height = mount.clientHeight || window.innerHeight;
+      renderer.setSize(width, height);
+      if (renderer.domElement.dataset) renderer.domElement.dataset.engine = 'silicon-gothic';
       mount.appendChild(renderer.domElement);
       const canvas = renderer.domElement;
       canvas.style.display = 'block';
 
       scene = new THREE.Scene();
-      try { if (!(typeof window !== 'undefined' && 'ontouchstart' in window)) post = makePostFX(renderer, mount.clientWidth || window.innerWidth, mount.clientHeight || window.innerHeight); } catch (e) { post = null; }
-      ctxRef.current = { renderer, scene, post };
-      const camera = new THREE.PerspectiveCamera(74, (mount.clientWidth || 1) / (mount.clientHeight || 1), 0.1, 300);
+      const camera = new THREE.PerspectiveCamera(74, (width || 1) / (height || 1), 0.1, 300);
       scene.add(camera);
       let _vm = null, _vmWeap = null, _vmJabT = -9e9;
       camera.rotation.order = 'YXZ';
 
       const model = mineModel(lessonIds);
       const api = buildMineWorld(scene, model);
-      if (post && api.worldArt) post.setGrade(api.worldArt.grade);
+      ctxRef.current = { renderer, scene, post: null, camera };
+      try { renderer.render(scene, camera); } catch (error) { /* first frame probes the context */ }
+      setStage('environment');
+      try {
+        installStyleGuideEnvironment(renderer, scene, qualityRef.current);
+      } catch (error) {
+        // PMREM IBL needs a real GPU; the mine still plays with local lights.
+      }
+      if (
+        renderer.compileAsync
+        && renderer.extensions?.has('KHR_parallel_shader_compile')
+      ) {
+        renderer.compileAsync(scene, camera).catch(() => {});
+      }
+      setStage('compiling');
+      try {
+        if (!isTouch) {
+          post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
+            preset: qualityRef.current,
+            bloom: 0.32,
+            grade: api.worldArt?.grade,
+            focus: 16,
+            dof: false,
+          });
+        }
+      } catch (error) {
+        post = null;
+      }
+      ctxRef.current.post = post;
+      applyMineGfx(ctxRef.current, gfx, qualityRef.current);
 
       // headlamp
-      const lamp = new THREE.SpotLight(0xffe7c0, 2.6, 44 * (model.worldScale || 1), 0.52, 0.5, 1.3);
+      const lamp = new THREE.SpotLight(0xffe7c0, 2.15, 38 * (model.worldScale || 1), 0.48, 0.55, 1.3);
+      lamp.userData.lightRole = 'headlamp';
+      lamp.userData.baseIntensity = lamp.intensity;
       if (!isTouch) { try { lamp.castShadow = true; lamp.shadow.mapSize.set(1024, 1024); lamp.shadow.camera.near = 0.6; lamp.shadow.camera.far = 48; lamp.shadow.bias = -0.0025; } catch (e) { } }
       scene.add(lamp); scene.add(lamp.target);
       ambRef.current = createAmbience(scene, 'mine');
@@ -224,6 +302,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       applyMineProgress(api, model, saveRefM.current);
       let last = performance.now();
+      let announcedReady = false;
       let _aim = null, _flash = null, _hp = null, _hpTex = null, _lastBar = -1, _prevE = null, _prevP = null, _punchT = -9e9, _flashT = -9e9, _shakeT = -9e9, _vigT = -9e9, _prevOver = null, _prevPhase = 1;
       const drawHpBar = (tex, frac, tele) => {
         const cv = tex.userData.cv, x = cv.getContext('2d'); x.clearRect(0, 0, 256, 64);
@@ -346,7 +425,14 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         if (ambRef.current) { ambRef.current.update(dt, now / 1000, _moving, _sprint); if (_stepped) ambRef.current.footstep(); }
         { const gw = (saveRefM.current.gear && saveRefM.current.gear.weapon) || 'w_iron'; if (gw !== _vmWeap) { if (_vm) camera.remove(_vm); _vm = makeViewModel(gw); camera.add(_vm); _vmWeap = gw; } if (_vm) updateViewModel(_vm, now, _moving, _vmJabT); }
         FR.tick(post ? 1 : 0);
-        if (post) post.render(scene, camera); else renderer.render(scene, camera);
+        if (post) {
+          post.setMoving?.(_moving);
+          post.render(scene, camera);
+        } else renderer.render(scene, camera);
+        if (!announcedReady) {
+          announcedReady = true;
+          setStage('ready');
+        }
       };
       tick();
       cleanup.push(() => cancelAnimationFrame(raf));
@@ -358,7 +444,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
   }, []); // eslint-disable-line
 
   // ---------- overlay router ----------
-  useEffect(() => { applyGfx(ctxRef.current, gfx); }, [gfx]); // eslint-disable-line
+  useEffect(() => { applyMineGfx(ctxRef.current, gfx, quality); }, [gfx, quality]);
 
   const renderOverlay = () => {
     if (!overlay) return null;
@@ -496,19 +582,68 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
   // ---------- full-screen 3D + HUD ----------
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 20, background: '#04050A' }}>
+    <div className="sg-world" data-mine-status={stage} style={{ position: 'fixed', inset: 0, zIndex: 80, background: '#05070b' }}>
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+      <div className="sg-corners" />
 
-      <CinematicFX accent="#FFC76B" />
+      <CinematicFX accent="#c48a48" />
       <DevPerfHUD ctxRef={ctxRef} />
-      <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 26 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
+      {stage !== 'ready' && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 27, display: 'grid', placeItems: 'center',
+          pointerEvents: 'none',
+          background: 'radial-gradient(circle at 50% 42%, rgba(24,16,10,.18), rgba(5,7,11,.7))',
+        }}>
+          <div className="eyebrow" style={{
+            padding: '12px 16px', color: '#d7c4a4', background: 'rgba(5,7,11,.84)',
+            border: '1px solid #2a241c', letterSpacing: '.16em',
+          }}>
+            DESCENDING SHAFT · {stage.toUpperCase()}
+          </div>
+        </div>
+      )}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, right: 12, zIndex: 32 }} onClick={() => { AudioFX.click(); onSettings(); }} title="settings"><Settings size={13} /></button>
+      <button
+        className="btn sm"
+        style={{ position: 'absolute', top: 12, right: 108, zIndex: 32 }}
+        onClick={() => { AudioFX.click(); setGfxOpen(open => !open); }}
+      >
+        <SlidersHorizontal size={12} /> graphics
+      </button>
+      {gfxOpen && (
+        <div className="card" style={{
+          position: 'absolute', top: 48, right: 12, zIndex: 32, width: 248,
+          padding: '12px 14px', background: 'rgba(5,7,11,.94)', borderColor: '#2a241c',
+        }}>
+          <div className="eyebrow" style={{ color: '#ffc76b', marginBottom: 10 }}>quality · the bit mines</div>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            {Object.keys(STYLE_GUIDE_QUALITY).map(name => (
+              <button
+                key={name}
+                className="btn sm"
+                onClick={() => { AudioFX.click(); setQuality(name); }}
+                style={{
+                  flex: 1,
+                  padding: '4px 0',
+                  color: quality === name ? '#061017' : '#cbb79a',
+                  background: quality === name ? '#ffc76b' : 'rgba(20,16,12,.7)',
+                  borderColor: quality === name ? '#ffc76b' : '#2a241c',
+                }}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          <button className="lnk" style={{ paddingLeft: 0 }} onClick={() => setGfxOpen(false)}>close</button>
+        </div>
+      )}
       <EnterFade />
 
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 25 }}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 12, zIndex: 32 }}
         onClick={() => { try { document.exitPointerLock && document.exitPointerLock(); } catch (e) { } AudioFX.click(); go({ name: 'menu' }); }}>
         <ChevronLeft size={12} /> menu
       </button>
-      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: 25 }}
+      <button className="btn sm" style={{ position: 'absolute', top: 12, left: 92, zIndex: 32 }}
         onClick={() => { AudioFX.click(); setMapOpen(true); }}>
         <MapIcon size={12} /> map
       </button>
@@ -519,7 +654,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       {banner && !overlay && (
         <div key={banner} className="popin" style={{ position: 'absolute', top: 56, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #2A2014', borderRadius: 8, background: 'rgba(10,8,4,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#FFC76B' }}>
+          <div style={{ display: 'inline-block', padding: '7px 22px', border: '1px solid #2A2014', background: 'rgba(10,8,4,0.82)', letterSpacing: '.22em', fontSize: 13, color: '#FFC76B' }}>
             {banner}
           </div>
         </div>
@@ -527,7 +662,7 @@ function MineScreen({ save, go, cb, gfx, setGfx, onSettings }) {
 
       {prompt && !overlay && (
         <div style={{ position: 'absolute', bottom: isTouch ? 120 : 64, left: 0, right: 0, textAlign: 'center', zIndex: 22, pointerEvents: 'none' }}>
-          <span style={{ padding: '8px 16px', borderRadius: 7, background: 'rgba(10,8,4,0.88)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#7A6310'), color: prompt.locked ? '#FF8B82' : '#FFC76B', fontSize: 13, letterSpacing: '.08em' }}>
+          <span style={{ padding: '8px 16px', background: 'rgba(10,8,4,0.88)', border: '1px solid ' + (prompt.locked ? '#B14A52' : '#7A6310'), color: prompt.locked ? '#FF8B82' : '#FFC76B', fontSize: 13, letterSpacing: '.08em' }}>
             {prompt.text}
           </span>
         </div>

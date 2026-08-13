@@ -37,24 +37,24 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
   return (
     <div className="mm-root">
       <style>{`
-        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -10%,#0c1430 0%,#070912 55%,#04060c 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:42px 24px}
+        .mm-root{position:fixed;inset:0;z-index:30;overflow:auto;background:radial-gradient(120% 90% at 50% -8%,#14100c 0%,#08070b 52%,#05070b 100%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:42px 24px}
         @media(min-height:920px){.mm-root{justify-content:center}}
-        .mm-grid{position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;background-image:linear-gradient(rgba(34,211,238,.15) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.15) 1px,transparent 1px);background-size:46px 46px;transform:perspective(420px) rotateX(62deg);transform-origin:50% 100%;animation:mm-pan 7s linear infinite;-webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);mask-image:linear-gradient(to top,#000 8%,transparent 78%)}
+        .mm-grid{position:absolute;left:-30%;right:-30%;bottom:-12%;height:58%;background-image:linear-gradient(rgba(255,199,107,.10) 1px,transparent 1px),linear-gradient(90deg,rgba(125,239,255,.08) 1px,transparent 1px);background-size:46px 46px;transform:perspective(420px) rotateX(62deg);transform-origin:50% 100%;animation:mm-pan 7s linear infinite;-webkit-mask-image:linear-gradient(to top,#000 8%,transparent 78%);mask-image:linear-gradient(to top,#000 8%,transparent 78%)}
         @keyframes mm-pan{from{background-position:0 0}to{background-position:0 46px}}
-        .mm-bit{position:absolute;top:-8%;color:rgba(125,239,255,.28);font-family:ui-monospace,monospace;animation:mm-fall linear infinite;pointer-events:none}
+        .mm-bit{position:absolute;top:-8%;color:rgba(255,199,107,.22);font-family:ui-monospace,monospace;animation:mm-fall linear infinite;pointer-events:none}
         @keyframes mm-fall{to{transform:translateY(116vh)}}
         .mm-map{position:absolute;inset:0;width:100%;height:100%;z-index:1;opacity:.55;pointer-events:none}
         .mm-trace{stroke-dasharray:9 13;animation:mm-flow 4s linear infinite}
         @keyframes mm-flow{to{stroke-dashoffset:-44}}
         .mm-node{animation:mm-pulse 3.2s ease-in-out infinite}
         @keyframes mm-pulse{0%,100%{stroke-opacity:.22}50%{stroke-opacity:.6}}
-        .mm-glow{text-shadow:0 0 24px rgba(34,211,238,.55),0 0 60px rgba(34,211,238,.22)}
-        .mm-btn{display:flex;align-items:center;gap:13px;width:330px;max-width:84vw;padding:13px 18px;border-radius:9px;border:1px solid #233247;background:rgba(13,18,28,.78);color:#D7E0EA;font:inherit;cursor:pointer;text-align:left;transition:border-color .15s,background .15s,transform .05s,box-shadow .15s}
-        .mm-btn:hover{border-color:#22D3EE;background:rgba(16,26,38,.92);box-shadow:0 0 22px rgba(34,211,238,.16)}
+        .mm-glow{text-shadow:0 0 24px rgba(255,199,107,.35),0 0 60px rgba(34,211,238,.16)}
+        .mm-btn{display:flex;align-items:center;gap:13px;width:330px;max-width:84vw;padding:13px 18px;border-radius:2px;border:1px solid #2a3340;background:rgba(10,12,16,.82);color:#D7E0EA;font:inherit;cursor:pointer;text-align:left;transition:border-color .15s,background .15s,transform .05s,box-shadow .15s}
+        .mm-btn:hover{border-color:#ffc76b;background:rgba(16,18,22,.92);box-shadow:0 0 22px rgba(255,199,107,.12)}
         .mm-btn:active{transform:translateY(1px)}
-        .mm-btn.start{border-color:#155E6B;background:rgba(12,44,51,.85)}
-        .mm-btn.start:hover{border-color:#22D3EE;box-shadow:0 0 30px rgba(34,211,238,.28)}
-        .mm-ico{display:flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:8px;background:rgba(34,211,238,.10);flex:none}
+        .mm-btn.start{border-color:#7A6310;background:rgba(24,18,8,.88)}
+        .mm-btn.start:hover{border-color:#ffc76b;box-shadow:0 0 30px rgba(255,199,107,.2)}
+        .mm-ico{display:flex;width:34px;height:34px;align-items:center;justify-content:center;border-radius:2px;background:rgba(34,211,238,.10);flex:none}
       `}</style>
       <div className="mm-grid" />
       <svg className="mm-map" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">

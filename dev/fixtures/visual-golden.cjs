@@ -5,7 +5,7 @@
 // while a gutted or accidentally disconnected scene fails immediately.
 module.exports = {
   campus: { direct: 272, total: 303, rendered: 283, lights: 4 },
-  mines: { direct: 259, total: 346, rendered: 306, lights: 22 },
+  mines: { direct: 153, total: 328, rendered: 253, lights: 33 },
   arcade: { direct: 48, total: 49, rendered: 40, lights: 7 },
   'style-guide': { direct: 18, total: 70, rendered: 55, lights: 7 },
   'dungeon-2': { direct: 144, total: 234, rendered: 204, lights: 15 },

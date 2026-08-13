@@ -251,7 +251,7 @@ function makeStyleGuidePostFX(renderer, scene, camera, cssWidth, cssHeight, opti
     aperture: 0.000008,
     maxblur: 0.0014,
   });
-  bokeh.enabled = preset.dof;
+  bokeh.enabled = options.dof == null ? preset.dof : !!options.dof;
   let lutTexture = createGradeLUT(options.grade);
   const lut = new LUTPass({ lut: lutTexture, intensity: 0.82 });
   const finish = new ShaderPass(FINISH_SHADER);
@@ -286,6 +286,9 @@ function makeStyleGuidePostFX(renderer, scene, camera, cssWidth, cssHeight, opti
     setBloom(value) {
       bloom.strength = Number.isFinite(value) ? value : preset.bloom;
     },
+    setStrength(value) {
+      bloom.strength = Number.isFinite(value) ? value : preset.bloom;
+    },
     setMoving(value) {
       moving = Boolean(value);
       finish.uniforms.movement.value = moving ? 1 : 0;
@@ -298,7 +301,7 @@ function makeStyleGuidePostFX(renderer, scene, camera, cssWidth, cssHeight, opti
       gtao.updateGtaoMaterial({ samples: preset.aoSamples });
       gtao.updatePdMaterial({ samples: preset.aoDenoise });
       bloom.radius = preset.bloomRadius;
-      bokeh.enabled = preset.dof;
+      bokeh.enabled = options.dof == null ? preset.dof : !!options.dof;
       scene.environmentIntensity = name === 'low' ? 0.68 : 0.82;
       renderer.shadowMap.type = name === 'low'
         ? THREE.PCFSoftShadowMap
@@ -313,7 +316,14 @@ function makeStyleGuidePostFX(renderer, scene, camera, cssWidth, cssHeight, opti
       });
       updateResolution();
     },
-    render(delta = 1 / 60) {
+    render(sceneOrDelta, camera) {
+      let delta = 1 / 60;
+      if (typeof sceneOrDelta === 'number') {
+        delta = sceneOrDelta;
+      } else if (sceneOrDelta?.isScene && camera) {
+        renderPass.scene = sceneOrDelta;
+        renderPass.camera = camera;
+      }
       renderer.info.reset();
       finish.uniforms.time.value = performance.now() / 1000;
       composer.render(delta);

@@ -110,6 +110,8 @@ function DevPerfHUD({ ctxRef }) {
         fps: Math.round(frames * 1000 / elapsed),
         calls: postStats?.calls ?? renderer?.info?.render?.calls ?? 0,
         triangles: postStats?.triangles ?? renderer?.info?.render?.triangles ?? 0,
+        quality: postStats?.quality,
+        renderScale: postStats?.renderScale,
       });
       frames = 0;
       last = now;
@@ -123,7 +125,7 @@ function DevPerfHUD({ ctxRef }) {
   if (!enabled || !stats) return null;
   return (
     <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 27, padding: '5px 9px', borderRadius: 6, background: 'rgba(3,6,10,.82)', border: '1px solid #273245', color: '#7defff', fontSize: 10.5, pointerEvents: 'none' }}>
-      {stats.fps} FPS · {stats.calls} calls · {stats.triangles.toLocaleString()} tris
+      {stats.fps} FPS · {stats.calls} calls · {stats.triangles.toLocaleString()} tris{stats.quality ? ` · ${stats.quality}` : ''}{stats.renderScale ? ` @${stats.renderScale}` : ''}
     </div>
   );
 }

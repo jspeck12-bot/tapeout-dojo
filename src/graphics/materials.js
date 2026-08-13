@@ -196,7 +196,11 @@ function pbrMaterial(surface, color, options = {}) {
   const repeat = options.repeat || 1;
   const materialOptions = { ...options };
   delete materialOptions.repeat;
-  const Material = surface === 'silicon'
+  const usePhysical = surface === 'silicon'
+    || surface === 'wetRock'
+    || materialOptions.physical;
+  delete materialOptions.physical;
+  const Material = usePhysical
     ? THREE.MeshPhysicalMaterial
     : THREE.MeshStandardMaterial;
   if (surface === 'silicon') {
@@ -204,6 +208,11 @@ function pbrMaterial(surface, color, options = {}) {
     materialOptions.clearcoatRoughness ??= 0.26;
     materialOptions.iridescence ??= 0.24;
     materialOptions.iridescenceIOR ??= 1.8;
+  }
+  if (surface === 'wetRock') {
+    materialOptions.clearcoat ??= 0.58;
+    materialOptions.clearcoatRoughness ??= 0.34;
+    materialOptions.ior ??= 1.33;
   }
   const material = new Material({
     color,

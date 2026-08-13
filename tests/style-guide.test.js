@@ -78,6 +78,9 @@ describe('Silicon Gothic style guide', () => {
     expect(material.map).toBeTruthy();
     expect(material.roughnessMap).toBeTruthy();
     expect(material.normalMap).toBeTruthy();
+    const wet = pbrMaterial('wetRock', 0x6a5846);
+    expect(wet.isMeshPhysicalMaterial).toBe(true);
+    expect(wet.clearcoat).toBeGreaterThan(0.4);
   });
 
   test('composes the review scene by hand around an unobstructed wafer landmark', () => {
