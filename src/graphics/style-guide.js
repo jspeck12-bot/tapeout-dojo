@@ -47,14 +47,14 @@ function buildStyleGuideScene(scene) {
     pedestal.position.set(x, 0.33, -8);
     pedestal.castShadow = pedestal.receiveShadow = true;
     scene.add(pedestal);
+    const sampleOptions = {};
+    if (surface === 'wetRock') sampleOptions.roughness = 0.62;
+    if (surface === 'wornSteel' || surface === 'brass' || surface === 'silicon') sampleOptions.metalness = 0.72;
     const sample = new THREE.Mesh(
       index % 2
         ? roundedBoxGeometry(2.4, 2.4, 2.4, 0.36, 3)
         : new THREE.SphereGeometry(1.42, 32, 20),
-      pbrMaterial(surface, color, {
-        roughness: surface === 'wetRock' ? 0.62 : undefined,
-        metalness: surface === 'wornSteel' || surface === 'brass' || surface === 'silicon' ? 0.72 : undefined,
-      }),
+      pbrMaterial(surface, color, sampleOptions),
     );
     sample.position.set(x, 2, -8);
     sample.castShadow = sample.receiveShadow = true;
