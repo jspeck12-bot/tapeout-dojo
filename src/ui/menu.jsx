@@ -235,8 +235,8 @@ function MainMenu({ save, go, onSettings, onNewGame, onReplayTutorial }) {
             />
             <MenuRow
               icon={<BookMark size={16} />}
-              title="CODEX & MASTERY DIE"
-              hint="search recovered notes · inspect weak topics"
+              title="FIELD NOTES ARCHIVE"
+              hint="holo terminals · mastery die · recall"
               onClick={() => { AudioFX.click(); go({ name: 'codex' }); }}
             />
             {save.tapeoutDone && (

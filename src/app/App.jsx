@@ -29,6 +29,7 @@ import {
 import { MainMenu, TapeoutBay, DrillScreen } from '../ui/menu.jsx';
 import { PrologueScreen } from '../ui/PrologueScreen.jsx';
 import { CodexScreen } from '../ui/codex/CodexScreen.jsx';
+import { NotesScreen, NOTES_DEMO_SAVE } from '../ui/NotesScreen.jsx';
 import { BossRushScreen } from '../ui/BossRushScreen.jsx';
 import {
   GfxPanel,
@@ -63,7 +64,7 @@ function devScreenFromUrl() {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(hostname)) return null;
   const params = new URLSearchParams(window.location.search);
   const name = params.get('screen');
-  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay'].includes(name)) return null;
+  if (!['campus', 'mine', 'arcade', 'dungeon', 'styleguide', 'uikit', 'workbench', 'menu', 'worlds', 'debugbay', 'notes'].includes(name)) return null;
   if (name === 'dungeon') {
     const world = Math.max(2, Math.min(7, Number(params.get('w')) || 2));
     return { name, w: world };
@@ -526,11 +527,18 @@ export function App() {
     <div className="tk-root" onPointerDown={() => AudioFX.ensure()}>
       <style>{CSS}</style>
       <div className="scanlines" />
-      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
+      {!['menu', 'prologue', 'campus', 'mine', 'arcade', 'dungeon', 'home', 'uikit', 'workbench', 'worlds', 'debugbay', 'notes', 'codex'].includes(screen.name) && <Header save={save} onHome={() => go({ name: 'menu' })} onToggleSound={toggleSound} onSettings={() => setSettingsOpen(true)} />}
       <div className="wrap">
         {screen.name === 'menu' && <MainMenu save={save} go={go} onSettings={() => setSettingsOpen(true)} onNewGame={() => { onNewSlot(activeSlot); go({ name: 'prologue', replay: false }); }} onReplayTutorial={() => go({ name: 'prologue', replay: true })} />}
         {screen.name === 'prologue' && <PrologueScreen save={save} replay={!!screen.replay} onProgress={onTutorialProgress} onChooseMode={onTutorialMode} onComplete={onTutorialComplete} />}
         {screen.name === 'codex' && <CodexScreen save={save} go={go} onRecall={onLessonRecall} />}
+        {screen.name === 'notes' && (
+          <NotesScreen
+            save={normalizeSave(NOTES_DEMO_SAVE)}
+            go={go}
+            onRecall={onLessonRecall}
+          />
+        )}
         {screen.name === 'bossrush' && <BossRushScreen save={save} go={go} />}
         {screen.name === 'drill' && <DrillScreen save={save} go={go} onReview={(id, kind) => { drillReturnRef.current = true; go({ name: kind, id }); }} />}
         {screen.name === 'tapeout' && <TapeoutBay save={save} go={go} />}
