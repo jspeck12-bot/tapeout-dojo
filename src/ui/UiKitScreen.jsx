@@ -96,6 +96,9 @@ function UiKitScreen({ go }) {
             <Button variant="ghost" size="sm" onClick={() => go({ name: 'menu' })}>
               ← menu
             </Button>
+            <Button variant="ghost" size="sm" onClick={() => go({ name: 'workbench' })}>
+              workbench
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => go({ name: 'styleguide' })}>
               3D lab
             </Button>

@@ -85,7 +85,24 @@ function stageArtifactCompat() {
   const mainFile = path.join(srcDir, 'main.jsx');
   const files = sourceModules(srcDir);
   const gameFiles = files.filter((file) => file !== mainFile);
-  const allowed = new Set(['react', 'react-dom', 'three', 'lucide-react']);
+  // Core runtime + CodeMirror 6 workbench (Verilog editor / merge diff).
+  // New deps require a one-line reason in the commit that adds them.
+  const allowed = new Set([
+    'react',
+    'react-dom',
+    'three',
+    'lucide-react',
+    'codemirror',
+    '@codemirror/autocomplete',
+    '@codemirror/commands',
+    '@codemirror/language',
+    '@codemirror/legacy-modes',
+    '@codemirror/merge',
+    '@codemirror/search',
+    '@codemirror/state',
+    '@codemirror/view',
+    '@lezer/highlight',
+  ]);
   const packageJson = JSON.parse(fs.readFileSync(path.join(shared.ROOT, 'package.json'), 'utf8'));
   if (packageJson.dependencies.three !== '0.185.1') {
     throw new Error(`expected three 0.185.1, found ${packageJson.dependencies.three}`);
