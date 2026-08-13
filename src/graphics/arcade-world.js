@@ -176,8 +176,8 @@ function buildEntranceFrame(scene, steel, brass) {
 function buildPathLighting(scene, low) {
   const group = new THREE.Group();
   group.userData.pathLighting = true;
-  const strip = emissiveSurface('silicon', ARCADE_PALETTE.magenta, 0.55, 4);
-  const stud = emissiveSurface('silicon', ARCADE_PALETTE.cyan, 0.85, 1);
+  const strip = emissiveSurface('silicon', ARCADE_PALETTE.magenta, 0.4, 4);
+  const stud = emissiveSurface('silicon', ARCADE_PALETTE.cyan, 0.7, 1);
   for (let index = 0; index < PATH.length - 1; index++) {
     const a = PATH[index];
     const b = PATH[index + 1];
@@ -326,39 +326,41 @@ function buildMarqueeLandmark(scene, steel, brass) {
   core.userData.cast = true;
 
   // Unfogged neon beacon so the marquee reads from spawn through bloom.
+  // Face-on slab so the marquee reads as a cabinet totem, not a sun disk.
   const beacon = new THREE.Mesh(
-    roundedBoxGeometry(1.1, 1.6, 0.18, 0.06, 2),
-    emissiveSurface('silicon', ARCADE_PALETTE.magenta, 1.55, 1),
+    roundedBoxGeometry(1.35, 1.35, 0.22, 0.06, 2),
+    emissiveSurface('silicon', ARCADE_PALETTE.magenta, 1.15, 1),
   );
-  beacon.position.set(0, 4.55, 0.55);
+  beacon.position.set(0, 4.35, 0.62);
+  beacon.rotation.x = -0.18;
   beacon.material.fog = false;
   landmark.add(beacon);
 
   const crown = new THREE.Mesh(
-    new THREE.TorusGeometry(1.05, 0.14, 10, 28),
-    emissiveSurface('silicon', ARCADE_PALETTE.cyan, 1.4, 1),
+    new THREE.TorusGeometry(1.15, 0.16, 10, 28),
+    emissiveSurface('silicon', ARCADE_PALETTE.cyan, 1.15, 1),
   );
-  crown.position.set(0, 3.85, 0);
+  crown.position.set(0, 3.7, 0);
   crown.rotation.x = Math.PI / 2;
   crown.material.fog = false;
   landmark.add(crown);
 
   const halo = new THREE.Mesh(
-    new THREE.TorusGeometry(1.55, 0.08, 8, 36),
+    new THREE.TorusGeometry(1.7, 0.09, 8, 36),
     new THREE.MeshBasicMaterial({
       color: ARCADE_PALETTE.magenta,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.62,
       fog: false,
       toneMapped: false,
     }),
   );
-  halo.position.set(0, 3.85, 0);
+  halo.position.set(0, 3.7, 0);
   halo.rotation.x = 0.55;
   landmark.add(halo);
 
-  const sign = gothicLabel('NEON HALL', '#22D3EE', 0.72);
-  sign.position.set(0, 5.55, 0.2);
+  const sign = gothicLabel('NEON HALL', '#22D3EE', 0.78);
+  sign.position.set(0, 5.35, 0.35);
   landmark.add(sign);
 
   const under = new THREE.PointLight(ARCADE_PALETTE.magenta, 1.1, 18, 1.6);
@@ -462,8 +464,9 @@ function buildCabinet(scene, item, spawnZ, steel, brass) {
   light.userData.baseIntensity = light.intensity;
   group.add(light);
 
-  const label = gothicLabel(item.label, '#' + new THREE.Color(accent).getHexString(), 0.55);
-  label.position.set(0, 3.55, 0);
+  // Keep cabinet titles below the marquee crown so they do not stack on NEON HALL.
+  const label = gothicLabel(item.label, '#' + new THREE.Color(accent).getHexString(), 0.48);
+  label.position.set(0, 3.25, 0);
   group.add(label);
 
   scene.add(fxCone(accent, 1.35, 4.2, 0.04, item.x, item.z));
@@ -491,8 +494,9 @@ function buildLightShaft(scene) {
 }
 
 function buildCeilingTrusses(scene, steel) {
-  const cool = emissiveSurface('silicon', ARCADE_PALETTE.cyan, 0.7, 2);
-  [-14, 0, 14].forEach((z, index) => {
+  const cool = emissiveSurface('silicon', ARCADE_PALETTE.cyan, 0.42, 2);
+  // Skip the mid truss (z=0) so the marquee crown is not crushed by a hot bar.
+  [-14, 14].forEach((z, index) => {
     const beam = new THREE.Mesh(
       roundedBoxGeometry(36, 0.28, 0.42, 0.06, 2),
       steel,
@@ -504,7 +508,7 @@ function buildCeilingTrusses(scene, steel) {
       roundedBoxGeometry(34, 0.08, 0.1, 0.03, 2),
       index % 2
         ? cool
-        : emissiveSurface('silicon', ARCADE_PALETTE.magenta, 0.75, 2),
+        : emissiveSurface('silicon', ARCADE_PALETTE.magenta, 0.48, 2),
     );
     neon.position.set(0, HALL_H - 0.72, z);
     scene.add(neon);

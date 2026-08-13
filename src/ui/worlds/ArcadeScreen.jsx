@@ -157,7 +157,7 @@ function ArcadeScreen({ save, go, cb, gfx, setGfx, onSettings }) {
         if (!isTouch) {
           post = makeStyleGuidePostFX(renderer, scene, camera, width, height, {
             preset: qualityRef.current,
-            bloom: 0.3,
+            bloom: 0.24,
             grade: api.worldArt?.grade,
             focus: 14,
             dof: false,
