@@ -113,15 +113,16 @@ function NotesScreen({ save, go, onRecall = () => {} }) {
           min-height:calc(100vh - 48px);
           display:grid;
           grid-template-rows:auto auto 1fr auto;
-          gap:clamp(12px,1.8vh,20px);
+          gap:clamp(10px,1.4vh,16px);
         }
         .ns-grid{
           display:grid;
-          grid-template-columns:minmax(260px,0.78fr) minmax(0,1.55fr);
+          grid-template-columns:minmax(260px,0.72fr) minmax(0,1.7fr);
           gap:var(--sg-space-4);
           align-items:stretch;
           min-height:0;
         }
+        .ns-die-panel .sg-panel__body{ padding-top:4px; }
         .ns-rack-panel,
         .ns-reader-panel{ display:flex;flex-direction:column;min-height:0; }
         .ns-rack-panel .sg-panel__body,
@@ -193,7 +194,7 @@ function NotesScreen({ save, go, onRecall = () => {} }) {
           margin-top:3px;font-size:10.5px;color:var(--sg-ink-dim);letter-spacing:.03em;
         }
         .ns-holo{
-          position:relative;flex:1;min-height:min(58vh,680px);
+          position:relative;flex:1;min-height:min(64vh,760px);
           border:1px solid color-mix(in srgb, var(--sg-cyan) 36%, var(--sg-line-strong));
           background:
             radial-gradient(120% 80% at 50% 0%,
@@ -270,19 +271,19 @@ function NotesScreen({ save, go, onRecall = () => {} }) {
           border-color:var(--sg-cyan) !important;
         }
         .ns-die{
-          padding:2px 0 0;
+          padding:0;
         }
         .ns-die__label{
-          font-family:var(--sg-font-mono);font-size:11px;letter-spacing:.16em;
-          text-transform:uppercase;color:var(--sg-cyan);margin-bottom:10px;
+          font-family:var(--sg-font-mono);font-size:10.5px;letter-spacing:.16em;
+          text-transform:uppercase;color:var(--sg-cyan);margin-bottom:8px;
         }
         .ns-die__faces{
           display:grid;
-          grid-template-columns:repeat(auto-fit,minmax(132px,1fr));
-          gap:8px;
+          grid-template-columns:repeat(auto-fit,minmax(118px,1fr));
+          gap:6px;
         }
         .ns-face{
-          min-height:78px;padding:10px;
+          min-height:58px;padding:7px 8px;
           border:1px solid color-mix(in srgb, var(--sg-line) 90%, var(--sg-cyan));
           background:
             linear-gradient(0deg,
@@ -300,9 +301,9 @@ function NotesScreen({ save, go, onRecall = () => {} }) {
           border-color:color-mix(in srgb, var(--sg-ok) 55%, var(--sg-line));
           box-shadow:0 0 18px color-mix(in srgb, var(--sg-ok) 16%, transparent);
         }
-        .ns-face__name{ font-size:12px;color:var(--sg-ink); }
+        .ns-face__name{ font-size:11px;color:var(--sg-ink); line-height:1.2; }
         .ns-face__bar{
-          height:4px;margin:9px 0 6px;
+          height:3px;margin:6px 0 4px;
           background:color-mix(in srgb, var(--sg-line) 85%, transparent);
         }
         .ns-face__fill{
@@ -372,7 +373,7 @@ function NotesScreen({ save, go, onRecall = () => {} }) {
           </div>
         </header>
 
-        <Panel title="Mastery die" wide>
+        <Panel title="Mastery die" wide className="ns-die-panel" tight>
           <MasteryDie save={save} />
         </Panel>
 
