@@ -126,9 +126,9 @@ const GOTHIC_DUNGEONS = {
     far: 300,
     pitch: -0.26,
     ambience: 'cave',
-    bloom: 0.26,
+    bloom: 0.22,
     focus: 18,
-    exposure: 0.8,
+    exposure: 0.78,
   },
 };
 

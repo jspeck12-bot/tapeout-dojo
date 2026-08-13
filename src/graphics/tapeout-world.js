@@ -282,10 +282,10 @@ function buildWaferAltar(scene, stone, steel, brass) {
     landmark,
     new THREE.CylinderGeometry(4.6, 4.6, 0.16, 56),
     pbrMaterial('silicon', TAPEOUT_PALETTE.silicon, {
-      roughness: 0.16,
-      metalness: 0.74,
+      roughness: 0.22,
+      metalness: 0.68,
       emissive: TAPEOUT_PALETTE.gold,
-      emissiveIntensity: 1.15,
+      emissiveIntensity: 0.72,
       repeat: 2,
       toneMapped: false,
     }),
@@ -300,8 +300,8 @@ function buildWaferAltar(scene, stone, steel, brass) {
 
   const rim = addMesh(
     landmark,
-    new THREE.TorusGeometry(4.75, 0.1, 8, 56),
-    emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.9, 1),
+    new THREE.TorusGeometry(4.75, 0.12, 8, 56),
+    emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.35, 1),
     0,
     5.4,
     2.4,
@@ -320,7 +320,7 @@ function buildWaferAltar(scene, stone, steel, brass) {
   notch.userData.glow = true;
 
   // Die grid — thin gold traces on the wafer face (follow the tilt).
-  const dieMat = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.15, 1);
+  const dieMat = emissiveSurface('silicon', TAPEOUT_PALETTE.gold, 1.55, 1);
   dieMat.fog = false;
   const die = new THREE.Group();
   die.position.set(0, 5.55, 2.4);
@@ -353,14 +353,14 @@ function buildWaferAltar(scene, stone, steel, brass) {
   beacon.material.fog = false;
 
   // ONE hero point light on the wafer — no competing monument floods.
-  const hero = new THREE.PointLight(TAPEOUT_PALETTE.spill, 2.6, 38, 1.7);
+  const hero = new THREE.PointLight(TAPEOUT_PALETTE.spill, 1.85, 34, 1.85);
   hero.position.set(0, 9.2, 2.4);
   hero.castShadow = false;
   hero.userData.lightRole = 'monument';
   hero.userData.baseIntensity = hero.intensity;
   landmark.add(hero);
 
-  landmark.add(fxCone(TAPEOUT_PALETTE.gold, 5.0, 24, 0.045, 0, 2.2));
+  landmark.add(fxCone(TAPEOUT_PALETTE.gold, 4.4, 20, 0.028, 0, 2.2));
   const marquee = gothicLabel('THE WAFER ALTAR', '#FACC15', 1.55);
   marquee.position.set(0, 16.8, 3.2);
   landmark.add(marquee);
@@ -654,10 +654,10 @@ function buildTapeoutWorldScene(scene, model, theme, helpers) {
   markSelectiveShadows(scene);
 
   (scene.userData.anims = scene.userData.anims || []).push((time) => {
-    monument.hero.intensity = 2.4 + Math.sin(time * 0.9) * 0.22;
-    monument.wafer.material.emissiveIntensity = 1.05 + Math.sin(time * 1.1) * 0.18;
-    monument.beacon.material.emissiveIntensity = 2.0 + Math.sin(time * 1.6) * 0.25;
-    shaft.material.opacity = 0.016 + Math.sin(time * 0.55) * 0.007;
+    monument.hero.intensity = 1.7 + Math.sin(time * 0.9) * 0.16;
+    monument.wafer.material.emissiveIntensity = 0.65 + Math.sin(time * 1.1) * 0.1;
+    monument.beacon.material.emissiveIntensity = 1.85 + Math.sin(time * 1.6) * 0.2;
+    shaft.material.opacity = 0.012 + Math.sin(time * 0.55) * 0.005;
     atmosphere.rotation.y = time * 0.0025;
     motes.rotation.y = -time * 0.006;
   });
