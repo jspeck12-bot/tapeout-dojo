@@ -61,9 +61,22 @@ const SCENES = {
   },
 };
 
+function hudSceneFromUrl() {
+  if (typeof window === 'undefined') return 'explore';
+  const params = new URLSearchParams(window.location.search);
+  const scene = params.get('scene');
+  return scene && SCENES[scene] ? scene : 'explore';
+}
+
+function hudStillFromUrl() {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('still') === '1';
+}
+
 function HudScreen({ go }) {
   const [stage, setStage] = useState('boot');
-  const [sceneId, setSceneId] = useState('explore');
+  const [sceneId, setSceneId] = useState(() => hudSceneFromUrl());
+  const stillMode = hudStillFromUrl();
   const scene = SCENES[sceneId];
 
   useEffect(() => {
@@ -76,7 +89,7 @@ function HudScreen({ go }) {
   }, []);
 
   return (
-    <div className="sg-ui hs-root" data-hud-status={stage}>
+    <div className="sg-ui hs-root" data-hud-status={stage} data-hud-scene={sceneId} data-hud-still={stillMode ? '1' : '0'}>
       <style>{TOKEN_CSS}</style>
       <style>{`
         .hs-root{
@@ -180,41 +193,43 @@ function HudScreen({ go }) {
         onGraphics={() => { AudioFX.click(); }}
       />
 
-      <div className="hs-dock">
-        <Panel tight className="hs-legend">
-          <div className="hs-kicker">operator hud · silicon gothic</div>
-          <h1 className="hs-title">OPERATOR HUD</h1>
-          <p className="hs-copy">
-            Fab-equipment chrome for exploration — vitals, zone plaque, reticle, engage prompt, help, radar.
-          </p>
-          <div className="hs-scenes" role="group" aria-label="hud scenes">
-            {Object.values(SCENES).map((item) => (
-              <Button
-                key={item.id}
-                size="sm"
-                variant={sceneId === item.id ? 'brass' : 'ghost'}
-                icon={sceneId === item.id ? <HudMark size={12} /> : null}
-                onClick={() => { AudioFX.click(); setSceneId(item.id); }}
-              >
-                {item.label}
+      {!stillMode && (
+        <div className="hs-dock">
+          <Panel tight className="hs-legend">
+            <div className="hs-kicker">operator hud · silicon gothic</div>
+            <h1 className="hs-title">OPERATOR HUD</h1>
+            <p className="hs-copy">
+              Fab-equipment chrome for exploration — vitals, zone plaque, reticle, engage prompt, help, radar.
+            </p>
+            <div className="hs-scenes" role="group" aria-label="hud scenes">
+              {Object.values(SCENES).map((item) => (
+                <Button
+                  key={item.id}
+                  size="sm"
+                  variant={sceneId === item.id ? 'brass' : 'ghost'}
+                  icon={sceneId === item.id ? <HudMark size={12} /> : null}
+                  onClick={() => { AudioFX.click(); setSceneId(item.id); }}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </div>
+            <div className="hs-actions">
+              <Button size="sm" variant="ghost" onClick={() => { AudioFX.click(); go({ name: 'menu' }); }}>
+                main menu
               </Button>
-            ))}
-          </div>
-          <div className="hs-actions">
-            <Button size="sm" variant="ghost" onClick={() => { AudioFX.click(); go({ name: 'menu' }); }}>
-              main menu
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              icon={<HudMark size={12} />}
-              onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
-            >
-              walk the fab
-            </Button>
-          </div>
-        </Panel>
-      </div>
+              <Button
+                size="sm"
+                variant="primary"
+                icon={<HudMark size={12} />}
+                onClick={() => { AudioFX.click(); go({ name: 'campus' }); }}
+              >
+                walk the fab
+              </Button>
+            </div>
+          </Panel>
+        </div>
+      )}
     </div>
   );
 }

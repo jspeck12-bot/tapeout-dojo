@@ -90,5 +90,7 @@ describe('Silicon Gothic operator HUD', () => {
     expect(text).toContain('data-explore-hud');
     expect(text).toContain('EXPLORE');
     expect(text).toContain('SEALED');
+    expect(json.props['data-hud-scene']).toBe('explore');
+    expect(json.props['data-hud-still']).toBe('0');
   });
 });
